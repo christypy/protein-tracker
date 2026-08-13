@@ -89,6 +89,11 @@
   }
   .hero-info .label{font-size:12px;color:var(--ink-soft);margin-bottom:10px;}
   .hero-info .label b{color:var(--ink);font-weight:700;}
+  .hero-divider{height:1px;background:var(--line);margin:18px 0 14px;}
+  .hero-logs-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;}
+  .hero-logs-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
+  .hero-logs-count{font-size:11.5px;color:var(--ink-soft);font-family:var(--font-num);}
+  .hero-logs .empty{padding:14px 0;}
   .goal-edit{
     font-family:var(--font-num);font-size:15px;border:1px solid var(--line);background:var(--paper);
     border-radius:8px;padding:3px 8px;width:64px;
@@ -208,9 +213,13 @@
   .food-actions .btn-danger{padding:5px 6px;}
 
   /* ---- Log list ---- */
-  .log-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
-  .log-item:last-child{border-bottom:none;}
-  .log-time{font-family:var(--font-num);font-size:12px;color:var(--ink-soft);width:44px;flex:none;}
+  .log-item{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .log-item:last-child{border-bottom:none;padding-bottom:0;}
+  .log-dot{width:8px;height:8px;min-width:8px;border-radius:50%;flex:none;}
+  .log-dot.dot-protein{background:var(--protein);}
+  .log-dot.dot-fat{background:var(--fat);}
+  .log-dot.dot-sugar{background:var(--carb);}
+  .log-time{font-family:var(--font-num);font-size:12px;color:var(--ink-soft);width:40px;flex:none;}
   .log-main{flex:1;min-width:0;}
   .log-main .name{font-size:13.5px;font-weight:700;}
   .log-main .sub{font-size:11px;color:var(--ink-soft);}
@@ -257,20 +266,31 @@
     <div class="hero-info">
       <div class="label">今日目標 · <b id="profileDesc"></b></div>
       <div class="chart-bars" id="chartBars"></div>
-      <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
-      <div id="goalsBox" style="display:none;margin-top:12px;">
-        <div class="row">
-          <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
-          <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
-          <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
-        </div>
-        <div class="btn-row" style="justify-content:space-between;">
-          <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
-          <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
-        </div>
+    </div>
+
+    <div class="hero-divider"></div>
+
+    <div class="hero-logs">
+      <div class="hero-logs-head">
+        <span class="hero-logs-title">今日紀錄</span>
+        <span class="hero-logs-count" id="logCount"></span>
+      </div>
+      <div id="logList"></div>
+    </div>
+
+    <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
+    <div id="goalsBox" style="display:none;margin-top:12px;">
+      <div class="row">
+        <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
+        <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
+        <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
+      </div>
+      <div class="btn-row" style="justify-content:space-between;">
+        <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
+        <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
       </div>
     </div>
   </div>
@@ -326,17 +346,6 @@
           <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- 今日紀錄 -->
-  <div class="section" id="secLogs">
-    <div class="section-head" data-toggle="secLogs">
-      <h2>紀錄清單</h2>
-      <span class="chev">▾</span>
-    </div>
-    <div class="section-body">
-      <div id="logList"></div>
     </div>
   </div>
 
@@ -663,17 +672,32 @@
     }).join('');
   }
 
+  // 依卡路里貢獻判斷這筆紀錄「主要吃了什麼」，回傳對應的圓點顏色 class，
+  // 讓使用者掃過清單就能直覺抓到每筆的營養素重心，不用逐筆看數字。
+  function dominantMacroClass(protein, fat, sugar){
+    var pCal = (Number(protein)||0) * 4;
+    var fCal = (Number(fat)||0) * 9;
+    var sCal = (Number(sugar)||0) * 4;
+    if (pCal >= fCal && pCal >= sCal) return 'dot-protein';
+    if (fCal >= pCal && fCal >= sCal) return 'dot-fat';
+    return 'dot-sugar';
+  }
+
   function renderLogList(){
     var el = document.getElementById('logList');
+    var countEl = document.getElementById('logCount');
     var logs = logsForCurrentDate();
+    if (countEl) countEl.textContent = logs.length ? (logs.length + ' 筆') : '';
     if (!logs.length){
-      el.innerHTML = '<div class="empty">這天還沒有紀錄，從上面新增第一筆吧。</div>';
+      el.innerHTML = '<div class="empty">這天還沒有紀錄，從下面「新增這一餐」開始吧。</div>';
       return;
     }
     el.innerHTML = logs.map(function(l){
       var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + 'g') : '');
       var sVal = l.sugar !== undefined ? l.sugar : (l.carb||0);
+      var dotCls = dominantMacroClass(l.protein, l.fat, sVal);
       return '<div class="log-item">' +
+        '<span class="log-dot ' + dotCls + '"></span>' +
         '<div class="log-time">' + escapeHtml(l.time||'') + '</div>' +
         '<div class="log-main"><div class="name">' + escapeHtml(l.foodName || '未命名') + '</div>' +
         '<div class="sub">' + escapeHtml(sub) + '</div></div>' +
