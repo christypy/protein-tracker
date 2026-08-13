@@ -322,7 +322,7 @@
       <div class="row">
         <div class="field">
           <label>Web App URL</label>
-          <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbx2bQ25Ge6YN-lHC4EmkVCqN-W4q5vAbCCD5cq2VYwpreus9sFLp7wXlcty5B6RWgan/exec">
+          <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/xxxx/exec">
         </div>
       </div>
       <div class="btn-row">
@@ -674,7 +674,13 @@
     document.getElementById('pickerList').addEventListener('click', function(e){
       var chip = e.target.closest('[data-pick]');
       if (!chip) return;
-      state.selectedFoodId = chip.getAttribute('data-pick');
+      var id = chip.getAttribute('data-pick');
+      var changedFood = state.selectedFoodId !== id;
+      state.selectedFoodId = id;
+      if (changedFood){
+        var food = state.foods.find(function(f){ return f.id === id; });
+        if (food) document.getElementById('pickGrams').value = food.base || food.baseGrams || 100;
+      }
       renderPickerList();
     });
     document.getElementById('pickGrams').addEventListener('input', updatePickerDetail);
