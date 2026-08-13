@@ -22,6 +22,7 @@
     --carb:#5679A0;
     --carb-tint:#E5EDF4;
     --cal:#8A6BA1;
+    --cal-tint:#EFE8F3;
     --danger:#B8543D;
     --radius:16px;
     --radius-sm:10px;
@@ -69,10 +70,21 @@
   .date-label{font-family:var(--font-num);font-size:14px;font-weight:500;min-width:112px;text-align:center;letter-spacing:0.02em;}
   .date-label small{display:block;color:var(--ink-soft);font-family:var(--font-body);font-size:11px;margin-top:1px;}
 
+  /* ---- Profile tabs ---- */
+  .profile-tabs{display:flex;gap:8px;margin-bottom:14px;}
+  .profile-tab{
+    flex:1;min-width:0;font-family:var(--font-body);font-size:12.5px;font-weight:700;
+    padding:9px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);
+    background:var(--card);color:var(--ink);cursor:pointer;text-align:center;line-height:1.35;
+  }
+  .profile-tab em{display:block;font-style:normal;font-weight:500;font-size:10.5px;color:var(--ink-soft);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .profile-tab.active{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
+  .profile-tab.active em{color:rgba(255,255,255,0.82);}
+
   /* ---- Gauge hero ---- */
   .hero{
     background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-    padding:26px;display:flex;align-items:center;gap:22px;box-shadow:var(--shadow);margin-bottom:20px;
+    padding:26px;display:flex;align-items:flex-start;gap:22px;box-shadow:var(--shadow);margin-bottom:20px;
   }
   .gauge{position:relative;width:118px;height:118px;flex:none;border-radius:50%;
     background:conic-gradient(var(--protein) calc(var(--pct,0)*1%), var(--protein-tint) 0);
@@ -90,13 +102,33 @@
     font-family:var(--font-num);font-size:15px;border:1px solid var(--line);background:var(--paper);
     border-radius:8px;padding:3px 8px;width:64px;
   }
-  .macro-mini{display:flex;gap:14px;margin-top:12px;}
+  .macro-mini{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:12px;}
   .macro-mini div{font-size:12px;color:var(--ink-soft);}
-  .macro-mini b{display:block;font-family:var(--font-num);font-size:15px;color:var(--ink);font-weight:700;}
+  .macro-mini b{display:block;font-family:var(--font-num);font-size:14px;color:var(--ink);font-weight:700;white-space:nowrap;}
   .macro-mini .fat b{color:var(--fat);}
   .macro-mini .carb b{color:var(--carb);}
   .macro-mini .cal b{color:var(--cal);}
   .macro-mini .protein b{color:var(--protein-dark);}
+
+  /* ---- Macro rings (chart) ---- */
+  .rings-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px;}
+  .ring-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0;}
+  .ring{
+    position:relative;width:60px;height:60px;border-radius:50%;flex:none;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ring::before{content:"";position:absolute;inset:7px;background:var(--card);border-radius:50%;}
+  .ring span{position:relative;font-family:var(--font-num);font-size:12px;font-weight:700;}
+  .ring-protein{background:conic-gradient(var(--protein) calc(var(--pct,0)*1%), var(--protein-tint) 0);}
+  .ring-fat{background:conic-gradient(var(--fat) calc(var(--pct,0)*1%), var(--fat-tint) 0);}
+  .ring-carb{background:conic-gradient(var(--carb) calc(var(--pct,0)*1%), var(--carb-tint) 0);}
+  .ring-cal{background:conic-gradient(var(--cal) calc(var(--pct,0)*1%), var(--cal-tint) 0);}
+  .ring-wrap .rlabel{font-size:11px;color:var(--ink-soft);white-space:nowrap;}
+  .ring-wrap .ramt{font-size:10.5px;font-family:var(--font-num);color:var(--ink);white-space:nowrap;}
+  @media (max-width:420px){
+    .rings-grid{grid-template-columns:repeat(2,1fr);gap:14px 6px;}
+    .ring{width:66px;height:66px;}
+  }
 
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
@@ -128,7 +160,7 @@
   .btn-ghost:hover{background:var(--protein-tint);}
   .btn-danger{background:transparent;color:var(--danger);border:1px solid transparent;padding:4px 8px;font-weight:500;font-size:12px;}
   .btn-danger:hover{text-decoration:underline;}
-  .btn-row{margin-top:12px;display:flex;justify-content:flex-end;}
+  .btn-row{margin-top:12px;display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;}
   .toggle-manual{font-size:12px;color:var(--protein-dark);cursor:pointer;text-decoration:underline;margin-top:8px;display:inline-block;}
 
   /* ---- Food picker ---- */
@@ -196,6 +228,8 @@
     <button id="nextDay" aria-label="後一天">›</button>
   </div>
 
+  <div class="profile-tabs" id="profileTabs"></div>
+
   <div class="hero">
     <div class="gauge" id="gauge">
       <div class="gauge-inner">
@@ -204,18 +238,44 @@
       </div>
     </div>
     <div class="hero-info">
-      <div class="label">今日目標</div>
+      <div class="label">今日目標 · <span id="profileDesc"></span></div>
       <div class="goal-row">
-        <input class="goal-edit" id="goalInput" type="number" min="0" step="1">
+        <span class="val" id="goalProteinVal" style="font-family:var(--font-num);font-size:16px;font-weight:700;">0</span>
         <span class="of">g 蛋白質 · 已達成 <span id="goalPct">0%</span></span>
       </div>
-      <div class="hint" style="margin:6px 0 0;">建議每日攝取範圍 82–102g，可依當天狀況自行調整目標值</div>
       <div class="macro-mini">
-        <div class="protein">蛋白質<b id="sumProtein">0g</b></div>
-        <div class="fat">脂肪<b id="sumFat">0g</b></div>
-        <div class="carb">糖類<b id="sumCarb">0g</b></div>
-        <div class="cal">熱量<b id="sumCal">0</b></div>
+        <div class="protein">蛋白質<b id="sumProtein">0 / 0g</b></div>
+        <div class="fat">脂肪<b id="sumFat">0 / 0g</b></div>
+        <div class="carb">糖<b id="sumCarb">0 / 0g</b></div>
+        <div class="cal">熱量<b id="sumCal">0 / 0</b></div>
       </div>
+      <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
+      <div id="goalsBox" style="display:none;margin-top:12px;">
+        <div class="row">
+          <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
+          <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>糖目標 (g)</label><input type="number" id="gCarb" min="0" step="1"></div>
+          <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
+        </div>
+        <div class="btn-row" style="justify-content:space-between;">
+          <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
+          <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 今日圖表 -->
+  <div class="section" id="secRings">
+    <div class="section-head" data-toggle="secRings">
+      <h2>今日圖表</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="section-body">
+      <p class="hint">四項營養素相對今日目標的達成率。</p>
+      <div class="rings-grid" id="ringsGrid"></div>
     </div>
   </div>
 
@@ -263,7 +323,7 @@
             <input type="number" id="manualFat" min="0" step="0.1">
           </div>
           <div class="field">
-            <label>糖類 (g，選填)</label>
+            <label>糖 (g，選填)</label>
             <input type="number" id="manualCarb" min="0" step="0.1">
           </div>
           <div class="field">
@@ -304,7 +364,7 @@
       <div class="row" style="margin-top:8px;">
         <div class="field"><label>蛋白質 (g)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
         <div class="field"><label>脂肪 (g)</label><input type="number" id="fFat" min="0" step="0.1"></div>
-        <div class="field"><label>糖類 (g)</label><input type="number" id="fCarb" min="0" step="0.1"></div>
+        <div class="field"><label>糖 (g)</label><input type="number" id="fCarb" min="0" step="0.1"></div>
         <div class="field"><label>熱量 (kcal)</label><input type="number" id="fCal" min="0" step="1"></div>
       </div>
       <div class="btn-row" style="justify-content:space-between;">
@@ -363,17 +423,46 @@
   // 首次開啟時的預設值：你的試算表網址已內建，第一次打開就會自動帶入並存起來，
   // 之後就不用再手動輸入。若想改用別的試算表，到「資料同步設定」重新貼上並儲存即可。
   var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzGD7QiTqm9KtJckFPZqwcAWlkJICHpQXPhZqZ67wQZyeH_obR0jlj-1bO9hYpbFsYU/exec";
-  var DEFAULT_GOAL = 92; // 每天 82–102g 蛋白質區間的中間值，可在畫面上自行調整
+
+  // 兩種身份的每日建議營養目標（依身高體重與運動量粗估，可在畫面上自行調整）：
+  // A：150cm / 43kg，沒有運動習慣（久坐）→ 每日熱量以維持體重估算，蛋白質約每公斤 1g
+  // B：178cm / 68kg，一三五慢跑 3–5km、二四六在家徒手訓練 90 分鐘 → 熱量與蛋白質需求較高
+  var PROFILES = {
+    A: {
+      key: 'A', name: 'A', desc: '150cm・43kg・無運動習慣',
+      goals: { protein: 45, fat: 38, carb: 185, cal: 1270 }
+    },
+    B: {
+      key: 'B', name: 'B', desc: '178cm・68kg・慢跑＋重訓',
+      goals: { protein: 122, fat: 73, carb: 373, cal: 2635 }
+    }
+  };
+  var PROFILE_ORDER = ['A', 'B'];
 
   // ---------- state ----------
   var state = {
     foods: [],
     logs: [],
-    settings: { sheetUrl: "", goal: DEFAULT_GOAL },
+    settings: { sheetUrl: "", profile: 'A', goals: null },
     selectedFoodId: null,
     editingFoodId: null,
     currentDate: fmtDate(new Date())
   };
+
+  function defaultGoalsSet(){
+    var g = {};
+    PROFILE_ORDER.forEach(function(k){ g[k] = Object.assign({}, PROFILES[k].goals); });
+    return g;
+  }
+  function activeProfile(){
+    return (state.settings.profile && PROFILES[state.settings.profile]) ? state.settings.profile : 'A';
+  }
+  function currentGoals(){
+    var p = activeProfile();
+    if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
+    if (!state.settings.goals[p]) state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
+    return state.settings.goals[p];
+  }
 
   // ---------- helpers ----------
   function fmtDate(d){
@@ -428,13 +517,24 @@
       if (s){
         state.settings = JSON.parse(s);
       } else {
-        // 從未存過設定：第一次開啟，套用內建的試算表網址與蛋白質目標並存起來
-        state.settings = { sheetUrl: DEFAULT_SHEET_URL, goal: DEFAULT_GOAL };
+        // 從未存過設定：第一次開啟，套用內建的試算表網址並存起來
+        state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() };
         await storeSetRaw('settings', JSON.stringify(state.settings));
       }
-      if (typeof state.settings.goal !== 'number') state.settings.goal = DEFAULT_GOAL;
       if (typeof state.settings.sheetUrl !== 'string') state.settings.sheetUrl = "";
-    }catch(e){ state.settings = { sheetUrl: DEFAULT_SHEET_URL, goal: DEFAULT_GOAL }; }
+      if (!state.settings.profile || !PROFILES[state.settings.profile]) state.settings.profile = 'A';
+      if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
+      PROFILE_ORDER.forEach(function(k){
+        if (!state.settings.goals[k]) state.settings.goals[k] = Object.assign({}, PROFILES[k].goals);
+      });
+      // 相容舊版單一蛋白質目標欄位：若存在就搬進 A 身份的蛋白質目標
+      if (typeof state.settings.goal === 'number' && !state.settings._migratedOldGoal){
+        state.settings.goals.A.protein = state.settings.goal;
+        state.settings._migratedOldGoal = true;
+        delete state.settings.goal;
+        await storeSetRaw('settings', JSON.stringify(state.settings));
+      }
+    }catch(e){ state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() }; }
   }
   async function saveLocalFoods(){
     await storeSetRaw('foods', JSON.stringify(state.foods));
@@ -504,7 +604,7 @@
     };
   }
 
-  // 4/4/9 大卡估算法：蛋白質、糖類各 4 kcal/g，脂肪 9 kcal/g
+  // 4/4/9 大卡估算法：蛋白質、糖各 4 kcal/g，脂肪 9 kcal/g
   function estimateCalories(protein, fat, carb){
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(carb)||0)*4);
   }
@@ -530,19 +630,55 @@
       return acc;
     }, {protein:0, fat:0, carb:0, cal:0});
 
-    var goal = Number(state.settings.goal) || 0;
-    var pct = goal > 0 ? Math.min(100, Math.round((totals.protein/goal)*100)) : 0;
+    var goals = currentGoals();
+    var pPct = goals.protein > 0 ? Math.min(100, Math.round((totals.protein/goals.protein)*100)) : 0;
 
-    document.getElementById('gauge').style.setProperty('--pct', pct);
+    document.getElementById('gauge').style.setProperty('--pct', pPct);
     document.getElementById('gaugeVal').textContent = round1(totals.protein);
-    document.getElementById('goalPct').textContent = pct + '%';
-    document.getElementById('sumProtein').textContent = round1(totals.protein) + 'g';
-    document.getElementById('sumFat').textContent = round1(totals.fat) + 'g';
-    document.getElementById('sumCarb').textContent = round1(totals.carb) + 'g';
-    document.getElementById('sumCal').textContent = Math.round(totals.cal) + ' kcal';
+    document.getElementById('goalPct').textContent = pPct + '%';
+    document.getElementById('goalProteinVal').textContent = goals.protein;
+    document.getElementById('sumProtein').textContent = round1(totals.protein) + ' / ' + goals.protein + 'g';
+    document.getElementById('sumFat').textContent = round1(totals.fat) + ' / ' + goals.fat + 'g';
+    document.getElementById('sumCarb').textContent = round1(totals.carb) + ' / ' + goals.carb + 'g';
+    document.getElementById('sumCal').textContent = Math.round(totals.cal) + ' / ' + goals.cal;
 
-    var goalInput = document.getElementById('goalInput');
-    if (document.activeElement !== goalInput) goalInput.value = goal;
+    var active = document.activeElement ? document.activeElement.id : '';
+    if (active !== 'gProtein') document.getElementById('gProtein').value = goals.protein;
+    if (active !== 'gFat') document.getElementById('gFat').value = goals.fat;
+    if (active !== 'gCarb') document.getElementById('gCarb').value = goals.carb;
+    if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
+
+    renderProfileTabs();
+    renderRings(totals, goals);
+  }
+
+  function renderProfileTabs(){
+    var p = activeProfile();
+    var el = document.getElementById('profileTabs');
+    el.innerHTML = PROFILE_ORDER.map(function(k){
+      var prof = PROFILES[k];
+      return '<button type="button" class="profile-tab' + (k===p?' active':'') + '" data-profile="' + k + '">' +
+        escapeHtml(prof.name) + '<em>' + escapeHtml(prof.desc) + '</em></button>';
+    }).join('');
+    document.getElementById('profileDesc').textContent = PROFILES[p].desc;
+  }
+
+  function renderRings(totals, goals){
+    var items = [
+      { cls:'ring-protein', label:'蛋白質', amt: round1(totals.protein), goal: goals.protein, unit:'g' },
+      { cls:'ring-fat', label:'脂肪', amt: round1(totals.fat), goal: goals.fat, unit:'g' },
+      { cls:'ring-carb', label:'糖', amt: round1(totals.carb), goal: goals.carb, unit:'g' },
+      { cls:'ring-cal', label:'熱量', amt: Math.round(totals.cal), goal: goals.cal, unit:'kcal' }
+    ];
+    var el = document.getElementById('ringsGrid');
+    el.innerHTML = items.map(function(it){
+      var pct = it.goal > 0 ? Math.min(100, Math.round((it.amt/it.goal)*100)) : 0;
+      return '<div class="ring-wrap">' +
+        '<div class="ring ' + it.cls + '" style="--pct:' + pct + '"><span>' + pct + '%</span></div>' +
+        '<div class="rlabel">' + it.label + '</div>' +
+        '<div class="ramt">' + it.amt + ' / ' + it.goal + it.unit + '</div>' +
+        '</div>';
+    }).join('');
   }
 
   function renderLogList(){
@@ -620,7 +756,7 @@
     var grams = Number(document.getElementById('pickGrams').value) || 0;
     var m = computeMacros(food, grams);
     document.getElementById('pickPreview').textContent =
-      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 糖類 ' + m.carb + 'g ・ 熱量 ' + m.cal + ' kcal';
+      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 糖 ' + m.carb + 'g ・ 熱量 ' + m.cal + ' kcal';
   }
 
   function renderAll(){
@@ -742,12 +878,39 @@
     });
   }
 
-  function wireGoal(){
-    var input = document.getElementById('goalInput');
-    input.addEventListener('change', async function(){
-      var v = Number(input.value);
-      if (isNaN(v) || v < 0) v = state.settings.goal;
-      state.settings.goal = v;
+  function wireProfileTabs(){
+    document.getElementById('profileTabs').addEventListener('click', async function(e){
+      var btn = e.target.closest('[data-profile]');
+      if (!btn) return;
+      var k = btn.getAttribute('data-profile');
+      if (!PROFILES[k] || state.settings.profile === k) return;
+      state.settings.profile = k;
+      await saveLocalSettings();
+      renderHero();
+    });
+  }
+
+  function wireGoalsBox(){
+    document.getElementById('toggleGoals').addEventListener('click', function(){
+      var box = document.getElementById('goalsBox');
+      box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+    });
+    document.getElementById('gSaveBtn').addEventListener('click', async function(){
+      var goals = currentGoals();
+      var np = Number(document.getElementById('gProtein').value);
+      var nf = Number(document.getElementById('gFat').value);
+      var nc = Number(document.getElementById('gCarb').value);
+      var nk = Number(document.getElementById('gCal').value);
+      if (!isNaN(np) && np >= 0) goals.protein = np;
+      if (!isNaN(nf) && nf >= 0) goals.fat = nf;
+      if (!isNaN(nc) && nc >= 0) goals.carb = nc;
+      if (!isNaN(nk) && nk >= 0) goals.cal = nk;
+      await saveLocalSettings();
+      renderHero();
+    });
+    document.getElementById('gResetBtn').addEventListener('click', async function(){
+      var p = activeProfile();
+      state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
       await saveLocalSettings();
       renderHero();
     });
@@ -909,7 +1072,8 @@
     await loadLocal();
     wireCollapsibles();
     wireDateNav();
-    wireGoal();
+    wireProfileTabs();
+    wireGoalsBox();
     wirePicker();
     wireManual();
     wireLogList();
