@@ -213,7 +213,7 @@
       <div class="macro-mini">
         <div class="protein">蛋白質<b id="sumProtein">0g</b></div>
         <div class="fat">脂肪<b id="sumFat">0g</b></div>
-        <div class="carb">醣類<b id="sumCarb">0g</b></div>
+        <div class="carb">糖類<b id="sumCarb">0g</b></div>
         <div class="cal">熱量<b id="sumCal">0</b></div>
       </div>
     </div>
@@ -263,7 +263,7 @@
             <input type="number" id="manualFat" min="0" step="0.1">
           </div>
           <div class="field">
-            <label>醣類 (g，選填)</label>
+            <label>糖類 (g，選填)</label>
             <input type="number" id="manualCarb" min="0" step="0.1">
           </div>
           <div class="field">
@@ -296,7 +296,7 @@
       <span class="chev">▾</span>
     </div>
     <div class="section-body">
-      <p class="hint">輸入某個「基準克數」下食材對應的蛋白質／脂肪／醣／熱量，之後就能依實際食用克數自動換算。</p>
+      <p class="hint">輸入某個「基準克數」下食材對應的蛋白質／脂肪／糖／熱量，之後就能依實際食用克數自動換算。</p>
       <div class="row">
         <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉"></div>
         <div class="field" style="max-width:90px;"><label>基準克數</label><input type="number" id="fBase" value="100" min="1"></div>
@@ -304,11 +304,11 @@
       <div class="row" style="margin-top:8px;">
         <div class="field"><label>蛋白質 (g)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
         <div class="field"><label>脂肪 (g)</label><input type="number" id="fFat" min="0" step="0.1"></div>
-        <div class="field"><label>醣類 (g)</label><input type="number" id="fCarb" min="0" step="0.1"></div>
+        <div class="field"><label>糖類 (g)</label><input type="number" id="fCarb" min="0" step="0.1"></div>
         <div class="field"><label>熱量 (kcal)</label><input type="number" id="fCal" min="0" step="1"></div>
       </div>
       <div class="btn-row" style="justify-content:space-between;">
-        <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/醣自動估算熱量</span>
+        <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/糖自動估算熱量</span>
         <span>
           <button class="btn btn-ghost" id="fClearBtn" style="margin-right:8px;">清空表單</button>
           <button class="btn btn-primary" id="fSaveBtn">新增食材</button>
@@ -317,7 +317,7 @@
 
       <div style="margin-top:18px;">
         <div class="food-row head">
-          <span>名稱</span><span>基準</span><span>蛋白</span><span>脂肪</span><span>醣</span><span>熱量</span><span></span>
+          <span>名稱</span><span>基準</span><span>蛋白</span><span>脂肪</span><span>糖</span><span>熱量</span><span></span>
         </div>
         <div id="foodTable"></div>
       </div>
@@ -504,7 +504,7 @@
     };
   }
 
-  // 4/4/9 大卡估算法：蛋白質、醣類各 4 kcal/g，脂肪 9 kcal/g
+  // 4/4/9 大卡估算法：蛋白質、糖類各 4 kcal/g，脂肪 9 kcal/g
   function estimateCalories(protein, fat, carb){
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(carb)||0)*4);
   }
@@ -620,7 +620,7 @@
     var grams = Number(document.getElementById('pickGrams').value) || 0;
     var m = computeMacros(food, grams);
     document.getElementById('pickPreview').textContent =
-      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 醣類 ' + m.carb + 'g ・ 熱量 ' + m.cal + ' kcal';
+      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 糖類 ' + m.carb + 'g ・ 熱量 ' + m.cal + ' kcal';
   }
 
   function renderAll(){
