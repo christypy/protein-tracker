@@ -21,6 +21,7 @@
     --fat-tint:#F6ECDA;
     --carb:#5679A0;
     --carb-tint:#E5EDF4;
+    --cal:#8A6BA1;
     --danger:#B8543D;
     --radius:16px;
     --radius-sm:10px;
@@ -94,6 +95,7 @@
   .macro-mini b{display:block;font-family:var(--font-num);font-size:15px;color:var(--ink);font-weight:700;}
   .macro-mini .fat b{color:var(--fat);}
   .macro-mini .carb b{color:var(--carb);}
+  .macro-mini .cal b{color:var(--cal);}
   .macro-mini .protein b{color:var(--protein-dark);}
 
   /* ---- Section ---- */
@@ -145,7 +147,7 @@
   .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:18px 0;}
 
   /* ---- Food library table ---- */
-  .food-row{display:grid;grid-template-columns:1.4fr 0.7fr 0.6fr 0.6fr 0.6fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .food-row{display:grid;grid-template-columns:1.3fr 0.6fr 0.55fr 0.55fr 0.55fr 0.6fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
   .food-row:last-child{border-bottom:none;}
   .food-row.head{color:var(--ink-soft);font-size:11px;font-weight:500;}
   .food-row span.num{font-family:var(--font-num);}
@@ -161,6 +163,7 @@
   .log-macros .p{color:var(--protein-dark);}
   .log-macros .f{color:var(--fat);}
   .log-macros .c{color:var(--carb);}
+  .log-macros .k{color:var(--cal);}
 
   /* ---- Settings ---- */
   .settings-note{font-size:12px;color:var(--ink-soft);line-height:1.6;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
@@ -170,9 +173,9 @@
 
   footer{text-align:center;color:var(--ink-soft);font-size:11px;margin-top:24px;}
   @media (max-width:420px){
-    .food-row{grid-template-columns:1.2fr 0.6fr 0.6fr 0.6fr auto;}
-    .food-row span:nth-child(4){display:none;}
-    .food-row.head span:nth-child(4){display:none;}
+    .food-row{grid-template-columns:1.1fr 0.55fr 0.55fr 0.6fr auto;}
+    .food-row span:nth-child(4), .food-row span:nth-child(5){display:none;}
+    .food-row.head span:nth-child(4), .food-row.head span:nth-child(5){display:none;}
   }
 </style>
 </head>
@@ -211,6 +214,7 @@
         <div class="protein">蛋白質<b id="sumProtein">0g</b></div>
         <div class="fat">脂肪<b id="sumFat">0g</b></div>
         <div class="carb">醣類<b id="sumCarb">0g</b></div>
+        <div class="cal">熱量<b id="sumCal">0</b></div>
       </div>
     </div>
   </div>
@@ -262,6 +266,10 @@
             <label>醣類 (g，選填)</label>
             <input type="number" id="manualCarb" min="0" step="0.1">
           </div>
+          <div class="field">
+            <label>熱量 (kcal，選填)</label>
+            <input type="number" id="manualCal" min="0" step="1">
+          </div>
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
@@ -288,7 +296,7 @@
       <span class="chev">▾</span>
     </div>
     <div class="section-body">
-      <p class="hint">輸入某個「基準克數」下食材對應的蛋白質／脂肪／醣量，之後就能依實際食用克數自動換算。</p>
+      <p class="hint">輸入某個「基準克數」下食材對應的蛋白質／脂肪／醣／熱量，之後就能依實際食用克數自動換算。</p>
       <div class="row">
         <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉"></div>
         <div class="field" style="max-width:90px;"><label>基準克數</label><input type="number" id="fBase" value="100" min="1"></div>
@@ -297,15 +305,19 @@
         <div class="field"><label>蛋白質 (g)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
         <div class="field"><label>脂肪 (g)</label><input type="number" id="fFat" min="0" step="0.1"></div>
         <div class="field"><label>醣類 (g)</label><input type="number" id="fCarb" min="0" step="0.1"></div>
+        <div class="field"><label>熱量 (kcal)</label><input type="number" id="fCal" min="0" step="1"></div>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" id="fClearBtn" style="margin-right:8px;">清空表單</button>
-        <button class="btn btn-primary" id="fSaveBtn">新增食材</button>
+      <div class="btn-row" style="justify-content:space-between;">
+        <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/醣自動估算熱量</span>
+        <span>
+          <button class="btn btn-ghost" id="fClearBtn" style="margin-right:8px;">清空表單</button>
+          <button class="btn btn-primary" id="fSaveBtn">新增食材</button>
+        </span>
       </div>
 
       <div style="margin-top:18px;">
         <div class="food-row head">
-          <span>名稱</span><span>基準</span><span>蛋白</span><span>脂肪</span><span>醣</span><span></span>
+          <span>名稱</span><span>基準</span><span>蛋白</span><span>脂肪</span><span>醣</span><span>熱量</span><span></span>
         </div>
         <div id="foodTable"></div>
       </div>
@@ -486,8 +498,14 @@
     return {
       protein: round1(Number(food.protein100 !== undefined ? food.protein100 : food.protein) * ratio),
       fat: round1(Number(food.fat100 !== undefined ? food.fat100 : food.fat) * ratio),
-      carb: round1(Number(food.carb100 !== undefined ? food.carb100 : food.carb) * ratio)
+      carb: round1(Number(food.carb100 !== undefined ? food.carb100 : food.carb) * ratio),
+      cal: round1(Number(food.cal100 !== undefined ? food.cal100 : (food.cal||0)) * ratio)
     };
+  }
+
+  // 4/4/9 大卡估算法：蛋白質、醣類各 4 kcal/g，脂肪 9 kcal/g
+  function estimateCalories(protein, fat, carb){
+    return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(carb)||0)*4);
   }
 
   function logsForCurrentDate(){
@@ -507,8 +525,9 @@
       acc.protein += Number(l.protein)||0;
       acc.fat += Number(l.fat)||0;
       acc.carb += Number(l.carb)||0;
+      acc.cal += Number(l.cal)||0;
       return acc;
-    }, {protein:0, fat:0, carb:0});
+    }, {protein:0, fat:0, carb:0, cal:0});
 
     var goal = Number(state.settings.goal) || 0;
     var pct = goal > 0 ? Math.min(100, Math.round((totals.protein/goal)*100)) : 0;
@@ -519,6 +538,7 @@
     document.getElementById('sumProtein').textContent = round1(totals.protein) + 'g';
     document.getElementById('sumFat').textContent = round1(totals.fat) + 'g';
     document.getElementById('sumCarb').textContent = round1(totals.carb) + 'g';
+    document.getElementById('sumCal').textContent = Math.round(totals.cal) + ' kcal';
 
     var goalInput = document.getElementById('goalInput');
     if (document.activeElement !== goalInput) goalInput.value = goal;
@@ -539,7 +559,8 @@
         '<div class="sub">' + escapeHtml(sub) + '</div></div>' +
         '<div class="log-macros"><span class="p">P ' + round1(l.protein) + '</span>' +
         '<span class="f">F ' + round1(l.fat) + '</span>' +
-        '<span class="c">C ' + round1(l.carb) + '</span></div>' +
+        '<span class="c">C ' + round1(l.carb) + '</span>' +
+        '<span class="k">' + Math.round(l.cal||0) + 'kcal</span></div>' +
         '<button class="btn-danger" data-del-log="' + escapeHtml(l.id) + '">刪除</button>' +
         '</div>';
     }).join('');
@@ -552,12 +573,14 @@
       return;
     }
     el.innerHTML = state.foods.map(function(f){
+      var cal = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
       return '<div class="food-row">' +
         '<span>' + escapeHtml(f.name) + '</span>' +
         '<span class="num">' + (f.base||f.baseGrams||100) + 'g</span>' +
         '<span class="num">' + (f.protein100 !== undefined ? f.protein100 : f.protein) + '</span>' +
         '<span class="num">' + (f.fat100 !== undefined ? f.fat100 : f.fat) + '</span>' +
         '<span class="num">' + (f.carb100 !== undefined ? f.carb100 : f.carb) + '</span>' +
+        '<span class="num">' + cal + '</span>' +
         '<button class="btn-danger" data-del-food="' + escapeHtml(f.id) + '">刪除</button>' +
         '</div>';
     }).join('');
@@ -576,9 +599,10 @@
       var p = f.protein100 !== undefined ? f.protein100 : f.protein;
       var ft = f.fat100 !== undefined ? f.fat100 : f.fat;
       var c = f.carb100 !== undefined ? f.carb100 : f.carb;
+      var k = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
       return '<div class="food-chip' + (state.selectedFoodId===f.id?' selected':'') + '" data-pick="' + escapeHtml(f.id) + '">' +
         '<span class="fname">' + escapeHtml(f.name) + '</span>' +
-        '<span class="fmacro">每' + base + 'g · P' + p + ' F' + ft + ' C' + c + '</span>' +
+        '<span class="fmacro">每' + base + 'g · P' + p + ' F' + ft + ' C' + c + ' · ' + k + 'kcal</span>' +
         '</div>';
     }).join('');
     updatePickerDetail();
@@ -592,7 +616,7 @@
     var grams = Number(document.getElementById('pickGrams').value) || 0;
     var m = computeMacros(food, grams);
     document.getElementById('pickPreview').textContent =
-      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 醣類 ' + m.carb + 'g';
+      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 醣類 ' + m.carb + 'g ・ 熱量 ' + m.cal + ' kcal';
   }
 
   function renderAll(){
@@ -725,7 +749,7 @@
       var m = computeMacros(food, grams);
       await addLog({
         type:'selected', foodId: food.id, foodName: food.name, grams: grams,
-        protein: m.protein, fat: m.fat, carb: m.carb
+        protein: m.protein, fat: m.fat, carb: m.carb, cal: m.cal
       });
     });
   }
@@ -741,11 +765,14 @@
       var name = document.getElementById('manualName').value.trim() || '手動紀錄';
       var fat = Number(document.getElementById('manualFat').value) || 0;
       var carb = Number(document.getElementById('manualCarb').value) || 0;
-      await addLog({ type:'manual', foodId:null, foodName:name, grams:null, protein:round1(protein), fat:round1(fat), carb:round1(carb) });
+      var calInput = document.getElementById('manualCal').value;
+      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, carb);
+      await addLog({ type:'manual', foodId:null, foodName:name, grams:null, protein:round1(protein), fat:round1(fat), carb:round1(carb), cal:Math.round(cal) });
       document.getElementById('manualName').value = '';
       document.getElementById('manualProtein').value = '';
       document.getElementById('manualFat').value = '';
       document.getElementById('manualCarb').value = '';
+      document.getElementById('manualCal').value = '';
     });
   }
 
@@ -759,7 +786,13 @@
 
   function wireFoodForm(){
     document.getElementById('fClearBtn').addEventListener('click', function(){
-      ['fName','fBase','fProtein','fFat','fCarb'].forEach(function(id){ document.getElementById(id).value = (id==='fBase'?100:''); });
+      ['fName','fBase','fProtein','fFat','fCarb','fCal'].forEach(function(id){ document.getElementById(id).value = (id==='fBase'?100:''); });
+    });
+    document.getElementById('fAutoCal').addEventListener('click', function(){
+      var protein = Number(document.getElementById('fProtein').value) || 0;
+      var fat = Number(document.getElementById('fFat').value) || 0;
+      var carb = Number(document.getElementById('fCarb').value) || 0;
+      document.getElementById('fCal').value = estimateCalories(protein, fat, carb);
     });
     document.getElementById('fSaveBtn').addEventListener('click', async function(){
       var name = document.getElementById('fName').value.trim();
@@ -767,10 +800,12 @@
       var protein = Number(document.getElementById('fProtein').value);
       var fat = Number(document.getElementById('fFat').value) || 0;
       var carb = Number(document.getElementById('fCarb').value) || 0;
+      var calInput = document.getElementById('fCal').value;
+      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, carb);
       if (!name){ alert('請輸入食材名稱'); return; }
       if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
-      await addFood({ name:name, base:base, protein100:round1(protein), fat100:round1(fat), carb100:round1(carb) });
-      ['fName','fProtein','fFat','fCarb'].forEach(function(id){ document.getElementById(id).value=''; });
+      await addFood({ name:name, base:base, protein100:round1(protein), fat100:round1(fat), carb100:round1(carb), cal100:Math.round(cal) });
+      ['fName','fProtein','fFat','fCarb','fCal'].forEach(function(id){ document.getElementById(id).value=''; });
       document.getElementById('fBase').value = 100;
     });
     document.getElementById('foodTable').addEventListener('click', function(e){
