@@ -206,6 +206,7 @@
         <input class="goal-edit" id="goalInput" type="number" min="0" step="1">
         <span class="of">g 蛋白質 · 已達成 <span id="goalPct">0%</span></span>
       </div>
+      <div class="hint" style="margin:6px 0 0;">建議每日攝取範圍 82–102g，可依當天狀況自行調整目標值</div>
       <div class="macro-mini">
         <div class="protein">蛋白質<b id="sumProtein">0g</b></div>
         <div class="fat">脂肪<b id="sumFat">0g</b></div>
@@ -347,11 +348,16 @@
 (function(){
   "use strict";
 
+  // 首次開啟時的預設值：你的試算表網址已內建，第一次打開就會自動帶入並存起來，
+  // 之後就不用再手動輸入。若想改用別的試算表，到「資料同步設定」重新貼上並儲存即可。
+  var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbx2bQ25Ge6YN-lHC4EmkVCqN-W4q5vAbCCD5cq2VYwpreus9sFLp7wXlcty5B6RWgan/exec";
+  var DEFAULT_GOAL = 92; // 每天 82–102g 蛋白質區間的中間值，可在畫面上自行調整
+
   // ---------- state ----------
   var state = {
     foods: [],
     logs: [],
-    settings: { sheetUrl: "", goal: 120 },
+    settings: { sheetUrl: "", goal: DEFAULT_GOAL },
     selectedFoodId: null,
     currentDate: fmtDate(new Date())
   };
@@ -374,30 +380,57 @@
     });
   }
 
+  // ---------- storage adapter ----------
+  // 在 Claude.ai 內預覽時優先使用 window.storage（個人雲端儲存）；
+  // 部署到自己的網站（例如 GitHub Pages）之後，會自動改用瀏覽器的 localStorage，
+  // 這樣設定與資料才會留在使用者自己的瀏覽器裡，不用每次重新輸入。
+  function hasClaudeStorage(){
+    return (typeof window !== 'undefined') && window.storage && typeof window.storage.get === 'function';
+  }
+  async function storeGetRaw(key){
+    if (hasClaudeStorage()){
+      try{ var r = await window.storage.get(key); return r ? r.value : null; }catch(e){ return null; }
+    }
+    try{ return window.localStorage.getItem(key); }catch(e){ return null; }
+  }
+  async function storeSetRaw(key, value){
+    if (hasClaudeStorage()){
+      try{ await window.storage.set(key, value); return; }catch(e){}
+    }
+    try{ window.localStorage.setItem(key, value); }catch(e){}
+  }
+
   // ---------- storage (local, personal) ----------
   async function loadLocal(){
     try{
-      var f = await window.storage.get('foods');
-      state.foods = f ? JSON.parse(f.value) : [];
+      var f = await storeGetRaw('foods');
+      state.foods = f ? JSON.parse(f) : [];
     }catch(e){ state.foods = []; }
     try{
-      var l = await window.storage.get('logs');
-      state.logs = l ? JSON.parse(l.value) : [];
+      var l = await storeGetRaw('logs');
+      state.logs = l ? JSON.parse(l) : [];
     }catch(e){ state.logs = []; }
     try{
-      var s = await window.storage.get('settings');
-      state.settings = s ? JSON.parse(s.value) : { sheetUrl:"", goal:120 };
-      if (typeof state.settings.goal !== 'number') state.settings.goal = 120;
-    }catch(e){ state.settings = { sheetUrl:"", goal:120 }; }
+      var s = await storeGetRaw('settings');
+      if (s){
+        state.settings = JSON.parse(s);
+      } else {
+        // 從未存過設定：第一次開啟，套用內建的試算表網址與蛋白質目標並存起來
+        state.settings = { sheetUrl: DEFAULT_SHEET_URL, goal: DEFAULT_GOAL };
+        await storeSetRaw('settings', JSON.stringify(state.settings));
+      }
+      if (typeof state.settings.goal !== 'number') state.settings.goal = DEFAULT_GOAL;
+      if (typeof state.settings.sheetUrl !== 'string') state.settings.sheetUrl = "";
+    }catch(e){ state.settings = { sheetUrl: DEFAULT_SHEET_URL, goal: DEFAULT_GOAL }; }
   }
   async function saveLocalFoods(){
-    try{ await window.storage.set('foods', JSON.stringify(state.foods)); }catch(e){}
+    await storeSetRaw('foods', JSON.stringify(state.foods));
   }
   async function saveLocalLogs(){
-    try{ await window.storage.set('logs', JSON.stringify(state.logs)); }catch(e){}
+    await storeSetRaw('logs', JSON.stringify(state.logs));
   }
   async function saveLocalSettings(){
-    try{ await window.storage.set('settings', JSON.stringify(state.settings)); }catch(e){}
+    await storeSetRaw('settings', JSON.stringify(state.settings));
   }
 
   // ---------- Google Sheet sync ----------
