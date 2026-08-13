@@ -1,12 +1,30 @@
 /**
- * 蛋白質日記 - Google Apps Script 後端（v4-sugar-update）
+ * 蛋白質日記 - Google Apps Script 後端（v6-date-fix）
+ *
+ * 這版修正三個問題：
+ * 1. 舊試算表如果欄位還是 carb100 / carb，過去的版本會「多新增一欄」sugar100 / sugar，
+ *    導致資料分裂在兩個欄位，加總、顯示都會對不到正確的值（這就是糖量顯示異常的根本原因）。
+ *    現在改成：偵測到舊欄位時會自動把資料「搬進」新欄位（或直接改名），並刪掉舊欄位。
+ * 2. appendRowByHeader() 以前如果有欄位在表格裡找不到對應的表頭，會「默默把該筆資料丟掉」，
+ *    完全不會報錯 —— 這也是熱量(cal)有時候沒有同步進試算表的原因。
+ *    現在改成：找不到欄位就自動新增該欄，絕不會再默默漏資料。
+ * 3.【本次新增】連上試算表之後「今日紀錄」整批消失、但重新整理成本機模式又看得到資料，
+ *    根本原因是 Google 試算表會把 "2026-08-13" 這種字串自動判斷成日期物件；讀回網頁後
+ *    變成帶時間的 ISO 字串，跟前端用來篩選「今天」的純日期字串永遠對不起來，紀錄因此
+ *    像是憑空消失。現在做兩件事修好它：
+ *      a) date / time 欄位整欄強制設成「純文字」格式，之後新寫入的資料不會再被誤判。
+ *      b) 讀取時如果偵測到儲存格仍是日期物件（例如這次修復前就已經寫入的舊資料），
+ *         會就地轉回 yyyy-MM-dd / HH:mm 純文字字串再回傳給前端，舊資料也一併修好，
+ *         不需要另外手動搬移。
  */
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
 var FOODS_HEADERS = ['id', 'name', 'base', 'protein100', 'fat100', 'sugar100', 'cal100'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'protein', 'fat', 'sugar', 'cal'];
-var APP_BACKEND_VERSION = 'v4-sugar-update';
+// 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
+var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
+var APP_BACKEND_VERSION = 'v6-date-fix';
 
 function doGet(e) {
   var action = e.parameter.action;
@@ -52,16 +70,34 @@ function jsonResponse(obj) {
 function getFoodsSheet() { return getSheet(FOODS_SHEET_NAME, FOODS_HEADERS); }
 function getLogsSheet() { return getSheet(LOGS_SHEET_NAME, LOGS_HEADERS); }
 
+// 這些欄位一定要用「純文字」格式儲存，否則 Google 試算表會自動把
+// "2026-08-13" 這種字串認成日期物件，讀回來的時候前端拿字串比對
+// (l.date === state.currentDate) 就永遠對不上，紀錄因此「連了試算表反而不見」。
+var TEXT_FORMAT_COLUMNS = ['date', 'time'];
+
 function getSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    forceTextFormatColumns(sheet, headers);
     return sheet;
   }
   ensureHeaders(sheet, headers);
+  forceTextFormatColumns(sheet, headers);
   return sheet;
+}
+
+// 把 date / time 欄位整欄設成純文字格式，避免 Google 試算表自動轉型成日期。
+function forceTextFormatColumns(sheet, headers) {
+  var map = headerIndexMap(sheet);
+  var maxRows = Math.max(sheet.getMaxRows(), 1000);
+  TEXT_FORMAT_COLUMNS.forEach(function (h) {
+    if (headers.indexOf(h) === -1) return; // 這張表沒有這個欄位
+    if (!map.hasOwnProperty(h)) return;
+    sheet.getRange(1, map[h] + 1, maxRows, 1).setNumberFormat('@');
+  });
 }
 
 function ensureHeaders(sheet, headers) {
@@ -71,6 +107,17 @@ function ensureHeaders(sheet, headers) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     return;
   }
+
+  // Step 1：把舊欄位（例如 carb100 / carb）合併或改名成新欄位（sugar100 / sugar）
+  Object.keys(HEADER_RENAME_MAP).forEach(function (oldName) {
+    var newName = HEADER_RENAME_MAP[oldName];
+    if (headers.indexOf(newName) === -1) return; // 這張表本來就不需要這個新欄位
+    mergeLegacyColumn(sheet, oldName, newName);
+  });
+
+  // Step 2：重新讀一次目前欄位（上面可能已經改動過欄位數），再補上真的還缺少的欄位
+  lastCol = sheet.getLastColumn();
+  headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   headers.forEach(function (h) {
     if (headerRow.indexOf(h) === -1) {
       var newCol = sheet.getLastColumn() + 1;
@@ -78,6 +125,45 @@ function ensureHeaders(sheet, headers) {
       headerRow.push(h);
     }
   });
+}
+
+/**
+ * 把「舊欄位」(oldName) 的資料合併進「新欄位」(newName)：
+ * - 兩欄都存在：新欄位是空白的儲存格，就用舊欄位的值補上，然後把舊欄位整欄刪除。
+ * - 只有舊欄位存在：直接把該欄標題改成新名稱，資料原地保留（最安全、也不用搬資料）。
+ * - 只有新欄位或兩者都沒有：不用處理。
+ */
+function mergeLegacyColumn(sheet, oldName, newName) {
+  var lastCol = sheet.getLastColumn();
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var oldIdx = headerRow.indexOf(oldName);
+  var newIdx = headerRow.indexOf(newName);
+
+  if (oldIdx === -1) return; // 沒有舊欄位，不用處理
+
+  if (newIdx === -1) {
+    sheet.getRange(1, oldIdx + 1).setValue(newName);
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    var oldVals = sheet.getRange(2, oldIdx + 1, lastRow - 1, 1).getValues();
+    var newVals = sheet.getRange(2, newIdx + 1, lastRow - 1, 1).getValues();
+    var changed = false;
+    for (var i = 0; i < newVals.length; i++) {
+      var newEmpty = (newVals[i][0] === '' || newVals[i][0] === null || newVals[i][0] === undefined);
+      var oldHasVal = !(oldVals[i][0] === '' || oldVals[i][0] === null || oldVals[i][0] === undefined);
+      if (newEmpty && oldHasVal) {
+        newVals[i][0] = oldVals[i][0];
+        changed = true;
+      }
+    }
+    if (changed) {
+      sheet.getRange(2, newIdx + 1, newVals.length, 1).setValues(newVals);
+    }
+  }
+  sheet.deleteColumn(oldIdx + 1);
 }
 
 function headerIndexMap(sheet) {
@@ -88,8 +174,17 @@ function headerIndexMap(sheet) {
   return map;
 }
 
+// 寫入一列新資料。若某欄位在試算表裡還找不到對應欄位，會自動新增該欄再寫入，
+// 不會再像以前一樣默默把資料丟掉（這是熱量偶爾沒同步進試算表的根本原因）。
 function appendRowByHeader(sheet, headers, valuesObj) {
   var map = headerIndexMap(sheet);
+  headers.forEach(function (h) {
+    if (!map.hasOwnProperty(h) && valuesObj.hasOwnProperty(h)) {
+      var newCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, newCol).setValue(h);
+      map[h] = newCol - 1;
+    }
+  });
   var lastCol = Math.max(sheet.getLastColumn(), headers.length);
   var row = new Array(lastCol).fill('');
   headers.forEach(function (h) {
@@ -114,42 +209,56 @@ function readFoods() {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[map['id']]) continue;
-    var sugarVal = map['sugar100'] !== undefined ? r[map['sugar100']] : (map['carb100'] !== undefined ? r[map['carb100']] : 0);
     foods.push({
       id: r[map['id']],
       name: r[map['name']],
       base: Number(r[map['base']]) || 100,
       protein100: Number(r[map['protein100']]) || 0,
       fat100: Number(r[map['fat100']]) || 0,
-      sugar100: Number(sugarVal) || 0,
+      sugar100: Number(r[map['sugar100']]) || 0,
       cal100: Number(r[map['cal100']]) || 0
     });
   }
   return foods;
 }
 
+// 如果儲存格已經被 Google 試算表誤判成日期/時間物件（例如修復這個 bug 之前
+// 就已經寫入的舊資料），讀取時就地轉回純文字字串，前端比對日期才會正常。
+function formatDateCell(v, tz) {
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+  }
+  return v;
+}
+function formatTimeCell(v, tz) {
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, tz, 'HH:mm');
+  }
+  return v;
+}
+
 function readLogs() {
   var sheet = getLogsSheet();
   var map = headerIndexMap(sheet);
   var rows = sheet.getDataRange().getValues();
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
   var logs = [];
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[map['id']]) continue;
     var gramsRaw = r[map['grams']];
-    var sugarVal = map['sugar'] !== undefined ? r[map['sugar']] : (map['carb'] !== undefined ? r[map['carb']] : 0);
     logs.push({
       id: r[map['id']],
       person: r[map['person']] || 'A',
-      date: r[map['date']],
-      time: r[map['time']],
+      date: formatDateCell(r[map['date']], tz),
+      time: formatTimeCell(r[map['time']], tz),
       type: r[map['type']],
       foodId: r[map['foodId']] || null,
       foodName: r[map['foodName']] || '',
       grams: (gramsRaw === '' || gramsRaw === undefined) ? null : Number(gramsRaw),
       protein: Number(r[map['protein']]) || 0,
       fat: Number(r[map['fat']]) || 0,
-      sugar: Number(sugarVal) || 0,
+      sugar: Number(r[map['sugar']]) || 0,
       cal: Number(r[map['cal']]) || 0
     });
   }
@@ -180,7 +289,6 @@ function updateFood(payload) {
   var map = headerIndexMap(sheet);
   var data = sheet.getDataRange().getValues();
   var sugarVal = payload.sugar100 !== undefined ? payload.sugar100 : payload.carb100;
-  var sugarCol = map['sugar100'] !== undefined ? map['sugar100'] : map['carb100'];
 
   for (var i = 1; i < data.length; i++) {
     if (data[i][map['id']] === payload.id) {
@@ -189,9 +297,7 @@ function updateFood(payload) {
       sheet.getRange(rowNum, map['base'] + 1).setValue(Number(payload.base) || 100);
       sheet.getRange(rowNum, map['protein100'] + 1).setValue(Number(payload.protein100) || 0);
       sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
-      if (sugarCol !== undefined) {
-        sheet.getRange(rowNum, sugarCol + 1).setValue(Number(sugarVal) || 0);
-      }
+      sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);
       sheet.getRange(rowNum, map['cal100'] + 1).setValue(Number(payload.cal100) || 0);
       SpreadsheetApp.flush();
       return { success: true };
@@ -248,4 +354,15 @@ function deleteLog(payload) {
     }
   }
   return { error: 'log not found' };
+}
+
+/**
+ * 手動修復小工具：如果你想在不呼叫 API 的情況下，馬上把 Foods / Logs 分頁的
+ * carb100 / carb 欄位合併成 sugar100 / sugar，可以在 Apps Script 編輯器裡
+ * 選這個函式，按「執行」跑一次。只會動欄位名稱與搬資料，不會刪除任何一列。
+ */
+function migrateHeaders() {
+  getFoodsSheet();
+  getLogsSheet();
+  return 'done';
 }
