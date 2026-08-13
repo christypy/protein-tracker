@@ -102,7 +102,7 @@
   .cbar-fill{height:100%;border-radius:999px;transition:width .3s ease;}
   .cbar-fill.protein{background:var(--protein);}
   .cbar-fill.fat{background:var(--fat);}
-  .cbar-fill.carb{background:var(--carb);}
+  .cbar-fill.sugar{background:var(--carb);}
   .cbar-fill.cal{background:var(--cal);}
   .cbar-val{font-family:var(--font-num);font-size:11.5px;color:var(--ink);text-align:right;white-space:nowrap;}
   .cbar-val small{color:var(--ink-soft);font-family:var(--font-body);}
@@ -191,7 +191,7 @@
   .log-macros{display:flex;gap:8px;font-family:var(--font-num);font-size:12px;flex:none;}
   .log-macros .p{color:var(--protein-dark);}
   .log-macros .f{color:var(--fat);}
-  .log-macros .c{color:var(--carb);}
+  .log-macros .s{color:var(--carb);}
   .log-macros .k{color:var(--cal);}
 
   /* ---- Settings ---- */
@@ -238,7 +238,7 @@
           <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
         </div>
         <div class="row" style="margin-top:8px;">
-          <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gCarb" min="0" step="1"></div>
+          <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
           <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
         </div>
         <div class="btn-row" style="justify-content:space-between;">
@@ -294,7 +294,7 @@
           </div>
           <div class="field">
             <label>糖（Sugar）(g，選填)</label>
-            <input type="number" id="manualCarb" min="0" step="0.1">
+            <input type="number" id="manualSugar" min="0" step="0.1">
           </div>
           <div class="field">
             <label>熱量 (kcal，選填)</label>
@@ -334,7 +334,7 @@
       <div class="row" style="margin-top:8px;">
         <div class="field"><label>蛋白質 (g)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
         <div class="field"><label>脂肪 (g)</label><input type="number" id="fFat" min="0" step="0.1"></div>
-        <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="fCarb" min="0" step="0.1"></div>
+        <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
         <div class="field"><label>熱量 (kcal)</label><input type="number" id="fCal" min="0" step="1"></div>
       </div>
       <div class="btn-row" style="justify-content:space-between;">
@@ -390,23 +390,16 @@
 (function(){
   "use strict";
 
-  // 首次開啟時的預設值：你的試算表網址已內建，第一次打開就會自動帶入並存起來，
-  // 之後就不用再手動輸入。若想改用別的試算表，到「資料同步設定」重新貼上並儲存即可。
   var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzGD7QiTqm9KtJckFPZqwcAWlkJICHpQXPhZqZ67wQZyeH_obR0jlj-1bO9hYpbFsYU/exec";
 
-  // 每日目標：以目前 App 內兩個身份的身高／體重與既有每日熱量估算為基礎。
-// 「糖」現在明確指 Sugar，不再把全部碳水化合物當成糖。
-// 糖的預設上限採每日熱量 10% ÷ 4 kcal/g：A 約 31g、B 約 60g。
-// 蛋白質仍以體重估算：A 0.8g/kg、B 1.4g/kg；脂肪則以約 25% 熱量估算。
-// 注意：若要精算每日熱量，還需要年齡、性別與實際活動量；因此這裡保留原 App 的 1250/2390 kcal 作為目前熱量目標。
   var PROFILES = {
     A: {
       key: 'A', name: 'A', desc: '150cm・43kg・無運動習慣',
-      goals: { protein: 35, fat: 35, carb: 31, cal: 1250 }
+      goals: { protein: 35, fat: 35, sugar: 31, cal: 1250 }
     },
     B: {
       key: 'B', name: 'B', desc: '178cm・68kg・慢跑＋重訓',
-      goals: { protein: 95, fat: 66, carb: 60, cal: 2390 }
+      goals: { protein: 95, fat: 66, sugar: 60, cal: 2390 }
     }
   };
   var PROFILE_ORDER = ['A', 'B'];
@@ -454,10 +447,6 @@
     });
   }
 
-  // ---------- storage adapter ----------
-  // 在 Claude.ai 內預覽時優先使用 window.storage（個人雲端儲存）；
-  // 部署到自己的網站（例如 GitHub Pages）之後，會自動改用瀏覽器的 localStorage，
-  // 這樣設定與資料才會留在使用者自己的瀏覽器裡，不用每次重新輸入。
   function hasClaudeStorage(){
     return (typeof window !== 'undefined') && window.storage && typeof window.storage.get === 'function';
   }
@@ -474,7 +463,7 @@
     try{ window.localStorage.setItem(key, value); }catch(e){}
   }
 
-  // ---------- storage (local, personal) ----------
+  // ---------- storage ----------
   async function loadLocal(){
     try{
       var f = await storeGetRaw('foods');
@@ -489,7 +478,6 @@
       if (s){
         state.settings = JSON.parse(s);
       } else {
-        // 從未存過設定：第一次開啟，套用內建的試算表網址並存起來
         state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() };
         await storeSetRaw('settings', JSON.stringify(state.settings));
       }
@@ -498,25 +486,17 @@
       if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
       PROFILE_ORDER.forEach(function(k){
         if (!state.settings.goals[k]) state.settings.goals[k] = Object.assign({}, PROFILES[k].goals);
+        // 相容機制：若舊設定包含 carb，自動轉移至 sugar
+        if (state.settings.goals[k].carb !== undefined && state.settings.goals[k].sugar === undefined) {
+          state.settings.goals[k].sugar = state.settings.goals[k].carb;
+          delete state.settings.goals[k].carb;
+        }
       });
-      // 相容舊版單一蛋白質目標欄位：若存在就搬進 A 身份的蛋白質目標
-      if (typeof state.settings.goal === 'number' && !state.settings._migratedOldGoal){
-        state.settings.goals.A.protein = state.settings.goal;
-        state.settings._migratedOldGoal = true;
-        delete state.settings.goal;
-        await storeSetRaw('settings', JSON.stringify(state.settings));
-      }
     }catch(e){ state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() }; }
   }
-  async function saveLocalFoods(){
-    await storeSetRaw('foods', JSON.stringify(state.foods));
-  }
-  async function saveLocalLogs(){
-    await storeSetRaw('logs', JSON.stringify(state.logs));
-  }
-  async function saveLocalSettings(){
-    await storeSetRaw('settings', JSON.stringify(state.settings));
-  }
+  async function saveLocalFoods(){ await storeSetRaw('foods', JSON.stringify(state.foods)); }
+  async function saveLocalLogs(){ await storeSetRaw('logs', JSON.stringify(state.logs)); }
+  async function saveLocalSettings(){ await storeSetRaw('settings', JSON.stringify(state.settings)); }
 
   // ---------- Google Sheet sync ----------
   function hasSheet(){ return !!(state.settings.sheetUrl && state.settings.sheetUrl.trim()); }
@@ -568,21 +548,23 @@
   // ---------- rendering ----------
   function computeMacros(food, grams){
     var ratio = grams / (Number(food.base||food.baseGrams||100) || 100);
+    var pVal = food.protein100 !== undefined ? food.protein100 : food.protein;
+    var fVal = food.fat100 !== undefined ? food.fat100 : food.fat;
+    var sVal = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb));
+    var kVal = food.cal100 !== undefined ? food.cal100 : (food.cal||0);
+
     return {
-      protein: round1(Number(food.protein100 !== undefined ? food.protein100 : food.protein) * ratio),
-      fat: round1(Number(food.fat100 !== undefined ? food.fat100 : food.fat) * ratio),
-      carb: round1(Number(food.carb100 !== undefined ? food.carb100 : food.carb) * ratio),
-      cal: round1(Number(food.cal100 !== undefined ? food.cal100 : (food.cal||0)) * ratio)
+      protein: round1(Number(pVal) * ratio),
+      fat: round1(Number(fVal) * ratio),
+      sugar: round1(Number(sVal) * ratio),
+      cal: round1(Number(kVal) * ratio)
     };
   }
 
-  // 4/4/9 大卡估算法：蛋白質、糖各 4 kcal/g，脂肪 9 kcal/g
-  function estimateCalories(protein, fat, carb){
-    return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(carb)||0)*4);
+  function estimateCalories(protein, fat, sugar){
+    return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
   }
 
-  // 只取「目前身份」在這一天的紀錄，避免 A、B 兩人互相看到／算到對方的餐點。
-  // 舊資料沒有 person 欄位時，一律視為身份 A。
   function logsForCurrentDate(){
     var p = activeProfile();
     return state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; })
@@ -600,17 +582,17 @@
     var totals = logs.reduce(function(acc,l){
       acc.protein += Number(l.protein)||0;
       acc.fat += Number(l.fat)||0;
-      acc.carb += Number(l.carb)||0;
+      acc.sugar += Number(l.sugar !== undefined ? l.sugar : l.carb)||0;
       acc.cal += Number(l.cal)||0;
       return acc;
-    }, {protein:0, fat:0, carb:0, cal:0});
+    }, {protein:0, fat:0, sugar:0, cal:0});
 
     var goals = currentGoals();
 
     var active = document.activeElement ? document.activeElement.id : '';
     if (active !== 'gProtein') document.getElementById('gProtein').value = goals.protein;
     if (active !== 'gFat') document.getElementById('gFat').value = goals.fat;
-    if (active !== 'gCarb') document.getElementById('gCarb').value = goals.carb;
+    if (active !== 'gSugar') document.getElementById('gSugar').value = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
     if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
 
     renderProfileTabs();
@@ -628,12 +610,12 @@
     document.getElementById('profileDesc').textContent = PROFILES[p].desc;
   }
 
-  // 四項營養素（蛋白質／脂肪／糖（Sugar）／熱量）整合成同一個長條圖，直接顯示在「今日目標」卡片裡。
   function renderChartBars(totals, goals){
+    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
     var items = [
       { cls:'protein', label:'蛋白質', amt: round1(totals.protein), goal: goals.protein, unit:'g' },
       { cls:'fat', label:'脂肪', amt: round1(totals.fat), goal: goals.fat, unit:'g' },
-      { cls:'carb', label:'糖', amt: round1(totals.carb), goal: goals.carb, unit:'g' },
+      { cls:'sugar', label:'糖', amt: round1(totals.sugar), goal: sugarGoal, unit:'g' },
       { cls:'cal', label:'熱量', amt: Math.round(totals.cal), goal: goals.cal, unit:'kcal' }
     ];
     var el = document.getElementById('chartBars');
@@ -656,13 +638,14 @@
     }
     el.innerHTML = logs.map(function(l){
       var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + 'g') : '');
+      var sVal = l.sugar !== undefined ? l.sugar : (l.carb||0);
       return '<div class="log-item">' +
         '<div class="log-time">' + escapeHtml(l.time||'') + '</div>' +
         '<div class="log-main"><div class="name">' + escapeHtml(l.foodName || '未命名') + '</div>' +
         '<div class="sub">' + escapeHtml(sub) + '</div></div>' +
         '<div class="log-macros"><span class="p">P ' + round1(l.protein) + '</span>' +
         '<span class="f">F ' + round1(l.fat) + '</span>' +
-        '<span class="c">C ' + round1(l.carb) + '</span>' +
+        '<span class="s">S ' + round1(sVal) + '</span>' +
         '<span class="k">' + Math.round(l.cal||0) + 'kcal</span></div>' +
         '<button class="btn-danger" data-del-log="' + escapeHtml(l.id) + '">刪除</button>' +
         '</div>';
@@ -677,12 +660,13 @@
     }
     el.innerHTML = state.foods.map(function(f){
       var cal = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
+      var sug = f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb||0));
       return '<div class="food-row">' +
         '<span>' + escapeHtml(f.name) + '</span>' +
         '<span class="num">' + (f.base||f.baseGrams||100) + 'g</span>' +
         '<span class="num">' + (f.protein100 !== undefined ? f.protein100 : f.protein) + '</span>' +
         '<span class="num">' + (f.fat100 !== undefined ? f.fat100 : f.fat) + '</span>' +
-        '<span class="num">' + (f.carb100 !== undefined ? f.carb100 : f.carb) + '</span>' +
+        '<span class="num">' + sug + '</span>' +
         '<span class="num">' + cal + '</span>' +
         '<span class="food-actions">' +
           '<button class="btn-edit" data-edit-food="' + escapeHtml(f.id) + '">編輯</button>' +
@@ -704,11 +688,11 @@
       var base = f.base||f.baseGrams||100;
       var p = f.protein100 !== undefined ? f.protein100 : f.protein;
       var ft = f.fat100 !== undefined ? f.fat100 : f.fat;
-      var c = f.carb100 !== undefined ? f.carb100 : f.carb;
+      var s = f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb||0));
       var k = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
       return '<div class="food-chip' + (state.selectedFoodId===f.id?' selected':'') + '" data-pick="' + escapeHtml(f.id) + '">' +
         '<span class="fname">' + escapeHtml(f.name) + '</span>' +
-        '<span class="fmacro">每' + base + 'g · P' + p + ' F' + ft + ' C' + c + ' · ' + k + 'kcal</span>' +
+        '<span class="fmacro">每' + base + 'g · P' + p + ' F' + ft + ' S' + s + ' · ' + k + 'kcal</span>' +
         '</div>';
     }).join('');
     updatePickerDetail();
@@ -722,7 +706,7 @@
     var grams = Number(document.getElementById('pickGrams').value) || 0;
     var m = computeMacros(food, grams);
     document.getElementById('pickPreview').textContent =
-      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 糖 ' + m.carb + 'g ・ 熱量 ' + m.cal + ' kcal';
+      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 糖 ' + m.sugar + 'g ・ 熱量 ' + m.cal + ' kcal';
   }
 
   function renderAll(){
@@ -748,7 +732,6 @@
     if (hasSheet()){
       try{
         var payload = Object.assign({}, food);
-        // 後端產生正式 ID；前端先使用暫時 ID，成功後以試算表回傳值為準。
         var res = await sheetPost('addFood', payload);
         food.id = res.id || food.id;
         state.foods.push(food);
@@ -810,7 +793,7 @@
   async function addLog(entry){
     entry.date = state.currentDate;
     entry.time = nowTime();
-    entry.person = activeProfile(); // 標記這筆紀錄屬於哪個身份，避免 A/B 互相混到
+    entry.person = activeProfile();
     if (hasSheet()){
       try{
         var res = await sheetPost('addLog', entry);
@@ -837,7 +820,7 @@
 
   function clearFoodForm(){
     state.editingFoodId = null;
-    ['fName','fProtein','fFat','fCarb','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
+    ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('fBase').value = 100;
     document.getElementById('fSaveBtn').textContent = '新增食材';
   }
@@ -890,11 +873,11 @@
       var goals = currentGoals();
       var np = Number(document.getElementById('gProtein').value);
       var nf = Number(document.getElementById('gFat').value);
-      var nc = Number(document.getElementById('gCarb').value);
+      var ns = Number(document.getElementById('gSugar').value);
       var nk = Number(document.getElementById('gCal').value);
       if (!isNaN(np) && np >= 0) goals.protein = np;
       if (!isNaN(nf) && nf >= 0) goals.fat = nf;
-      if (!isNaN(nc) && nc >= 0) goals.carb = nc;
+      if (!isNaN(ns) && ns >= 0) goals.sugar = ns;
       if (!isNaN(nk) && nk >= 0) goals.cal = nk;
       await saveLocalSettings();
       renderHero();
@@ -930,7 +913,7 @@
       var m = computeMacros(food, grams);
       await addLog({
         type:'selected', foodId: food.id, foodName: food.name, grams: grams,
-        protein: m.protein, fat: m.fat, carb: m.carb, cal: m.cal
+        protein: m.protein, fat: m.fat, sugar: m.sugar, cal: m.cal
       });
     });
   }
@@ -945,14 +928,14 @@
       if (!protein || protein < 0){ alert('請輸入蛋白質克數'); return; }
       var name = document.getElementById('manualName').value.trim() || '手動紀錄';
       var fat = Number(document.getElementById('manualFat').value) || 0;
-      var carb = Number(document.getElementById('manualCarb').value) || 0;
+      var sugar = Number(document.getElementById('manualSugar').value) || 0;
       var calInput = document.getElementById('manualCal').value;
-      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, carb);
-      await addLog({ type:'manual', foodId:null, foodName:name, grams:null, protein:round1(protein), fat:round1(fat), carb:round1(carb), cal:Math.round(cal) });
+      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
+      await addLog({ type:'manual', foodId:null, foodName:name, grams:null, protein:round1(protein), fat:round1(fat), sugar:round1(sugar), cal:Math.round(cal) });
       document.getElementById('manualName').value = '';
       document.getElementById('manualProtein').value = '';
       document.getElementById('manualFat').value = '';
-      document.getElementById('manualCarb').value = '';
+      document.getElementById('manualSugar').value = '';
       document.getElementById('manualCal').value = '';
     });
   }
@@ -971,8 +954,8 @@
     document.getElementById('fAutoCal').addEventListener('click', function(){
       var protein = Number(document.getElementById('fProtein').value) || 0;
       var fat = Number(document.getElementById('fFat').value) || 0;
-      var carb = Number(document.getElementById('fCarb').value) || 0;
-      document.getElementById('fCal').value = estimateCalories(protein, fat, carb);
+      var sugar = Number(document.getElementById('fSugar').value) || 0;
+      document.getElementById('fCal').value = estimateCalories(protein, fat, sugar);
     });
 
     document.getElementById('fSaveBtn').addEventListener('click', async function(){
@@ -980,9 +963,9 @@
       var base = Number(document.getElementById('fBase').value) || 100;
       var protein = Number(document.getElementById('fProtein').value);
       var fat = Number(document.getElementById('fFat').value) || 0;
-      var carb = Number(document.getElementById('fCarb').value) || 0;
+      var sugar = Number(document.getElementById('fSugar').value) || 0;
       var calInput = document.getElementById('fCal').value;
-      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, carb);
+      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
 
       if (!name){ alert('請輸入食材名稱'); return; }
       if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
@@ -992,7 +975,7 @@
         base: base,
         protein100: round1(protein),
         fat100: round1(fat),
-        carb100: round1(carb),
+        sugar100: round1(sugar),
         cal100: Math.round(cal)
       };
 
@@ -1023,7 +1006,7 @@
           document.getElementById('fBase').value = food.base || food.baseGrams || 100;
           document.getElementById('fProtein').value = food.protein100 !== undefined ? food.protein100 : food.protein;
           document.getElementById('fFat').value = food.fat100 !== undefined ? food.fat100 : food.fat;
-          document.getElementById('fCarb').value = food.carb100 !== undefined ? food.carb100 : food.carb;
+          document.getElementById('fSugar').value = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
           document.getElementById('fCal').value = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
 
           document.getElementById('fSaveBtn').textContent = '儲存修改';
