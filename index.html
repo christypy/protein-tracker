@@ -147,15 +147,33 @@
 
   /* ---- Food picker ---- */
   .search-wrap{position:relative;margin-bottom:10px;}
-  .food-list{display:flex;flex-direction:column;gap:8px;max-height:320px;overflow:auto;}
+  /* 方形格子：手機上不用一直下拉，一眼就能看到、點好幾樣 */
+  .food-list{
+    display:grid;grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
+    gap:8px;max-height:360px;overflow:auto;align-content:start;
+  }
   .food-chip{
-    border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;
-    display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;background:var(--paper);
+    position:relative;border:1px solid var(--line);border-radius:var(--radius-sm);
+    aspect-ratio:1/1;padding:8px 6px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    gap:2px;cursor:pointer;background:var(--paper);
   }
   .food-chip:hover{border-color:var(--protein);}
-  .food-chip .fname{font-weight:700;font-size:13.5px;}
-  .food-chip .fmacro{font-size:11px;color:var(--ink-soft);font-family:var(--font-num);}
+  .food-chip .fname{
+    font-weight:700;font-size:12.5px;line-height:1.28;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .food-chip .fmacro{font-size:10px;color:var(--ink-soft);font-family:var(--font-num);}
   .food-chip.selected{background:var(--protein-tint);border-color:var(--protein);}
+  .food-chip.selected::after{
+    content:'✓';position:absolute;top:4px;right:6px;width:16px;height:16px;border-radius:50%;
+    background:var(--protein-dark);color:#fff;font-size:10px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  @media (max-width:420px){
+    .food-list{grid-template-columns:repeat(auto-fill, minmax(70px, 1fr));gap:6px;}
+    .food-chip .fname{font-size:11.5px;}
+  }
   .food-detail{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
   .food-detail .preview{font-family:var(--font-num);font-size:13px;margin-top:8px;color:var(--protein-dark);}
   .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:18px 0;}
@@ -386,7 +404,7 @@
     </div>
   </div>
 
-  <footer>資料預設儲存在此裝置的個人儲存空間；設定 Google 試算表網址後將以試算表為主要資料來源。</footer>
+  <footer>資料一律先存在此裝置，操作不會卡著等試算表；設定 Google 試算表網址後會在背景同步、雙邊合併，不會互相蓋掉。</footer>
 </div>
 
 <script>
@@ -524,13 +542,25 @@
     return data;
   }
 
+  // 用「合併」取代「整包覆蓋」：試算表資料為主，但任何本機已經有、
+  // 試算表裡還查不到的項目（通常是剛新增、背景同步還沒送達的資料）會被保留下來，
+  // 不會被背景抓回來的舊資料蓋掉而看起來像「憑空消失」。
+  function mergeById(remoteList, localList){
+    var map = {};
+    (remoteList||[]).forEach(function(x){ if (x && x.id) map[x.id] = x; });
+    (localList||[]).forEach(function(x){ if (x && x.id && !map.hasOwnProperty(x.id)) map[x.id] = x; });
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
+
   async function refreshFromSheet(showStatus){
     var dot = document.getElementById('syncDot');
     var label = document.getElementById('syncLabel');
     try{
       var data = await sheetGet();
-      state.foods = data.foods || [];
-      state.logs = data.logs || [];
+      state.foods = mergeById(data.foods, state.foods);
+      state.logs = mergeById(data.logs, state.logs);
+      await saveLocalFoods();
+      await saveLocalLogs();
       dot.className = 'sync-dot on';
       label.textContent = '已連線試算表';
       if (showStatus) setSheetStatus('連線成功，已載入試算表資料。', 'ok');
@@ -693,7 +723,6 @@
       var inBatch = state.batch.some(function(b){ return b.foodId === f.id; });
       return '<div class="food-chip' + (inBatch?' selected':'') + '" data-pick="' + escapeHtml(f.id) + '">' +
         '<span class="fname">' + escapeHtml(f.name) + '</span>' +
-        (inBatch ? '<span class="fmacro">已選 ✓</span>' : '') +
         '</div>';
     }).join('');
     renderBatchList();
