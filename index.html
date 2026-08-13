@@ -362,7 +362,7 @@
 
   // 首次開啟時的預設值：你的試算表網址已內建，第一次打開就會自動帶入並存起來，
   // 之後就不用再手動輸入。若想改用別的試算表，到「資料同步設定」重新貼上並儲存即可。
-  var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbx2bQ25Ge6YN-lHC4EmkVCqN-W4q5vAbCCD5cq2VYwpreus9sFLp7wXlcty5B6RWgan/exec";
+  var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzGD7QiTqm9KtJckFPZqwcAWlkJICHpQXPhZqZ67wQZyeH_obR0jlj-1bO9hYpbFsYU/exec";
   var DEFAULT_GOAL = 92; // 每天 82–102g 蛋白質區間的中間值，可在畫面上自行調整
 
   // ---------- state ----------
@@ -371,6 +371,7 @@
     logs: [],
     settings: { sheetUrl: "", goal: DEFAULT_GOAL },
     selectedFoodId: null,
+    editingFoodId: null,
     currentDate: fmtDate(new Date())
   };
 
@@ -581,7 +582,10 @@
         '<span class="num">' + (f.fat100 !== undefined ? f.fat100 : f.fat) + '</span>' +
         '<span class="num">' + (f.carb100 !== undefined ? f.carb100 : f.carb) + '</span>' +
         '<span class="num">' + cal + '</span>' +
-        '<button class="btn-danger" data-del-food="' + escapeHtml(f.id) + '">刪除</button>' +
+        '<span>' +
+          '<button class="btn-ghost" style="padding:2px 8px;font-size:12px;margin-right:4px;" data-edit-food="' + escapeHtml(f.id) + '">編輯</button>' +
+          '<button class="btn-danger" data-del-food="' + escapeHtml(f.id) + '">刪除</button>' +
+        '</span>' +
         '</div>';
     }).join('');
   }
@@ -653,6 +657,21 @@
     await persistFoodsAndRender();
   }
 
+  async function updateFood(food){
+    if (hasSheet()){
+      try{
+        await sheetPost('updateFood', food);
+      }catch(e){
+        setSheetStatus('更新食材時同步失敗：' + e.message, 'err');
+      }
+    }
+    var idx = state.foods.findIndex(function(f){ return f.id === food.id; });
+    if (idx !== -1) {
+      state.foods[idx] = food;
+    }
+    await persistFoodsAndRender();
+  }
+
   async function deleteFood(id){
     if (hasSheet()){
       try{ await sheetPost('deleteFood', {id:id}); }
@@ -660,6 +679,7 @@
     }
     state.foods = state.foods.filter(function(f){ return f.id !== id; });
     if (state.selectedFoodId === id) state.selectedFoodId = null;
+    if (state.editingFoodId === id) clearFoodForm();
     await persistFoodsAndRender();
   }
 
@@ -688,6 +708,13 @@
     }
     state.logs = state.logs.filter(function(l){ return l.id !== id; });
     await persistLogsAndRender();
+  }
+
+  function clearFoodForm(){
+    state.editingFoodId = null;
+    ['fName','fProtein','fFat','fCarb','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('fBase').value = 100;
+    document.getElementById('fSaveBtn').textContent = '新增食材';
   }
 
   // ---------- event wiring ----------
@@ -785,15 +812,15 @@
   }
 
   function wireFoodForm(){
-    document.getElementById('fClearBtn').addEventListener('click', function(){
-      ['fName','fBase','fProtein','fFat','fCarb','fCal'].forEach(function(id){ document.getElementById(id).value = (id==='fBase'?100:''); });
-    });
+    document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
+
     document.getElementById('fAutoCal').addEventListener('click', function(){
       var protein = Number(document.getElementById('fProtein').value) || 0;
       var fat = Number(document.getElementById('fFat').value) || 0;
       var carb = Number(document.getElementById('fCarb').value) || 0;
       document.getElementById('fCal').value = estimateCalories(protein, fat, carb);
     });
+
     document.getElementById('fSaveBtn').addEventListener('click', async function(){
       var name = document.getElementById('fName').value.trim();
       var base = Number(document.getElementById('fBase').value) || 100;
@@ -802,16 +829,53 @@
       var carb = Number(document.getElementById('fCarb').value) || 0;
       var calInput = document.getElementById('fCal').value;
       var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, carb);
+
       if (!name){ alert('請輸入食材名稱'); return; }
       if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
-      await addFood({ name:name, base:base, protein100:round1(protein), fat100:round1(fat), carb100:round1(carb), cal100:Math.round(cal) });
-      ['fName','fProtein','fFat','fCarb','fCal'].forEach(function(id){ document.getElementById(id).value=''; });
-      document.getElementById('fBase').value = 100;
+
+      var foodPayload = {
+        name: name,
+        base: base,
+        protein100: round1(protein),
+        fat100: round1(fat),
+        carb100: round1(carb),
+        cal100: Math.round(cal)
+      };
+
+      if (state.editingFoodId) {
+        foodPayload.id = state.editingFoodId;
+        await updateFood(foodPayload);
+      } else {
+        await addFood(foodPayload);
+      }
+
+      clearFoodForm();
     });
+
     document.getElementById('foodTable').addEventListener('click', function(e){
-      var btn = e.target.closest('[data-del-food]');
-      if (!btn) return;
-      if (confirm('刪除這個食材？（過去的紀錄不會被刪除）')) deleteFood(btn.getAttribute('data-del-food'));
+      var delBtn = e.target.closest('[data-del-food]');
+      if (delBtn) {
+        if (confirm('刪除這個食材？（過去的紀錄不會被刪除）')) deleteFood(delBtn.getAttribute('data-del-food'));
+        return;
+      }
+
+      var editBtn = e.target.closest('[data-edit-food]');
+      if (editBtn) {
+        var id = editBtn.getAttribute('data-edit-food');
+        var food = state.foods.find(function(f){ return f.id === id; });
+        if (food) {
+          state.editingFoodId = food.id;
+          document.getElementById('fName').value = food.name || '';
+          document.getElementById('fBase').value = food.base || food.baseGrams || 100;
+          document.getElementById('fProtein').value = food.protein100 !== undefined ? food.protein100 : food.protein;
+          document.getElementById('fFat').value = food.fat100 !== undefined ? food.fat100 : food.fat;
+          document.getElementById('fCarb').value = food.carb100 !== undefined ? food.carb100 : food.carb;
+          document.getElementById('fCal').value = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
+
+          document.getElementById('fSaveBtn').textContent = '儲存修改';
+          document.getElementById('secFoods').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     });
   }
 
