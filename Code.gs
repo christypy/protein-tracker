@@ -1,32 +1,12 @@
 /**
- * 蛋白質日記 - Google Apps Script 後端（v2）
- *
- * 這一版做了兩件事：
- * 1. 讀寫欄位改成「用欄位名稱對照」，不再用固定的欄位順序（index）。
- *    這樣即使你的試算表是舊版本建立的、欄位數量跟現在的程式碼對不上，
- *    程式也會在每次執行時自動把缺少的欄位（例如「熱量」cal100 / cal）補到表格最後一欄，
- *    不會動到既有資料。這就是為什麼舊試算表可能「看起來」沒有熱量欄位 ——
- *    因為那個試算表是在程式碼還沒加上熱量欄位時就建立的，之後程式改版並不會自動幫舊表加欄位。
- * 2. Logs 多了一個 person 欄位，用來標記這筆紀錄屬於「身份 A」還是「身份 B」，
- *    這樣兩個人共用同一份試算表時，彼此的今日紀錄跟達成率才不會混在一起。
- *
- * 部署方式跟之前一樣：
- * 1. 開一份新的（或你原本那份）Google 試算表
- * 2. 上方選單「擴充功能」→「Apps Script」
- * 3. 刪除預設內容，貼上這整份程式碼，按儲存
- * 4. 右上角「部署」→「新增部署作業」→ 類型選「網頁應用程式」
- *    - 執行身分：我
- *    - 誰可以存取：任何人
- * 5. 複製部署後產生的網址，貼到「蛋白質日記」App 的設定頁面
- *
- * 如果是「更新既有部署」（沿用同一支網址），選「管理部署作業」→ 編輯 → 版本選「新版本」→ 部署，
- * 不需要重新複製網址。
+ * 蛋白質日記 - Google Apps Script 後端（v4-sugar-update）
  */
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'protein100', 'fat100', 'carb100', 'cal100'];
-var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'protein', 'fat', 'carb', 'cal'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'protein100', 'fat100', 'sugar100', 'cal100'];
+var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'protein', 'fat', 'sugar', 'cal'];
+var APP_BACKEND_VERSION = 'v4-sugar-update';
 
 function doGet(e) {
   var action = e.parameter.action;
@@ -84,8 +64,6 @@ function getSheet(name, headers) {
   return sheet;
 }
 
-// 確保表頭包含所有必要欄位；缺少的欄位（例如舊表沒有的「熱量」cal100/cal，
-// 或新加入的「person」）會自動補到最後一欄，不影響既有資料。
 function ensureHeaders(sheet, headers) {
   var lastCol = Math.max(sheet.getLastColumn(), 1);
   var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
@@ -102,7 +80,6 @@ function ensureHeaders(sheet, headers) {
   });
 }
 
-// 回傳 {欄位名稱: 0-based 欄位索引}
 function headerIndexMap(sheet) {
   var lastCol = sheet.getLastColumn();
   var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
@@ -111,7 +88,6 @@ function headerIndexMap(sheet) {
   return map;
 }
 
-// 依欄位名稱把一筆資料組成正確順序的陣列後 appendRow
 function appendRowByHeader(sheet, headers, valuesObj) {
   var map = headerIndexMap(sheet);
   var lastCol = Math.max(sheet.getLastColumn(), headers.length);
@@ -138,13 +114,14 @@ function readFoods() {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[map['id']]) continue;
+    var sugarVal = map['sugar100'] !== undefined ? r[map['sugar100']] : (map['carb100'] !== undefined ? r[map['carb100']] : 0);
     foods.push({
       id: r[map['id']],
       name: r[map['name']],
       base: Number(r[map['base']]) || 100,
       protein100: Number(r[map['protein100']]) || 0,
       fat100: Number(r[map['fat100']]) || 0,
-      carb100: Number(r[map['carb100']]) || 0,
+      sugar100: Number(sugarVal) || 0,
       cal100: Number(r[map['cal100']]) || 0
     });
   }
@@ -160,6 +137,7 @@ function readLogs() {
     var r = rows[i];
     if (!r[map['id']]) continue;
     var gramsRaw = r[map['grams']];
+    var sugarVal = map['sugar'] !== undefined ? r[map['sugar']] : (map['carb'] !== undefined ? r[map['carb']] : 0);
     logs.push({
       id: r[map['id']],
       person: r[map['person']] || 'A',
@@ -171,7 +149,7 @@ function readLogs() {
       grams: (gramsRaw === '' || gramsRaw === undefined) ? null : Number(gramsRaw),
       protein: Number(r[map['protein']]) || 0,
       fat: Number(r[map['fat']]) || 0,
-      carb: Number(r[map['carb']]) || 0,
+      sugar: Number(sugarVal) || 0,
       cal: Number(r[map['cal']]) || 0
     });
   }
@@ -182,32 +160,40 @@ function readLogs() {
 
 function addFood(payload) {
   var sheet = getFoodsSheet();
-  var id = 'f_' + new Date().getTime();
+  var id = payload.id || ('f_' + new Date().getTime());
+  var sugarVal = payload.sugar100 !== undefined ? payload.sugar100 : payload.carb100;
   appendRowByHeader(sheet, FOODS_HEADERS, {
     id: id,
-    name: payload.name,
-    base: payload.base || 100,
-    protein100: payload.protein100 || 0,
-    fat100: payload.fat100 || 0,
-    carb100: payload.carb100 || 0,
-    cal100: payload.cal100 || 0
+    name: payload.name || '',
+    base: Number(payload.base) || 100,
+    protein100: Number(payload.protein100) || 0,
+    fat100: Number(payload.fat100) || 0,
+    sugar100: Number(sugarVal) || 0,
+    cal100: Number(payload.cal100) || 0
   });
-  return { id: id };
+  SpreadsheetApp.flush();
+  return { success: true, id: id };
 }
 
 function updateFood(payload) {
   var sheet = getFoodsSheet();
   var map = headerIndexMap(sheet);
   var data = sheet.getDataRange().getValues();
+  var sugarVal = payload.sugar100 !== undefined ? payload.sugar100 : payload.carb100;
+  var sugarCol = map['sugar100'] !== undefined ? map['sugar100'] : map['carb100'];
+
   for (var i = 1; i < data.length; i++) {
     if (data[i][map['id']] === payload.id) {
       var rowNum = i + 1;
-      sheet.getRange(rowNum, map['name'] + 1).setValue(payload.name);
-      sheet.getRange(rowNum, map['base'] + 1).setValue(payload.base || 100);
-      sheet.getRange(rowNum, map['protein100'] + 1).setValue(payload.protein100 || 0);
-      sheet.getRange(rowNum, map['fat100'] + 1).setValue(payload.fat100 || 0);
-      sheet.getRange(rowNum, map['carb100'] + 1).setValue(payload.carb100 || 0);
-      sheet.getRange(rowNum, map['cal100'] + 1).setValue(payload.cal100 || 0);
+      sheet.getRange(rowNum, map['name'] + 1).setValue(payload.name || '');
+      sheet.getRange(rowNum, map['base'] + 1).setValue(Number(payload.base) || 100);
+      sheet.getRange(rowNum, map['protein100'] + 1).setValue(Number(payload.protein100) || 0);
+      sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
+      if (sugarCol !== undefined) {
+        sheet.getRange(rowNum, sugarCol + 1).setValue(Number(sugarVal) || 0);
+      }
+      sheet.getRange(rowNum, map['cal100'] + 1).setValue(Number(payload.cal100) || 0);
+      SpreadsheetApp.flush();
       return { success: true };
     }
   }
@@ -221,6 +207,7 @@ function deleteFood(payload) {
   for (var i = 1; i < data.length; i++) {
     if (data[i][map['id']] === payload.id) {
       sheet.deleteRow(i + 1);
+      SpreadsheetApp.flush();
       return { success: true };
     }
   }
@@ -230,6 +217,7 @@ function deleteFood(payload) {
 function addLog(payload) {
   var sheet = getLogsSheet();
   var id = 'l_' + new Date().getTime();
+  var sugarVal = payload.sugar !== undefined ? payload.sugar : payload.carb;
   appendRowByHeader(sheet, LOGS_HEADERS, {
     id: id,
     person: payload.person || 'A',
@@ -239,12 +227,13 @@ function addLog(payload) {
     foodId: payload.foodId || '',
     foodName: payload.foodName || '',
     grams: payload.grams == null ? '' : payload.grams,
-    protein: payload.protein || 0,
-    fat: payload.fat || 0,
-    carb: payload.carb || 0,
-    cal: payload.cal || 0
+    protein: Number(payload.protein) || 0,
+    fat: Number(payload.fat) || 0,
+    sugar: Number(sugarVal) || 0,
+    cal: Number(payload.cal) || 0
   });
-  return { id: id };
+  SpreadsheetApp.flush();
+  return { success: true, id: id };
 }
 
 function deleteLog(payload) {
@@ -254,6 +243,7 @@ function deleteLog(payload) {
   for (var i = 1; i < data.length; i++) {
     if (data[i][map['id']] === payload.id) {
       sheet.deleteRow(i + 1);
+      SpreadsheetApp.flush();
       return { success: true };
     }
   }
