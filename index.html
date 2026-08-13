@@ -160,6 +160,14 @@
   .food-detail .preview{font-family:var(--font-num);font-size:13px;margin-top:8px;color:var(--protein-dark);}
   .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:18px 0;}
 
+  /* ---- Batch add (新增這一餐：一次選多樣) ---- */
+  .batch-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .batch-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .batch-row .field{flex:1;min-width:0;}
+  .batch-row .field label{font-weight:700;color:var(--ink);font-size:12.5px;}
+  .batch-row .preview{margin:0;white-space:nowrap;font-size:12px;}
+  .batch-row .btn-danger{flex-shrink:0;}
+
   /* ---- Food library table ---- */
   .food-table-wrap{overflow-x:auto;}
   .food-row{
@@ -263,15 +271,10 @@
       </div>
       <div class="food-list" id="pickerList"></div>
       <div class="food-detail" id="pickerDetail" style="display:none;">
-        <div class="row">
-          <div class="field">
-            <label>食用克數</label>
-            <input type="number" id="pickGrams" min="0" step="1" value="100">
-          </div>
-        </div>
-        <div class="preview" id="pickPreview"></div>
+        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，填好克數後按下面按鈕一次送出。</p>
+        <div id="batchList"></div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="pickAddBtn">加入紀錄</button>
+          <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
         </div>
       </div>
 
@@ -395,11 +398,11 @@
   var PROFILES = {
     A: {
       key: 'A', name: 'A', desc: '150cm・43kg・無運動習慣',
-      goals: { protein:48, fat: 35, sugar:16, cal: 1200 }
+      goals: { protein: 35, fat: 35, sugar: 31, cal: 1250 }
     },
     B: {
       key: 'B', name: 'B', desc: '178cm・68kg・慢跑＋重訓',
-      goals: { protein: 95, fat:55, sugar: 25, cal: 2300 }
+      goals: { protein: 95, fat: 66, sugar: 60, cal: 2390 }
     }
   };
   var PROFILE_ORDER = ['A', 'B'];
@@ -411,6 +414,7 @@
     settings: { sheetUrl: "", profile: 'A', goals: null },
     selectedFoodId: null,
     editingFoodId: null,
+    batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams}]
     currentDate: fmtDate(new Date())
   };
 
@@ -682,31 +686,43 @@
     var list = state.foods.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q) > -1; });
     if (!list.length){
       el.innerHTML = '<div class="empty">' + (state.foods.length ? '找不到符合的食材。' : '食材庫是空的，先到下方新增食材。') + '</div>';
+      renderBatchList();
       return;
     }
     el.innerHTML = list.map(function(f){
-      var base = f.base||f.baseGrams||100;
-      var p = f.protein100 !== undefined ? f.protein100 : f.protein;
-      var ft = f.fat100 !== undefined ? f.fat100 : f.fat;
-      var s = f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb||0));
-      var k = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
-      return '<div class="food-chip' + (state.selectedFoodId===f.id?' selected':'') + '" data-pick="' + escapeHtml(f.id) + '">' +
+      var inBatch = state.batch.some(function(b){ return b.foodId === f.id; });
+      return '<div class="food-chip' + (inBatch?' selected':'') + '" data-pick="' + escapeHtml(f.id) + '">' +
         '<span class="fname">' + escapeHtml(f.name) + '</span>' +
-        '<span class="fmacro">每' + base + 'g · P' + p + ' F' + ft + ' S' + s + ' · ' + k + 'kcal</span>' +
+        (inBatch ? '<span class="fmacro">已選 ✓</span>' : '') +
         '</div>';
     }).join('');
-    updatePickerDetail();
+    renderBatchList();
   }
 
-  function updatePickerDetail(){
-    var box = document.getElementById('pickerDetail');
-    var food = state.foods.find(function(f){ return f.id === state.selectedFoodId; });
-    if (!food){ box.style.display='none'; return; }
-    box.style.display='block';
-    var grams = Number(document.getElementById('pickGrams').value) || 0;
-    var m = computeMacros(food, grams);
-    document.getElementById('pickPreview').textContent =
-      '換算：蛋白質 ' + m.protein + 'g ・ 脂肪 ' + m.fat + 'g ・ 糖 ' + m.sugar + 'g ・ 熱量 ' + m.cal + ' kcal';
+  // 「新增這一餐」批次清單：把已選的每樣食材列出來，各自可調克數，最後一次送出
+  function renderBatchList(){
+    var wrap = document.getElementById('pickerDetail');
+    var el = document.getElementById('batchList');
+    if (!state.batch.length){
+      wrap.style.display = 'none';
+      el.innerHTML = '';
+      return;
+    }
+    wrap.style.display = 'block';
+    el.innerHTML = state.batch.map(function(b){
+      var food = state.foods.find(function(f){ return f.id === b.foodId; });
+      if (!food) return '';
+      var m = computeMacros(food, b.grams);
+      return '<div class="batch-row" data-batch-row="' + escapeHtml(b.foodId) + '">' +
+        '<div class="field">' +
+          '<label>' + escapeHtml(food.name) + '</label>' +
+          '<input type="number" min="0" step="1" value="' + b.grams + '" data-batch-grams="' + escapeHtml(b.foodId) + '">' +
+        '</div>' +
+        '<div class="preview" data-batch-preview="' + escapeHtml(b.foodId) + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
+        '<button type="button" class="btn-danger" data-batch-remove="' + escapeHtml(b.foodId) + '">移除</button>' +
+        '</div>';
+    }).join('');
+    document.getElementById('batchAddBtn').textContent = '全部加入紀錄（' + state.batch.length + ' 項）';
   }
 
   function renderAll(){
@@ -727,95 +743,89 @@
     renderAll();
   }
 
+  // 以下的寫入操作都採「本機先行、背景同步」：
+  // 先把資料寫進本機狀態並立刻畫面更新，網路同步在背景做，不會卡住操作。
+  // 同步失敗也不會讓本機資料消失，只會顯示錯誤狀態；成功了才悄悄更新真正的 id。
+  // 這裡刻意不在每次寫入後整批重新抓取試算表——那個「整批重抓」正是先前紀錄
+  // 有時候會被較慢的背景回應蓋掉、看起來像消失的主因。
+
   async function addFood(food){
     food.id = food.id || uid('f');
-    if (hasSheet()){
-      try{
-        var payload = Object.assign({}, food);
-        var res = await sheetPost('addFood', payload);
-        food.id = res.id || food.id;
-        state.foods.push(food);
-        await saveLocalFoods();
-        await refreshFromSheet(false);
-        renderAll();
-        setSheetStatus('食材已新增，試算表已同步。', 'ok');
-        return;
-      }catch(e){
-        setSheetStatus('新增食材同步失敗：' + e.message + '（已保留在本機）', 'err');
-      }
-    }
     state.foods.push(food);
     await persistFoodsAndRender();
+
+    if (hasSheet()){
+      sheetPost('addFood', Object.assign({}, food)).then(function(res){
+        if (res && res.id && res.id !== food.id){
+          food.id = res.id;
+          saveLocalFoods();
+        }
+        setSheetStatus('食材已新增，試算表已同步。', 'ok');
+      }).catch(function(e){
+        setSheetStatus('新增食材同步失敗：' + e.message + '（已保留在本機）', 'err');
+      });
+    }
   }
 
   async function updateFood(food){
-    if (hasSheet()){
-      try{
-        await sheetPost('updateFood', food);
-        var idx = state.foods.findIndex(function(f){ return f.id === food.id; });
-        if (idx !== -1) state.foods[idx] = food;
-        await saveLocalFoods();
-        await refreshFromSheet(false);
-        renderAll();
-        setSheetStatus('食材修改已同步到試算表。', 'ok');
-        return;
-      }catch(e){
-        setSheetStatus('更新食材同步失敗：' + e.message + '（已保留本機資料）', 'err');
-      }
-    }
-    var idx2 = state.foods.findIndex(function(f){ return f.id === food.id; });
-    if (idx2 !== -1) state.foods[idx2] = food;
+    var idx = state.foods.findIndex(function(f){ return f.id === food.id; });
+    if (idx !== -1) state.foods[idx] = food;
     await persistFoodsAndRender();
+
+    if (hasSheet()){
+      sheetPost('updateFood', food).then(function(){
+        setSheetStatus('食材修改已同步到試算表。', 'ok');
+      }).catch(function(e){
+        setSheetStatus('更新食材同步失敗：' + e.message + '（已保留本機資料）', 'err');
+      });
+    }
   }
 
   async function deleteFood(id){
-    if (hasSheet()){
-      try{
-        await sheetPost('deleteFood', {id:id});
-        state.foods = state.foods.filter(function(f){ return f.id !== id; });
-        if (state.selectedFoodId === id) state.selectedFoodId = null;
-        if (state.editingFoodId === id) clearFoodForm();
-        await saveLocalFoods();
-        await refreshFromSheet(false);
-        renderAll();
-        setSheetStatus('食材已刪除，試算表已同步。', 'ok');
-        return;
-      }catch(e){
-        setSheetStatus('刪除食材同步失敗：' + e.message, 'err');
-      }
-    }
     state.foods = state.foods.filter(function(f){ return f.id !== id; });
     if (state.selectedFoodId === id) state.selectedFoodId = null;
     if (state.editingFoodId === id) clearFoodForm();
+    state.batch = state.batch.filter(function(b){ return b.foodId !== id; });
     await persistFoodsAndRender();
+
+    if (hasSheet()){
+      sheetPost('deleteFood', {id:id}).then(function(){
+        setSheetStatus('食材已刪除，試算表已同步。', 'ok');
+      }).catch(function(e){
+        setSheetStatus('刪除食材同步失敗：' + e.message, 'err');
+      });
+    }
   }
 
   async function addLog(entry){
     entry.date = state.currentDate;
     entry.time = nowTime();
     entry.person = activeProfile();
-    if (hasSheet()){
-      try{
-        var res = await sheetPost('addLog', entry);
-        entry.id = res.id || uid('l');
-      }catch(e){
-        setSheetStatus('新增紀錄時同步失敗：' + e.message, 'err');
-        entry.id = uid('l');
-      }
-    } else {
-      entry.id = uid('l');
-    }
+    entry.id = uid('l');
     state.logs.push(entry);
     await persistLogsAndRender();
+
+    if (hasSheet()){
+      sheetPost('addLog', entry).then(function(res){
+        if (res && res.id && res.id !== entry.id){
+          entry.id = res.id;
+          saveLocalLogs();
+        }
+      }).catch(function(e){
+        setSheetStatus('新增紀錄時同步失敗：' + e.message + '（已保留在本機）', 'err');
+      });
+    }
   }
 
   async function deleteLog(id){
-    if (hasSheet()){
-      try{ await sheetPost('deleteLog', {id:id}); }
-      catch(e){ setSheetStatus('刪除紀錄時同步失敗：' + e.message, 'err'); }
-    }
     state.logs = state.logs.filter(function(l){ return l.id !== id; });
     await persistLogsAndRender();
+
+    if (hasSheet()){
+      sheetPost('deleteLog', {id:id}).catch(function(e){
+        setSheetStatus('刪除紀錄時同步失敗：' + e.message, 'err');
+      });
+    }
   }
 
   function clearFoodForm(){
@@ -892,29 +902,61 @@
 
   function wirePicker(){
     document.getElementById('foodSearch').addEventListener('input', renderPickerList);
+
+    // 點食材：加入／移出批次清單（可以一次點多樣）
     document.getElementById('pickerList').addEventListener('click', function(e){
       var chip = e.target.closest('[data-pick]');
       if (!chip) return;
       var id = chip.getAttribute('data-pick');
-      var changedFood = state.selectedFoodId !== id;
-      state.selectedFoodId = id;
-      if (changedFood){
+      var idx = state.batch.findIndex(function(b){ return b.foodId === id; });
+      if (idx === -1){
         var food = state.foods.find(function(f){ return f.id === id; });
-        if (food) document.getElementById('pickGrams').value = food.base || food.baseGrams || 100;
+        state.batch.push({ foodId: id, grams: (food && (food.base || food.baseGrams)) || 100 });
+      } else {
+        state.batch.splice(idx, 1);
       }
       renderPickerList();
     });
-    document.getElementById('pickGrams').addEventListener('input', updatePickerDetail);
-    document.getElementById('pickAddBtn').addEventListener('click', async function(){
-      var food = state.foods.find(function(f){ return f.id === state.selectedFoodId; });
+
+    // 批次清單裡改克數：只更新該列的預覽數字,不整包重畫(避免輸入到一半失焦)
+    document.getElementById('batchList').addEventListener('input', function(e){
+      var input = e.target.closest('[data-batch-grams]');
+      if (!input) return;
+      var id = input.getAttribute('data-batch-grams');
+      var b = state.batch.find(function(x){ return x.foodId === id; });
+      if (!b) return;
+      b.grams = Number(input.value) || 0;
+      var food = state.foods.find(function(f){ return f.id === id; });
       if (!food) return;
-      var grams = Number(document.getElementById('pickGrams').value);
-      if (!grams || grams <= 0){ alert('請輸入大於 0 的克數'); return; }
-      var m = computeMacros(food, grams);
-      await addLog({
-        type:'selected', foodId: food.id, foodName: food.name, grams: grams,
-        protein: m.protein, fat: m.fat, sugar: m.sugar, cal: m.cal
-      });
+      var m = computeMacros(food, b.grams);
+      var prev = document.querySelector('[data-batch-preview="' + id + '"]');
+      if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
+    });
+
+    // 批次清單裡移除某一項
+    document.getElementById('batchList').addEventListener('click', function(e){
+      var rm = e.target.closest('[data-batch-remove]');
+      if (!rm) return;
+      var id = rm.getAttribute('data-batch-remove');
+      state.batch = state.batch.filter(function(b){ return b.foodId !== id; });
+      renderPickerList();
+    });
+
+    // 一次把批次清單裡所有食材送出成紀錄
+    document.getElementById('batchAddBtn').addEventListener('click', async function(){
+      if (!state.batch.length) return;
+      var items = state.batch.slice();
+      state.batch = [];
+      for (var i = 0; i < items.length; i++){
+        var food = state.foods.find(function(f){ return f.id === items[i].foodId; });
+        if (!food || !items[i].grams || items[i].grams <= 0) continue;
+        var m = computeMacros(food, items[i].grams);
+        await addLog({
+          type:'selected', foodId: food.id, foodName: food.name, grams: items[i].grams,
+          protein: m.protein, fat: m.fat, sugar: m.sugar, cal: m.cal
+        });
+      }
+      renderPickerList();
     });
   }
 
@@ -1054,10 +1096,15 @@
     wireFoodForm();
     wireSettings();
 
-    if (hasSheet()){
-      await refreshFromSheet(false);
-    }
+    // 先用本機資料立即顯示畫面，不用等試算表回應
     renderAll();
+
+    // 試算表同步在背景進行；抓到資料後才悄悄更新畫面，不會卡住開啟頁面的過程
+    if (hasSheet()){
+      refreshFromSheet(false).then(function(ok){
+        if (ok) renderAll();
+      });
+    }
   }
 
   init();
