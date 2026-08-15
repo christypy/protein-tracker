@@ -257,7 +257,6 @@
   /* ---- Log list ---- */
   .log-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);}
   .log-item:last-child{border-bottom:none;padding-bottom:0;}
-  .log-item .drag-handle{margin-left:-4px;}
   .log-dot{width:8px;height:8px;min-width:8px;border-radius:50%;flex:none;}
   .log-dot.dot-protein{background:var(--protein);}
   .log-dot.dot-fat{background:var(--fat);}
@@ -319,15 +318,6 @@
   .selectable-row{cursor:pointer;}
   .selectable-row:hover{background:var(--protein-tint);}
   .selectable-row.picked{background:var(--protein-tint);}
-
-  /* ---- Drag handle：今日紀錄改成手動拖移排序 ---- */
-  .drag-handle{
-    flex:none;width:22px;height:100%;display:flex;align-items:center;justify-content:center;
-    color:var(--ink-soft);font-size:15px;cursor:grab;touch-action:none;user-select:none;letter-spacing:-2px;
-  }
-  .drag-handle:active{cursor:grabbing;}
-  .log-item.dragging{opacity:0.45;}
-  .log-item.drag-active{position:relative;z-index:5;box-shadow:var(--shadow);background:var(--card);border-radius:var(--radius-sm);}
 
   /* ---- Settings ---- */
   .settings-note{font-size:12px;color:var(--ink-soft);line-height:1.6;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
@@ -627,10 +617,9 @@
     foodMode: '', // '' | 'edit' | 'delete'
     foodDeleteSelected: [], // 刪除模式下已勾選的食材 id
 
-    // 今日紀錄：手動拖移排序 + 單一「刪除」開關（取代每列各自的刪除鈕）
+    // 今日紀錄：單一「刪除」開關（取代每列各自的刪除鈕）
     logDeleteMode: false,
-    logDeleteSelected: [], // 刪除模式下已勾選的紀錄 id
-    dragging: null // 拖移排序時的暫存狀態
+    logDeleteSelected: [] // 刪除模式下已勾選的紀錄 id
   };
 
   function defaultGoalsSet(){
@@ -796,34 +785,12 @@
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
   }
 
-  // 今日紀錄的排序完全由使用者手動拖移決定（存在每筆紀錄的 order 欄位），
-  // 不再依時間或營養素高低自動排序。舊資料如果沒有 order，第一次顯示時
-  // 用時間排序當作預設順序（只在記憶體中補上，實際拖移過一次才會真正存檔)。
+  // 今日紀錄依時間排序（拖移排序功能已移除）。
   function logsForCurrentDate(){
     var p = activeProfile();
     var list = state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; });
-    var hasAnyOrder = list.some(function(l){ return typeof l.order === 'number'; });
-    if (!hasAnyOrder){
-      list.sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
-      list.forEach(function(l, i){ l.order = i; });
-    } else {
-      var maxOrder = list.reduce(function(m,l){ return typeof l.order === 'number' ? Math.max(m,l.order) : m; }, -1);
-      list.forEach(function(l){ if (typeof l.order !== 'number') l.order = ++maxOrder; });
-      list.sort(function(a,b){ return a.order - b.order; });
-    }
+    list.sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
     return list;
-  }
-
-  // 拖移排序結束後：把目前這份清單（同一天、同一身份）重新編號 0..n-1，
-  // 存回本機，並在有連線試算表時把每一筆變動同步過去。
-  async function persistLogOrder(orderedList){
-    orderedList.forEach(function(l, i){ l.order = i; });
-    await saveLocalLogs();
-    if (hasSheet()){
-      orderedList.forEach(function(l){
-        sheetPost('updateLog', { id: l.id, order: l.order }).catch(function(){ /* 排序同步失敗不影響本機操作 */ });
-      });
-    }
   }
 
   function renderDateNav(){
@@ -923,7 +890,7 @@
       var checked = state.logDeleteSelected.indexOf(l.id) > -1;
       var leftControl = state.logDeleteMode
         ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span>'
-        : '<span class="drag-handle" data-drag-handle="' + escapeHtml(l.id) + '">⠿</span>';
+        : '';
       return '<div class="log-item" data-log-id="' + escapeHtml(l.id) + '">' +
         leftControl +
         '<span class="log-dot ' + dotCls + '"></span>' +
@@ -1238,10 +1205,6 @@
     entry.time = nowTime();
     entry.person = activeProfile();
     entry.id = uid('l');
-    // 新紀錄放在「今日紀錄」手動排序清單的最後面
-    var sameGroup = state.logs.filter(function(l){ return l.date === entry.date && (l.person||'A') === entry.person; });
-    var maxOrder = sameGroup.reduce(function(m,l){ return typeof l.order === 'number' ? Math.max(m,l.order) : m; }, -1);
-    entry.order = maxOrder + 1;
     state.logs.push(entry);
     await persistLogsAndRender();
 
@@ -1451,19 +1414,6 @@
     });
   }
 
-  // 依拖移時的指標 Y 座標，找出目前應該插入在哪個項目之前（標準的拖移排序演算法）
-  function getLogDragAfterElement(container, y){
-    var els = Array.prototype.slice.call(container.querySelectorAll('.log-item:not(.dragging)'));
-    return els.reduce(function(closest, child){
-      var box = child.getBoundingClientRect();
-      var offset = y - box.top - box.height / 2;
-      if (offset < 0 && offset > closest.offset){
-        return { offset: offset, element: child };
-      }
-      return closest;
-    }, { offset: -Infinity, element: null }).element;
-  }
-
   function wireLogList(){
     var listEl = document.getElementById('logList');
 
@@ -1495,42 +1445,6 @@
       state.logDeleteMode = false;
       state.logDeleteSelected = [];
       await deleteLogsBatch(ids);
-    });
-
-    // ---- 手動拖移排序（滑鼠與觸控都用 Pointer Events，一套邏輯通用） ----
-    listEl.addEventListener('pointerdown', function(e){
-      if (state.logDeleteMode) return;
-      var handle = e.target.closest('[data-drag-handle]');
-      if (!handle) return;
-      var item = handle.closest('.log-item');
-      if (!item) return;
-      e.preventDefault();
-      item.classList.add('dragging', 'drag-active');
-      try { handle.setPointerCapture(e.pointerId); } catch(err){}
-
-      function onMove(ev){
-        var after = getLogDragAfterElement(listEl, ev.clientY);
-        if (after == null) listEl.appendChild(item);
-        else listEl.insertBefore(item, after);
-      }
-      function onUp(){
-        item.classList.remove('dragging', 'drag-active');
-        handle.removeEventListener('pointermove', onMove);
-        handle.removeEventListener('pointerup', onUp);
-        handle.removeEventListener('pointercancel', onUp);
-        try { handle.releasePointerCapture(e.pointerId); } catch(err){}
-
-        // 依目前的 DOM 順序，重新對應回資料並存檔（本機 + 試算表)
-        var ids = Array.prototype.slice.call(listEl.querySelectorAll('.log-item'))
-          .map(function(el){ return el.getAttribute('data-log-id'); });
-        var orderedList = ids.map(function(id){
-          return state.logs.find(function(l){ return l.id === id; });
-        }).filter(Boolean);
-        persistLogOrder(orderedList).then(function(){ renderLogList(); });
-      }
-      handle.addEventListener('pointermove', onMove);
-      handle.addEventListener('pointerup', onUp);
-      handle.addEventListener('pointercancel', onUp);
     });
   }
 

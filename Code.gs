@@ -1,438 +1,1700 @@
-/**
- * 蛋白質日記 - Google Apps Script 後端（v6-date-fix）
- *
- * 這版修正三個問題：
- * 1. 舊試算表如果欄位還是 carb100 / carb，過去的版本會「多新增一欄」sugar100 / sugar，
- *    導致資料分裂在兩個欄位，加總、顯示都會對不到正確的值（這就是糖量顯示異常的根本原因）。
- *    現在改成：偵測到舊欄位時會自動把資料「搬進」新欄位（或直接改名），並刪掉舊欄位。
- * 2. appendRowByHeader() 以前如果有欄位在表格裡找不到對應的表頭，會「默默把該筆資料丟掉」，
- *    完全不會報錯 —— 這也是熱量(cal)有時候沒有同步進試算表的原因。
- *    現在改成：找不到欄位就自動新增該欄，絕不會再默默漏資料。
- * 3.【本次新增】連上試算表之後「今日紀錄」整批消失、但重新整理成本機模式又看得到資料，
- *    根本原因是 Google 試算表會把 "2026-08-13" 這種字串自動判斷成日期物件；讀回網頁後
- *    變成帶時間的 ISO 字串，跟前端用來篩選「今天」的純日期字串永遠對不起來，紀錄因此
- *    像是憑空消失。現在做兩件事修好它：
- *      a) date / time 欄位整欄強制設成「純文字」格式，之後新寫入的資料不會再被誤判。
- *      b) 讀取時如果偵測到儲存格仍是日期物件（例如這次修復前就已經寫入的舊資料），
- *         會就地轉回 yyyy-MM-dd / HH:mm 純文字字串再回傳給前端，舊資料也一併修好，
- *         不需要另外手動搬移。
- */
-
-var FOODS_SHEET_NAME = 'Foods';
-var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'category', 'protein100', 'fat100', 'sugar100', 'cal100'];
-var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order'];
-// 【v9 新增】Logs 新增了 order 欄位，用來記錄「今日紀錄」使用者手動拖移排序後的順序
-// （單純一個數字，同一天、同一身份的紀錄依這個數字由小到大顯示）。舊試算表沒有這欄時
-// ensureHeaders() 會自動補上；讀取舊資料時 order 欄位若是空的，前端會用時間排序當作預設值。
-// 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
-var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v9-manual-order';
-// 【v7 新增】Foods / Logs 都新增了 unit 欄位（例如 g、顆、盒、碗）。
-// 舊試算表沒有這欄時，ensureHeaders() 會自動補上，不需要手動搬移；
-// 讀取舊資料時 unit 欄位若是空的，一律視為 'g'，行為與升級前完全一致。
-// 【v8 新增】Foods 新增了 category 欄位（食材類別，例如肉類、蔬菜、乳製品…），
-// 用來讓「新增這一餐」時可以用類別快速篩選食材。舊試算表沒有這欄時 ensureHeaders()
-// 會自動補上；讀取舊資料時 category 欄位若是空的，一律視為「未分類」。
-
-function doGet(e) {
-  var action = e.parameter.action;
-  if (action === 'getData') {
-    return jsonResponse(getData());
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蛋白質熱量日記</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF6EF;
+    --card:#FFFFFF;
+    --ink:#2B2621;
+    --ink-soft:#847A6C;
+    --line:#E7DECB;
+    --protein:#4F7A5C;
+    --protein-dark:#365a41;
+    --protein-tint:#E4EEE3;
+    --fat:#C9924B;
+    --fat-tint:#F6ECDA;
+    --carb:#5679A0;
+    --carb-tint:#E5EDF4;
+    --cal:#8A6BA1;
+    --cal-tint:#EFE8F3;
+    --danger:#B8543D;
+    --radius:16px;
+    --radius-sm:10px;
+    --font-display:'Noto Serif TC', serif;
+    --font-body:'Noto Sans TC', sans-serif;
+    --font-num:'Space Grotesk', 'Noto Sans TC', sans-serif;
+    --shadow: 0 1px 2px rgba(43,38,33,0.04), 0 6px 20px rgba(43,38,33,0.06);
   }
-  return jsonResponse({ error: 'unknown action: ' + action });
-}
-
-function doPost(e) {
-  var body;
-  try {
-    body = JSON.parse(e.postData.contents);
-  } catch (err) {
-    return jsonResponse({ error: 'invalid JSON body' });
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(43,38,33,0.045) 1px, transparent 0);
+    background-size:22px 22px;
   }
-  var action = body.action;
-  var payload = body.payload || {};
-  var result;
-  try {
-    switch (action) {
-      case 'addFood': result = addFood(payload); break;
-      case 'updateFood': result = updateFood(payload); break;
-      case 'deleteFood': result = deleteFood(payload); break;
-      case 'addLog': result = addLog(payload); break;
-      case 'updateLog': result = updateLog(payload); break;
-      case 'deleteLog': result = deleteLog(payload); break;
-      default: result = { error: 'unknown action: ' + action };
+  .app{max-width:640px;margin:0 auto;padding:28px 18px 80px;}
+  a{color:inherit;}
+
+  /* ---- Header ---- */
+  .app-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:22px;}
+  .brand h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:26px;
+    margin:0 0 2px;
+    letter-spacing:0.01em;
+  }
+  .brand p{margin:0;color:var(--ink-soft);font-size:13px;}
+  .sync-dot{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card);white-space:nowrap;cursor:pointer;}
+  .sync-dot .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-soft);}
+  .sync-dot.on .dot{background:var(--protein);}
+  .sync-dot.err .dot{background:var(--danger);}
+
+  /* ---- Date nav ---- */
+  .date-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 20px;}
+  .date-nav button{
+    border:1px solid var(--line);background:var(--card);border-radius:999px;
+    width:32px;height:32px;font-size:15px;cursor:pointer;color:var(--ink);
+  }
+  .date-nav button:hover{background:var(--protein-tint);border-color:var(--protein);}
+  .date-label{font-family:var(--font-num);font-size:14px;font-weight:500;min-width:112px;text-align:center;letter-spacing:0.02em;}
+  .date-label small{display:block;color:var(--ink-soft);font-family:var(--font-body);font-size:11px;margin-top:1px;}
+
+  /* ---- Profile tabs ---- */
+  .profile-tabs{display:flex;gap:8px;margin-bottom:8px;}
+  .profile-tab{
+    flex:1;min-width:0;font-family:var(--font-body);font-size:12.5px;font-weight:700;
+    padding:9px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);
+    background:var(--card);color:var(--ink);cursor:pointer;text-align:center;line-height:1.35;
+  }
+  .profile-tab em{display:block;font-style:normal;font-weight:500;font-size:10.5px;color:var(--ink-soft);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .profile-tab.active{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
+  .profile-tab.active em{color:rgba(255,255,255,0.82);}
+  .profile-hint{font-size:11px;color:var(--ink-soft);margin:0 0 14px;}
+
+  /* ---- Hero: 今日目標＋整合圖表 ---- */
+  .hero{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px 22px 20px;box-shadow:var(--shadow);margin-bottom:20px;
+  }
+  .hero-info .label{font-size:12px;color:var(--ink-soft);margin-bottom:10px;}
+  .hero-info .label b{color:var(--ink);font-weight:700;}
+  .hero-divider{height:1px;background:var(--line);margin:18px 0 14px;}
+  .hero-logs-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;}
+  .hero-logs-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
+  .hero-logs-count{font-size:11.5px;color:var(--ink-soft);font-family:var(--font-num);}
+  .hero-logs .empty{padding:14px 0;}
+  .goal-edit{
+    font-family:var(--font-num);font-size:15px;border:1px solid var(--line);background:var(--paper);
+    border-radius:8px;padding:3px 8px;width:64px;
+  }
+
+  /* 四項營養素整合成一個長條圖 */
+  .chart-bars{display:flex;flex-direction:column;gap:10px;}
+  .cbar-row{display:grid;grid-template-columns:40px 1fr 84px;align-items:center;gap:8px;}
+  .cbar-label{font-size:12px;color:var(--ink-soft);font-weight:700;}
+  .cbar-track{height:9px;border-radius:999px;background:var(--paper);border:1px solid var(--line);overflow:hidden;}
+  .cbar-fill{height:100%;border-radius:999px;transition:width .3s ease;}
+  .cbar-fill.protein{background:var(--protein);}
+  .cbar-fill.fat{background:var(--fat);}
+  .cbar-fill.sugar{background:var(--carb);}
+  .cbar-fill.cal{background:var(--cal);}
+  .cbar-val{font-family:var(--font-num);font-size:11.5px;color:var(--ink);text-align:right;white-space:nowrap;}
+  .cbar-val small{color:var(--ink-soft);font-family:var(--font-body);}
+  @media (max-width:420px){
+    .cbar-row{grid-template-columns:34px 1fr 70px;gap:6px;}
+    .cbar-label{font-size:11px;}
+    .cbar-val{font-size:10.5px;}
+  }
+
+  /* ---- Section ---- */
+  .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
+  .section-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;user-select:none;}
+  .section-head h2{font-family:var(--font-display);font-size:16px;margin:0;font-weight:700;}
+  .section-head .chev{transition:transform .2s;color:var(--ink-soft);font-size:12px;}
+  .section.collapsed .chev{transform:rotate(-90deg);}
+  .section-body{padding:0 18px 18px;}
+  .section.collapsed .section-body{display:none;}
+  .hint{font-size:12px;color:var(--ink-soft);margin:0 0 12px;}
+
+  /* ---- Manual add ---- */
+  .row{display:flex;gap:8px;flex-wrap:wrap;}
+  .field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:80px;}
+  .field label{font-size:11px;color:var(--ink-soft);}
+  input[type=text], input[type=number]{
+    font-family:var(--font-body);font-size:14px;padding:9px 10px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:var(--paper);color:var(--ink);width:100%;
+  }
+  input:focus{outline:2px solid var(--protein);outline-offset:1px;}
+  select{
+    font-family:var(--font-body);font-size:14px;padding:9px 10px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:var(--paper);color:var(--ink);width:100%;
+  }
+  select:focus{outline:2px solid var(--protein);outline-offset:1px;}
+  .field.field-unit{max-width:96px;}
+  .base-unit-row{display:flex;gap:8px;}
+  .base-unit-row .field{min-width:0;}
+  .base-unit-row .field-base{flex:1.2;}
+  .base-unit-row .field-unit{flex:1;}
+  .nutrition-calc-box{
+    margin:10px 0 14px;padding:12px;border:1px dashed var(--carb);border-radius:var(--radius-sm);background:var(--carb-tint);
+  }
+  .nutrition-calc-box .hint{margin:0 0 10px;}
+  .btn{
+    font-family:var(--font-body);font-weight:700;font-size:13.5px;border:none;border-radius:999px;
+    padding:10px 18px;cursor:pointer;transition:transform .08s, opacity .15s;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--protein-dark);color:#fff;}
+  .btn-primary:hover{opacity:0.9;}
+  .btn-ghost{background:var(--paper);border:1px solid var(--line);color:var(--ink);}
+  .btn-ghost:hover{background:var(--protein-tint);}
+  .btn-danger{background:transparent;color:var(--danger);border:1px solid transparent;padding:4px 8px;font-weight:500;font-size:12px;}
+  .btn-danger:hover{text-decoration:underline;}
+  .btn-row{margin-top:12px;display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;}
+  .toggle-manual{font-size:12px;color:var(--protein-dark);cursor:pointer;text-decoration:underline;margin-top:8px;display:inline-block;}
+
+  /* ---- Food picker ---- */
+  .search-wrap{position:relative;margin-bottom:10px;}
+  /* 方形格子：手機上不用一直下拉，一眼就能看到、點好幾樣 */
+  .food-list{
+    display:grid;grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
+    gap:8px;max-height:360px;overflow:auto;align-content:start;
+  }
+  .food-chip{
+    position:relative;border:1px solid var(--line);border-radius:var(--radius-sm);
+    aspect-ratio:1/1;padding:8px 6px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    gap:2px;cursor:pointer;background:var(--paper);
+  }
+  .food-chip:hover{border-color:var(--protein);}
+  .food-chip .fname{
+    font-weight:700;font-size:12.5px;line-height:1.28;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .food-chip .fmacro{font-size:10px;color:var(--ink-soft);font-family:var(--font-num);}
+  .food-chip.selected{background:var(--protein-tint);border-color:var(--protein);}
+  .food-chip.selected::after{
+    content:'✓';position:absolute;top:4px;right:6px;width:16px;height:16px;border-radius:50%;
+    background:var(--protein-dark);color:#fff;font-size:10px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  @media (max-width:420px){
+    .food-list{grid-template-columns:repeat(auto-fill, minmax(70px, 1fr));gap:6px;}
+    .food-chip .fname{font-size:11.5px;}
+  }
+  .food-detail{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
+  .food-detail .preview{font-family:var(--font-num);font-size:13px;margin-top:8px;color:var(--protein-dark);}
+  .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:18px 0;}
+
+  /* ---- Batch add (新增這一餐：一次選多樣) ---- */
+  .batch-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .batch-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .batch-row .field{flex:1;min-width:0;}
+  .batch-row .field label{font-weight:700;color:var(--ink);font-size:12.5px;}
+  .batch-row .qty-wrap{display:flex;align-items:center;gap:6px;}
+  .batch-row .qty-wrap input{width:100%;}
+  .batch-row .qty-unit{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;flex:none;}
+  .batch-row .preview{margin:0;white-space:nowrap;font-size:12px;}
+  .batch-row .btn-danger{flex-shrink:0;}
+
+  /* ---- Food library table ---- */
+  .food-table-wrap{overflow-x:auto;}
+  .food-row{
+    display:grid;
+    grid-template-columns:minmax(120px,1.6fr) 58px 54px 54px 54px 66px 112px;
+    gap:7px;
+    align-items:center;
+    min-width:565px;
+    padding:9px 0;
+    border-bottom:1px solid var(--line);
+    font-size:13px;
+  }
+  .food-row:last-child{border-bottom:none;}
+  .food-row.head{color:var(--ink-soft);font-size:11px;font-weight:500;}
+  .food-row.head > span[data-sort]{cursor:pointer;user-select:none;}
+  .food-row.head > span[data-sort]:hover{color:var(--protein-dark);}
+  .food-row.head > span.sort-active{color:var(--protein-dark);font-weight:700;}
+  .food-row > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .food-row > span.num{font-family:var(--font-num);text-align:right;}
+  .food-row .fcat{
+    font-style:normal;font-size:10px;font-weight:500;color:var(--protein-dark);background:var(--protein-tint);
+    border-radius:999px;padding:2px 7px;margin-left:5px;white-space:nowrap;
+  }
+  .food-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap;}
+
+  /* ---- Food library table：手機版改成卡片式，跟網頁版共用同一套標記與互動邏輯 ---- */
+  @media (max-width:640px){
+    .food-table-wrap{overflow-x:visible;}
+    .food-row.head{display:none;}
+    .food-row{
+      display:flex;flex-wrap:wrap;align-items:center;
+      min-width:0;gap:4px 10px;padding:11px 0;
     }
-  } catch (err) {
-    result = { error: String(err) };
-  }
-  return jsonResponse(result);
-}
-
-function jsonResponse(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-// ---------- sheet + header helpers ----------
-
-function getFoodsSheet() { return getSheet(FOODS_SHEET_NAME, FOODS_HEADERS); }
-function getLogsSheet() { return getSheet(LOGS_SHEET_NAME, LOGS_HEADERS); }
-
-// 這些欄位一定要用「純文字」格式儲存，否則 Google 試算表會自動把
-// "2026-08-13" 這種字串認成日期物件，讀回來的時候前端拿字串比對
-// (l.date === state.currentDate) 就永遠對不上，紀錄因此「連了試算表反而不見」。
-var TEXT_FORMAT_COLUMNS = ['date', 'time'];
-
-function getSheet(name, headers) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    forceTextFormatColumns(sheet, headers);
-    return sheet;
-  }
-  ensureHeaders(sheet, headers);
-  forceTextFormatColumns(sheet, headers);
-  return sheet;
-}
-
-// 把 date / time 欄位整欄設成純文字格式，避免 Google 試算表自動轉型成日期。
-function forceTextFormatColumns(sheet, headers) {
-  var map = headerIndexMap(sheet);
-  var maxRows = Math.max(sheet.getMaxRows(), 1000);
-  TEXT_FORMAT_COLUMNS.forEach(function (h) {
-    if (headers.indexOf(h) === -1) return; // 這張表沒有這個欄位
-    if (!map.hasOwnProperty(h)) return;
-    sheet.getRange(1, map[h] + 1, maxRows, 1).setNumberFormat('@');
-  });
-}
-
-function ensureHeaders(sheet, headers) {
-  var lastCol = Math.max(sheet.getLastColumn(), 1);
-  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  if (!headerRow[0]) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    return;
+    .food-row > span{overflow:visible;white-space:normal;text-overflow:clip;flex:none;}
+    .food-row > span.fname{
+      flex:1 1 100%;order:-2;font-weight:700;font-size:14px;color:var(--ink);
+      display:flex;align-items:center;flex-wrap:wrap;
+    }
+    .food-actions{flex:1 1 100%;order:-1;justify-content:flex-start;margin:2px 0 2px;}
+    .food-row > span.num{
+      text-align:left;font-family:var(--font-num);font-size:12px;color:var(--ink);
+      background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:3px 8px;
+    }
+    .food-row > span.num::before{content:attr(data-label) '：';color:var(--ink-soft);font-family:var(--font-body);}
   }
 
-  // Step 1：把舊欄位（例如 carb100 / carb）合併或改名成新欄位（sugar100 / sugar）
-  Object.keys(HEADER_RENAME_MAP).forEach(function (oldName) {
-    var newName = HEADER_RENAME_MAP[oldName];
-    if (headers.indexOf(newName) === -1) return; // 這張表本來就不需要這個新欄位
-    mergeLegacyColumn(sheet, oldName, newName);
-  });
+  /* ---- Log list ---- */
+  .log-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .log-item:last-child{border-bottom:none;padding-bottom:0;}
+  .log-dot{width:8px;height:8px;min-width:8px;border-radius:50%;flex:none;}
+  .log-dot.dot-protein{background:var(--protein);}
+  .log-dot.dot-fat{background:var(--fat);}
+  .log-dot.dot-sugar{background:var(--carb);}
+  .log-time{font-family:var(--font-num);font-size:12px;color:var(--ink-soft);width:40px;flex:none;}
+  .log-main{flex:1;min-width:0;}
+  .log-main .name{font-size:13.5px;font-weight:700;}
+  .log-main .sub{font-size:11px;color:var(--ink-soft);}
+  .log-macros{display:flex;gap:8px;font-family:var(--font-num);font-size:12px;flex:none;}
+  .log-macros .p{color:var(--protein-dark);}
+  .log-macros .f{color:var(--fat);}
+  .log-macros .s{color:var(--carb);}
+  .log-macros .k{color:var(--cal);}
 
-  // Step 2：重新讀一次目前欄位（上面可能已經改動過欄位數），再補上真的還缺少的欄位
-  lastCol = sheet.getLastColumn();
-  headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  headers.forEach(function (h) {
-    if (headerRow.indexOf(h) === -1) {
-      var newCol = sheet.getLastColumn() + 1;
-      sheet.getRange(1, newCol).setValue(h);
-      headerRow.push(h);
+  /* ---- Category chips (取代下拉選單，展開即點即切) ---- */
+  .chip-scroll{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{
+    font-family:var(--font-body);font-size:12.5px;font-weight:700;padding:7px 13px;
+    border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    cursor:pointer;white-space:nowrap;line-height:1.2;
+  }
+  .chip:hover{border-color:var(--protein);}
+  .chip.active{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
+  .chip.chip-add{border-style:dashed;color:var(--protein-dark);background:transparent;}
+  .chip-field-label{font-size:11px;color:var(--ink-soft);margin:0 0 6px;}
+  .chip-new-row{display:flex;gap:6px;margin-top:8px;}
+  .chip-new-row input{flex:1;}
+
+  /* ---- List toolbar：把一堆散落的「編輯/刪除」按鈕收成兩顆總開關 ---- */
+  .list-toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;}
+  .tool-btn{
+    font-family:var(--font-body);font-weight:700;font-size:12.5px;padding:7px 14px;border-radius:999px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;
+  }
+  .tool-btn:hover{background:var(--protein-tint);}
+  .tool-btn.on.mode-edit{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
+  .tool-btn.on.mode-delete{background:var(--danger);border-color:var(--danger);color:#fff;}
+
+  .select-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--protein-tint);border:1px solid var(--protein);border-radius:var(--radius-sm);
+    padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--protein-dark);font-weight:700;
+  }
+  .select-bar .select-actions{display:flex;gap:8px;}
+  .select-bar .btn-mini{
+    font-family:var(--font-body);font-weight:700;font-size:12px;padding:6px 12px;border-radius:999px;
+    border:none;cursor:pointer;
+  }
+  .select-bar .btn-mini.confirm{background:var(--danger);color:#fff;}
+  .select-bar .btn-mini.cancel{background:transparent;color:var(--ink-soft);text-decoration:underline;}
+  .select-hint{font-size:11.5px;margin:0 0 8px;color:var(--protein-dark);}
+
+  .row-check{
+    flex:none;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--card);
+  }
+  .row-check input{margin:0;width:16px;height:16px;accent-color:var(--protein-dark);cursor:pointer;}
+
+  .selectable-row{cursor:pointer;}
+  .selectable-row:hover{background:var(--protein-tint);}
+  .selectable-row.picked{background:var(--protein-tint);}
+
+  /* ---- Settings ---- */
+  .settings-note{font-size:12px;color:var(--ink-soft);line-height:1.6;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
+  .status-msg{font-size:12px;margin-top:8px;min-height:16px;}
+  .status-msg.ok{color:var(--protein-dark);}
+  .status-msg.err{color:var(--danger);}
+
+  footer{text-align:center;color:var(--ink-soft);font-size:11px;margin-top:24px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="app-header">
+    <div class="brand">
+      <h1>蛋白質日記</h1>
+      <p>紀錄每一餐，看見蛋白質的累積</p>
+    </div>
+    <div class="sync-dot" id="syncDot" title="點擊查看同步設定"><span class="dot"></span><span id="syncLabel">本機儲存</span></div>
+  </div>
+
+  <div class="date-nav">
+    <button id="prevDay" aria-label="前一天">‹</button>
+    <div class="date-label" id="dateLabel">今天<small id="dateSub"></small></div>
+    <button id="nextDay" aria-label="後一天">›</button>
+  </div>
+
+  <div class="profile-tabs" id="profileTabs"></div>
+  <p class="profile-hint">切換身份會需要再次確認，避免不小心紀錄到對方的餐點。</p>
+
+  <div class="hero">
+    <div class="hero-info">
+      <div class="label">今日目標 · <b id="profileDesc"></b></div>
+      <div class="chart-bars" id="chartBars"></div>
+    </div>
+
+    <div class="hero-divider"></div>
+
+    <div class="hero-logs">
+      <div class="hero-logs-head">
+        <span class="hero-logs-title">今日紀錄</span>
+        <span class="hero-logs-count" id="logCount"></span>
+      </div>
+      <p class="hint" style="margin:0 0 8px;">按住左側 <b>⠿</b> 可以拖移調整順序；想刪除的話，先按下面「刪除」再勾選。</p>
+      <div class="list-toolbar">
+        <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
+      </div>
+      <div class="select-bar" id="logSelectBar" style="display:none;">
+        <span id="logSelectCount">已選 0 筆</span>
+        <span class="select-actions">
+          <button type="button" class="btn-mini cancel" id="logSelectCancel">取消</button>
+          <button type="button" class="btn-mini confirm" id="logSelectConfirm">刪除選取</button>
+        </span>
+      </div>
+      <div id="logList"></div>
+    </div>
+
+    <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
+    <div id="goalsBox" style="display:none;margin-top:12px;">
+      <div class="row">
+        <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
+        <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
+        <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
+      </div>
+      <div class="btn-row" style="justify-content:space-between;">
+        <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
+        <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快速紀錄 -->
+  <div class="section" id="secAdd">
+    <div class="section-head" data-toggle="secAdd">
+      <h2>新增這一餐</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="section-body">
+      <p class="hint">從食材庫挑選並輸入數量（克數、顆數、盒數…依食材單位而定），或手動輸入蛋白質、脂肪與糖（Sugar）。</p>
+
+      <div class="search-wrap">
+        <input type="text" id="foodSearch" placeholder="搜尋食材，例如：雞胸肉">
+      </div>
+      <p class="chip-field-label">類別</p>
+      <div class="chip-scroll" id="pickerCategoryChips" style="margin-bottom:10px;"></div>
+      <div class="food-list" id="pickerList"></div>
+      <div class="food-detail" id="pickerDetail" style="display:none;">
+        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，填好數量（依各食材單位而定）後按下面按鈕一次送出。</p>
+        <div id="batchList"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
+        </div>
+      </div>
+
+      <div class="toggle-manual" id="toggleManual">或直接手動輸入這餐的蛋白質量 ＋</div>
+      <div id="manualBox" style="display:none;margin-top:12px;">
+        <div class="row">
+          <div class="field">
+            <label>名稱（選填）</label>
+            <input type="text" id="manualName" placeholder="例如：外食便當">
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field">
+            <label>蛋白質 (g)</label>
+            <input type="number" id="manualProtein" min="0" step="0.1">
+          </div>
+          <div class="field">
+            <label>脂肪 (g，選填)</label>
+            <input type="number" id="manualFat" min="0" step="0.1">
+          </div>
+          <div class="field">
+            <label>糖（Sugar）(g，選填)</label>
+            <input type="number" id="manualSugar" min="0" step="0.1">
+          </div>
+          <div class="field">
+            <label>熱量 (kcal，選填)</label>
+            <input type="number" id="manualCal" min="0" step="1">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 食材庫 -->
+  <div class="section collapsed" id="secFoods">
+    <div class="section-head" data-toggle="secFoods">
+      <h2>食材庫管理</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="section-body">
+      <p class="hint">輸入某個「基準數量＋單位」下食材對應的蛋白質／脂肪／糖（Sugar）／熱量，之後就能依實際攝取的數量自動換算。單位不一定要是公克，像雞蛋可以用「顆」、豆腐可以用「盒」，就不用每次秤重。</p>
+      <div class="row">
+        <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉 / 水煮蛋 / 嫩豆腐"></div>
+      </div>
+      <div class="base-unit-row" style="margin-top:8px;">
+        <div class="field field-base"><label>基準數量</label><input type="number" id="fBase" value="100" min="0.01" step="any"></div>
+        <div class="field field-unit">
+          <label>單位</label>
+          <input type="text" id="fUnit" value="g" list="unitSuggestions" placeholder="g">
+          <datalist id="unitSuggestions">
+            <option value="g"></option>
+            <option value="ml"></option>
+            <option value="顆"></option>
+            <option value="盒"></option>
+            <option value="碗"></option>
+            <option value="份"></option>
+            <option value="片"></option>
+            <option value="匙"></option>
+          </datalist>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:8px;">
+        <label>類別（選填）</label>
+        <div class="chip-scroll" id="fCategoryChips"></div>
+        <div class="chip-new-row" id="fCategoryNewRow" style="display:none;">
+          <input type="text" id="fCategoryNewInput" placeholder="輸入新類別名稱，例如：肉類">
+          <button type="button" class="btn btn-ghost" id="fCategoryNewConfirm">加入</button>
+        </div>
+        <input type="hidden" id="fCategory" value="">
+      </div>
+
+      <div class="toggle-manual" id="toggleNutritionCalc">用「每份 × 總份數」自動換算 ＋</div>
+      <div class="nutrition-calc-box" id="nutritionCalcBox" style="display:none;">
+        <p class="hint">直接抄營養標示上「每份」的蛋白質／脂肪／糖／熱量，再填「本包裝含幾份」，按下面按鈕就會自動乘出整包（這個單位）的總量並套用到下方欄位。例如標示寫每份蛋白質 8g、本包裝含 4 份，這裡份數就填 4，算出來整盒就是 32g。</p>
+        <div class="row">
+          <div class="field"><label>每份 蛋白質 (g)</label><input type="number" id="nPerServeProtein" min="0" step="0.1"></div>
+          <div class="field"><label>每份 脂肪 (g)</label><input type="number" id="nPerServeFat" min="0" step="0.1"></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>每份 糖（Sugar）(g)</label><input type="number" id="nPerServeSugar" min="0" step="0.1"></div>
+          <div class="field"><label>每份 熱量 (kcal，選填)</label><input type="number" id="nPerServeCal" min="0" step="1"></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>本包裝含幾份（總份數）</label><input type="number" id="nServings" min="0.01" step="any" placeholder="例如 4"></div>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" id="nCalcApplyBtn">換算並套用到上方（每份 × 份數）</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <div class="field"><label>蛋白質 (g)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
+        <div class="field"><label>脂肪 (g)</label><input type="number" id="fFat" min="0" step="0.1"></div>
+        <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
+        <div class="field"><label>熱量 (kcal)</label><input type="number" id="fCal" min="0" step="1"></div>
+      </div>
+      <div class="btn-row" style="justify-content:space-between;">
+        <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/糖（Sugar）估算熱量</span>
+        <span>
+          <button class="btn btn-ghost" id="fClearBtn" style="margin-right:8px;">清空表單</button>
+          <button class="btn btn-primary" id="fSaveBtn">新增食材</button>
+        </span>
+      </div>
+
+      <p class="chip-field-label" style="margin-top:18px;">依類別篩選</p>
+      <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
+      <p class="hint" style="margin:6px 0 0;">點欄位標題可依該項排序，再點一次切換高低。</p>
+
+      <div class="list-toolbar" style="margin-top:14px;">
+        <button type="button" class="tool-btn" id="foodEditToggle">編輯</button>
+        <button type="button" class="tool-btn" id="foodDeleteToggle">刪除</button>
+      </div>
+      <p class="select-hint" id="foodEditHint" style="display:none;">點選要編輯的食材（一次一項）</p>
+      <div class="select-bar" id="foodSelectBar" style="display:none;">
+        <span id="foodSelectCount">已選 0 項</span>
+        <span class="select-actions">
+          <button type="button" class="btn-mini cancel" id="foodSelectCancel">取消</button>
+          <button type="button" class="btn-mini confirm" id="foodSelectConfirm">刪除選取</button>
+        </span>
+      </div>
+
+      <div class="food-table-wrap" style="margin-top:10px;">
+        <div class="food-row head" id="foodTableHead">
+          <span data-sort="name">名稱</span><span data-sort="base">基準</span><span data-sort="protein">蛋白</span><span data-sort="fat">脂肪</span><span data-sort="sugar">糖</span><span data-sort="cal">熱量</span><span></span>
+        </div>
+        <div id="foodTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 設定 -->
+  <div class="section collapsed" id="secSettings">
+    <div class="section-head" data-toggle="secSettings">
+      <h2>資料同步設定（Google 試算表）</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="section-body">
+      <p class="hint">貼上你部署好的 Apps Script 網頁應用程式網址，即可把食材庫與紀錄同步到 Google 試算表。留空則只儲存在本機。</p>
+      <div class="row">
+        <div class="field">
+          <label>Web App URL</label>
+          <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/xxxx/exec">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="sheetClearBtn" style="margin-right:8px;">清除連結</button>
+        <button class="btn btn-primary" id="sheetSaveBtn">儲存並連線</button>
+      </div>
+      <div class="status-msg" id="sheetStatus"></div>
+      <div class="settings-note">
+        設定方式：<br>
+        1. 建立一份 Google 試算表 → 上方選單「擴充功能」→「Apps Script」。<br>
+        2. 貼上提供的 Code.gs 程式碼並儲存。<br>
+        3. 右上角「部署」→「新增部署作業」→ 類型選「網頁應用程式」，執行身分「我」，誰能存取「任何人」。<br>
+        4. 複製部署後的網址，貼到上方欄位並儲存。
+      </div>
+    </div>
+  </div>
+
+  <footer>資料一律先存在此裝置，操作不會卡著等試算表；設定 Google 試算表網址後會在背景同步、雙邊合併，不會互相蓋掉。</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzGD7QiTqm9KtJckFPZqwcAWlkJICHpQXPhZqZ67wQZyeH_obR0jlj-1bO9hYpbFsYU/exec";
+
+  var PROFILES = {
+    A: {
+      key: 'A', name: 'A', desc: '150cm・43kg・無運動習慣',
+      goals: { protein: 35, fat: 35, sugar: 31, cal: 1250 }
+    },
+    B: {
+      key: 'B', name: 'B', desc: '178cm・68kg・慢跑＋重訓',
+      goals: { protein: 95, fat: 66, sugar: 60, cal: 2390 }
     }
-  });
-}
+  };
+  var PROFILE_ORDER = ['A', 'B'];
 
-/**
- * 把「舊欄位」(oldName) 的資料合併進「新欄位」(newName)：
- * - 兩欄都存在：新欄位是空白的儲存格，就用舊欄位的值補上，然後把舊欄位整欄刪除。
- * - 只有舊欄位存在：直接把該欄標題改成新名稱，資料原地保留（最安全、也不用搬資料）。
- * - 只有新欄位或兩者都沒有：不用處理。
- */
-function mergeLegacyColumn(sheet, oldName, newName) {
-  var lastCol = sheet.getLastColumn();
-  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  var oldIdx = headerRow.indexOf(oldName);
-  var newIdx = headerRow.indexOf(newName);
+  // 食材類別不預先產生任何選項——類別清單完全來自使用者實際新增過的食材，
+  // 有新增食材時填了什麼類別，之後篩選/切頁的清單裡才會出現對應的類別。
 
-  if (oldIdx === -1) return; // 沒有舊欄位，不用處理
+  // ---------- state ----------
+  var state = {
+    foods: [],
+    logs: [],
+    settings: { sheetUrl: "", profile: 'A', goals: null },
+    selectedFoodId: null,
+    editingFoodId: null,
+    fCategorySelected: '', // 新增/編輯食材表單目前選取的類別
+    batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams}]
+    currentDate: fmtDate(new Date()),
+    foodSort: { key: 'name', dir: 'asc' }, // 食材庫管理表格排序方式
+    foodCategoryFilter: '', // 食材庫管理表格的類別篩選
+    pickerCategoryFilter: '', // 「新增這一餐」挑選食材時的類別篩選
 
-  if (newIdx === -1) {
-    sheet.getRange(1, oldIdx + 1).setValue(newName);
-    return;
+    // 食材庫管理：一個「編輯」開關、一個「刪除」開關，取代每列各自的按鈕
+    foodMode: '', // '' | 'edit' | 'delete'
+    foodDeleteSelected: [], // 刪除模式下已勾選的食材 id
+
+    // 今日紀錄：單一「刪除」開關（取代每列各自的刪除鈕）
+    logDeleteMode: false,
+    logDeleteSelected: [] // 刪除模式下已勾選的紀錄 id
+  };
+
+  function defaultGoalsSet(){
+    var g = {};
+    PROFILE_ORDER.forEach(function(k){ g[k] = Object.assign({}, PROFILES[k].goals); });
+    return g;
+  }
+  function activeProfile(){
+    return (state.settings.profile && PROFILES[state.settings.profile]) ? state.settings.profile : 'A';
+  }
+  function currentGoals(){
+    var p = activeProfile();
+    if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
+    if (!state.settings.goals[p]) state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
+    return state.settings.goals[p];
   }
 
-  var lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    var oldVals = sheet.getRange(2, oldIdx + 1, lastRow - 1, 1).getValues();
-    var newVals = sheet.getRange(2, newIdx + 1, lastRow - 1, 1).getValues();
-    var changed = false;
-    for (var i = 0; i < newVals.length; i++) {
-      var newEmpty = (newVals[i][0] === '' || newVals[i][0] === null || newVals[i][0] === undefined);
-      var oldHasVal = !(oldVals[i][0] === '' || oldVals[i][0] === null || oldVals[i][0] === undefined);
-      if (newEmpty && oldHasVal) {
-        newVals[i][0] = oldVals[i][0];
-        changed = true;
-      }
-    }
-    if (changed) {
-      sheet.getRange(2, newIdx + 1, newVals.length, 1).setValues(newVals);
-    }
+  // ---------- helpers ----------
+  function fmtDate(d){
+    var y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
   }
-  sheet.deleteColumn(oldIdx + 1);
-}
-
-function headerIndexMap(sheet) {
-  var lastCol = sheet.getLastColumn();
-  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  var map = {};
-  headerRow.forEach(function (h, i) { if (h) map[h] = i; });
-  return map;
-}
-
-// 寫入一列新資料。若某欄位在試算表裡還找不到對應欄位，會自動新增該欄再寫入，
-// 不會再像以前一樣默默把資料丟掉（這是熱量偶爾沒同步進試算表的根本原因）。
-function appendRowByHeader(sheet, headers, valuesObj) {
-  var map = headerIndexMap(sheet);
-  headers.forEach(function (h) {
-    if (!map.hasOwnProperty(h) && valuesObj.hasOwnProperty(h)) {
-      var newCol = sheet.getLastColumn() + 1;
-      sheet.getRange(1, newCol).setValue(h);
-      map[h] = newCol - 1;
-    }
-  });
-  var lastCol = Math.max(sheet.getLastColumn(), headers.length);
-  var row = new Array(lastCol).fill('');
-  headers.forEach(function (h) {
-    if (map.hasOwnProperty(h) && valuesObj.hasOwnProperty(h)) {
-      row[map[h]] = valuesObj[h];
-    }
-  });
-  sheet.appendRow(row);
-}
-
-// ---------- read ----------
-
-function getData() {
-  return { foods: readFoods(), logs: readLogs() };
-}
-
-function readFoods() {
-  var sheet = getFoodsSheet();
-  var map = headerIndexMap(sheet);
-  var rows = sheet.getDataRange().getValues();
-  var foods = [];
-  for (var i = 1; i < rows.length; i++) {
-    var r = rows[i];
-    if (!r[map['id']]) continue;
-    foods.push({
-      id: r[map['id']],
-      name: r[map['name']],
-      base: Number(r[map['base']]) || 100,
-      unit: (map.hasOwnProperty('unit') && r[map['unit']]) ? String(r[map['unit']]) : 'g',
-      category: (map.hasOwnProperty('category') && r[map['category']]) ? String(r[map['category']]) : '',
-      protein100: Number(r[map['protein100']]) || 0,
-      fat100: Number(r[map['fat100']]) || 0,
-      sugar100: Number(r[map['sugar100']]) || 0,
-      cal100: Number(r[map['cal100']]) || 0
+  function todayStr(){ return fmtDate(new Date()); }
+  function nowTime(){
+    var d=new Date();
+    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  function uid(prefix){ return prefix+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+  function round1(n){ return Math.round((Number(n)||0)*10)/10; }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
-  return foods;
-}
 
-// 如果儲存格已經被 Google 試算表誤判成日期/時間物件（例如修復這個 bug 之前
-// 就已經寫入的舊資料），讀取時就地轉回純文字字串，前端比對日期才會正常。
-function formatDateCell(v, tz) {
-  if (Object.prototype.toString.call(v) === '[object Date]') {
-    return Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+  function hasClaudeStorage(){
+    return (typeof window !== 'undefined') && window.storage && typeof window.storage.get === 'function';
   }
-  return v;
-}
-function formatTimeCell(v, tz) {
-  if (Object.prototype.toString.call(v) === '[object Date]') {
-    return Utilities.formatDate(v, tz, 'HH:mm');
-  }
-  return v;
-}
-
-function readLogs() {
-  var sheet = getLogsSheet();
-  var map = headerIndexMap(sheet);
-  var rows = sheet.getDataRange().getValues();
-  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
-  var logs = [];
-  for (var i = 1; i < rows.length; i++) {
-    var r = rows[i];
-    if (!r[map['id']]) continue;
-    var gramsRaw = r[map['grams']];
-    var orderRaw = map.hasOwnProperty('order') ? r[map['order']] : '';
-    var logObj = {
-      id: r[map['id']],
-      person: r[map['person']] || 'A',
-      date: formatDateCell(r[map['date']], tz),
-      time: formatTimeCell(r[map['time']], tz),
-      type: r[map['type']],
-      foodId: r[map['foodId']] || null,
-      foodName: r[map['foodName']] || '',
-      grams: (gramsRaw === '' || gramsRaw === undefined) ? null : Number(gramsRaw),
-      unit: (map.hasOwnProperty('unit') && r[map['unit']]) ? String(r[map['unit']]) : 'g',
-      protein: Number(r[map['protein']]) || 0,
-      fat: Number(r[map['fat']]) || 0,
-      sugar: Number(r[map['sugar']]) || 0,
-      cal: Number(r[map['cal']]) || 0
-    };
-    // order 欄位若是空的（例如舊資料、還沒被拖移過），刻意不帶這個屬性，
-    // 讓前端自己用時間排序當作預設順序，而不是把每筆都塞一個 0 造成排序錯亂。
-    if (orderRaw !== '' && orderRaw !== undefined && orderRaw !== null && !isNaN(Number(orderRaw))) {
-      logObj.order = Number(orderRaw);
+  async function storeGetRaw(key){
+    if (hasClaudeStorage()){
+      try{ var r = await window.storage.get(key); return r ? r.value : null; }catch(e){ return null; }
     }
-    logs.push(logObj);
+    try{ return window.localStorage.getItem(key); }catch(e){ return null; }
   }
-  return logs;
-}
+  async function storeSetRaw(key, value){
+    if (hasClaudeStorage()){
+      try{ await window.storage.set(key, value); return; }catch(e){}
+    }
+    try{ window.localStorage.setItem(key, value); }catch(e){}
+  }
 
-// ---------- write ----------
-
-function addFood(payload) {
-  var sheet = getFoodsSheet();
-  var id = payload.id || ('f_' + new Date().getTime());
-  var sugarVal = payload.sugar100 !== undefined ? payload.sugar100 : payload.carb100;
-  appendRowByHeader(sheet, FOODS_HEADERS, {
-    id: id,
-    name: payload.name || '',
-    base: Number(payload.base) || 100,
-    unit: payload.unit ? String(payload.unit) : 'g',
-    category: payload.category ? String(payload.category) : '',
-    protein100: Number(payload.protein100) || 0,
-    fat100: Number(payload.fat100) || 0,
-    sugar100: Number(sugarVal) || 0,
-    cal100: Number(payload.cal100) || 0
-  });
-  SpreadsheetApp.flush();
-  return { success: true, id: id };
-}
-
-function updateFood(payload) {
-  var sheet = getFoodsSheet();
-  var map = headerIndexMap(sheet);
-  var data = sheet.getDataRange().getValues();
-  var sugarVal = payload.sugar100 !== undefined ? payload.sugar100 : payload.carb100;
-
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][map['id']] === payload.id) {
-      var rowNum = i + 1;
-      sheet.getRange(rowNum, map['name'] + 1).setValue(payload.name || '');
-      sheet.getRange(rowNum, map['base'] + 1).setValue(Number(payload.base) || 100);
-      if (!map.hasOwnProperty('unit')) {
-        var newUnitCol = sheet.getLastColumn() + 1;
-        sheet.getRange(1, newUnitCol).setValue('unit');
-        map['unit'] = newUnitCol - 1;
+  // ---------- storage ----------
+  async function loadLocal(){
+    try{
+      var f = await storeGetRaw('foods');
+      state.foods = f ? JSON.parse(f) : [];
+    }catch(e){ state.foods = []; }
+    try{
+      var l = await storeGetRaw('logs');
+      state.logs = l ? JSON.parse(l) : [];
+    }catch(e){ state.logs = []; }
+    try{
+      var s = await storeGetRaw('settings');
+      if (s){
+        state.settings = JSON.parse(s);
+      } else {
+        state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() };
+        await storeSetRaw('settings', JSON.stringify(state.settings));
       }
-      sheet.getRange(rowNum, map['unit'] + 1).setValue(payload.unit ? String(payload.unit) : 'g');
-      if (!map.hasOwnProperty('category')) {
-        var newCatCol = sheet.getLastColumn() + 1;
-        sheet.getRange(1, newCatCol).setValue('category');
-        map['category'] = newCatCol - 1;
-      }
-      sheet.getRange(rowNum, map['category'] + 1).setValue(payload.category ? String(payload.category) : '');
-      sheet.getRange(rowNum, map['protein100'] + 1).setValue(Number(payload.protein100) || 0);
-      sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
-      sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);
-      sheet.getRange(rowNum, map['cal100'] + 1).setValue(Number(payload.cal100) || 0);
-      SpreadsheetApp.flush();
-      return { success: true };
-    }
-  }
-  return { error: 'food not found' };
-}
-
-function deleteFood(payload) {
-  var sheet = getFoodsSheet();
-  var map = headerIndexMap(sheet);
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][map['id']] === payload.id) {
-      sheet.deleteRow(i + 1);
-      SpreadsheetApp.flush();
-      return { success: true };
-    }
-  }
-  return { error: 'food not found' };
-}
-
-function addLog(payload) {
-  var sheet = getLogsSheet();
-  var id = 'l_' + new Date().getTime();
-  var sugarVal = payload.sugar !== undefined ? payload.sugar : payload.carb;
-  appendRowByHeader(sheet, LOGS_HEADERS, {
-    id: id,
-    person: payload.person || 'A',
-    date: payload.date,
-    time: payload.time,
-    type: payload.type,
-    foodId: payload.foodId || '',
-    foodName: payload.foodName || '',
-    grams: payload.grams == null ? '' : payload.grams,
-    unit: payload.unit ? String(payload.unit) : 'g',
-    protein: Number(payload.protein) || 0,
-    fat: Number(payload.fat) || 0,
-    sugar: Number(sugarVal) || 0,
-    cal: Number(payload.cal) || 0,
-    order: payload.order != null ? Number(payload.order) : ''
-  });
-  SpreadsheetApp.flush();
-  return { success: true, id: id };
-}
-
-// 局部更新一筆已存在的紀錄。目前主要用途是「今日紀錄」手動拖移排序後同步
-// order 欄位，但也支援一併更新其他欄位（例如未來若要編輯紀錄本身的數值），
-// 沒有帶到的欄位維持原值不動。
-function updateLog(payload) {
-  if (!payload || !payload.id) return { error: 'missing id' };
-  var sheet = getLogsSheet();
-  var map = headerIndexMap(sheet);
-  var data = sheet.getDataRange().getValues();
-  var sugarVal = payload.sugar !== undefined ? payload.sugar : payload.carb;
-
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][map['id']] === payload.id) {
-      var rowNum = i + 1;
-      if (payload.order !== undefined) {
-        if (!map.hasOwnProperty('order')) {
-          var newOrderCol = sheet.getLastColumn() + 1;
-          sheet.getRange(1, newOrderCol).setValue('order');
-          map['order'] = newOrderCol - 1;
+      if (typeof state.settings.sheetUrl !== 'string') state.settings.sheetUrl = "";
+      if (!state.settings.profile || !PROFILES[state.settings.profile]) state.settings.profile = 'A';
+      if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
+      PROFILE_ORDER.forEach(function(k){
+        if (!state.settings.goals[k]) state.settings.goals[k] = Object.assign({}, PROFILES[k].goals);
+        // 相容機制：若舊設定包含 carb，自動轉移至 sugar
+        if (state.settings.goals[k].carb !== undefined && state.settings.goals[k].sugar === undefined) {
+          state.settings.goals[k].sugar = state.settings.goals[k].carb;
+          delete state.settings.goals[k].carb;
         }
-        sheet.getRange(rowNum, map['order'] + 1).setValue(Number(payload.order) || 0);
+      });
+    }catch(e){ state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() }; }
+  }
+  async function saveLocalFoods(){ await storeSetRaw('foods', JSON.stringify(state.foods)); }
+  async function saveLocalLogs(){ await storeSetRaw('logs', JSON.stringify(state.logs)); }
+  async function saveLocalSettings(){ await storeSetRaw('settings', JSON.stringify(state.settings)); }
+
+  // ---------- Google Sheet sync ----------
+  function hasSheet(){ return !!(state.settings.sheetUrl && state.settings.sheetUrl.trim()); }
+
+  async function sheetGet(){
+    var url = state.settings.sheetUrl.trim() + (state.settings.sheetUrl.includes('?') ? '&' : '?') + 'action=getData';
+    var res = await fetch(url, { method:'GET' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+  async function sheetPost(action, payload){
+    var res = await fetch(state.settings.sheetUrl.trim(), {
+      method:'POST',
+      body: JSON.stringify({ action:action, payload:payload })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  // 用「合併」取代「整包覆蓋」：試算表資料為主，但任何本機已經有、
+  // 試算表裡還查不到的項目（通常是剛新增、背景同步還沒送達的資料）會被保留下來，
+  // 不會被背景抓回來的舊資料蓋掉而看起來像「憑空消失」。
+  function mergeById(remoteList, localList){
+    var map = {};
+    (remoteList||[]).forEach(function(x){ if (x && x.id) map[x.id] = x; });
+    (localList||[]).forEach(function(x){ if (x && x.id && !map.hasOwnProperty(x.id)) map[x.id] = x; });
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
+
+  async function refreshFromSheet(showStatus){
+    var dot = document.getElementById('syncDot');
+    var label = document.getElementById('syncLabel');
+    try{
+      var data = await sheetGet();
+      state.foods = mergeById(data.foods, state.foods);
+      state.logs = mergeById(data.logs, state.logs);
+      await saveLocalFoods();
+      await saveLocalLogs();
+      dot.className = 'sync-dot on';
+      label.textContent = '已連線試算表';
+      if (showStatus) setSheetStatus('連線成功，已載入試算表資料。', 'ok');
+      return true;
+    }catch(e){
+      dot.className = 'sync-dot err';
+      label.textContent = '同步失敗（本機模式）';
+      if (showStatus) setSheetStatus('連線失敗：' + e.message + '（將暫時使用本機資料）', 'err');
+      return false;
+    }
+  }
+
+  function setSheetStatus(msg, cls){
+    var el = document.getElementById('sheetStatus');
+    el.textContent = msg;
+    el.className = 'status-msg ' + (cls||'');
+  }
+
+  // ---------- rendering ----------
+  function computeMacros(food, grams){
+    var ratio = grams / (Number(food.base||food.baseGrams||100) || 100);
+    var pVal = food.protein100 !== undefined ? food.protein100 : food.protein;
+    var fVal = food.fat100 !== undefined ? food.fat100 : food.fat;
+    var sVal = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb));
+    var kVal = food.cal100 !== undefined ? food.cal100 : (food.cal||0);
+
+    return {
+      protein: round1(Number(pVal) * ratio),
+      fat: round1(Number(fVal) * ratio),
+      sugar: round1(Number(sVal) * ratio),
+      cal: round1(Number(kVal) * ratio)
+    };
+  }
+
+  function estimateCalories(protein, fat, sugar){
+    return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
+  }
+
+  // 今日紀錄依時間排序（拖移排序功能已移除）。
+  function logsForCurrentDate(){
+    var p = activeProfile();
+    var list = state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; });
+    list.sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
+    return list;
+  }
+
+  function renderDateNav(){
+    var isToday = state.currentDate === todayStr();
+    document.getElementById('dateLabel').innerHTML = (isToday ? '今天' : state.currentDate) +
+      '<small>' + state.currentDate + '</small>';
+  }
+
+  function renderHero(){
+    var logs = logsForCurrentDate();
+    var totals = logs.reduce(function(acc,l){
+      acc.protein += Number(l.protein)||0;
+      acc.fat += Number(l.fat)||0;
+      acc.sugar += Number(l.sugar !== undefined ? l.sugar : l.carb)||0;
+      acc.cal += Number(l.cal)||0;
+      return acc;
+    }, {protein:0, fat:0, sugar:0, cal:0});
+
+    var goals = currentGoals();
+
+    var active = document.activeElement ? document.activeElement.id : '';
+    if (active !== 'gProtein') document.getElementById('gProtein').value = goals.protein;
+    if (active !== 'gFat') document.getElementById('gFat').value = goals.fat;
+    if (active !== 'gSugar') document.getElementById('gSugar').value = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
+    if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
+
+    renderProfileTabs();
+    renderChartBars(totals, goals);
+  }
+
+  function renderProfileTabs(){
+    var p = activeProfile();
+    var el = document.getElementById('profileTabs');
+    el.innerHTML = PROFILE_ORDER.map(function(k){
+      var prof = PROFILES[k];
+      return '<button type="button" class="profile-tab' + (k===p?' active':'') + '" data-profile="' + k + '">' +
+        escapeHtml(prof.name) + '<em>' + escapeHtml(prof.desc) + '</em></button>';
+    }).join('');
+    document.getElementById('profileDesc').textContent = PROFILES[p].desc;
+  }
+
+  function renderChartBars(totals, goals){
+    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
+    var items = [
+      { cls:'protein', label:'蛋白質', amt: round1(totals.protein), goal: goals.protein, unit:'g' },
+      { cls:'fat', label:'脂肪', amt: round1(totals.fat), goal: goals.fat, unit:'g' },
+      { cls:'sugar', label:'糖', amt: round1(totals.sugar), goal: sugarGoal, unit:'g' },
+      { cls:'cal', label:'熱量', amt: Math.round(totals.cal), goal: goals.cal, unit:'kcal' }
+    ];
+    var el = document.getElementById('chartBars');
+    el.innerHTML = items.map(function(it){
+      var pct = it.goal > 0 ? Math.min(100, Math.round((it.amt/it.goal)*100)) : 0;
+      return '<div class="cbar-row">' +
+        '<div class="cbar-label">' + it.label + '</div>' +
+        '<div class="cbar-track"><div class="cbar-fill ' + it.cls + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="cbar-val">' + it.amt + '/' + it.goal + it.unit + ' <small>' + pct + '%</small></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // 依卡路里貢獻判斷這筆紀錄「主要吃了什麼」，回傳對應的圓點顏色 class，
+  // 讓使用者掃過清單就能直覺抓到每筆的營養素重心，不用逐筆看數字。
+  function dominantMacroClass(protein, fat, sugar){
+    var pCal = (Number(protein)||0) * 4;
+    var fCal = (Number(fat)||0) * 9;
+    var sCal = (Number(sugar)||0) * 4;
+    if (pCal >= fCal && pCal >= sCal) return 'dot-protein';
+    if (fCal >= pCal && fCal >= sCal) return 'dot-fat';
+    return 'dot-sugar';
+  }
+
+  function renderLogSelectBar(){
+    var toggle = document.getElementById('logDeleteToggle');
+    var bar = document.getElementById('logSelectBar');
+    var countEl = document.getElementById('logSelectCount');
+    toggle.classList.toggle('on', state.logDeleteMode);
+    toggle.classList.toggle('mode-delete', state.logDeleteMode);
+    toggle.textContent = state.logDeleteMode ? '取消刪除' : '刪除';
+    bar.style.display = state.logDeleteMode ? 'flex' : 'none';
+    countEl.textContent = '已選 ' + state.logDeleteSelected.length + ' 筆';
+  }
+
+  function renderLogList(){
+    var el = document.getElementById('logList');
+    var countEl = document.getElementById('logCount');
+    renderLogSelectBar();
+    var logs = logsForCurrentDate();
+    if (countEl) countEl.textContent = logs.length ? (logs.length + ' 筆') : '';
+    if (!logs.length){
+      el.innerHTML = '<div class="empty">這天還沒有紀錄，從下面「新增這一餐」開始吧。</div>';
+      return;
+    }
+    el.innerHTML = logs.map(function(l){
+      var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + (l.unit || 'g')) : '');
+      var sVal = l.sugar !== undefined ? l.sugar : (l.carb||0);
+      var dotCls = dominantMacroClass(l.protein, l.fat, sVal);
+      var checked = state.logDeleteSelected.indexOf(l.id) > -1;
+      var leftControl = state.logDeleteMode
+        ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span>'
+        : '';
+      return '<div class="log-item" data-log-id="' + escapeHtml(l.id) + '">' +
+        leftControl +
+        '<span class="log-dot ' + dotCls + '"></span>' +
+        '<div class="log-time">' + escapeHtml(l.time||'') + '</div>' +
+        '<div class="log-main"><div class="name">' + escapeHtml(l.foodName || '未命名') + '</div>' +
+        '<div class="sub">' + escapeHtml(sub) + '</div></div>' +
+        '<div class="log-macros"><span class="p">P ' + round1(l.protein) + '</span>' +
+        '<span class="f">F ' + round1(l.fat) + '</span>' +
+        '<span class="s">S ' + round1(sVal) + '</span>' +
+        '<span class="k">' + Math.round(l.cal||0) + 'kcal</span></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值
+  function foodMetric(f, key){
+    if (key === 'name') return (f.name||'').toLowerCase();
+    if (key === 'base') return Number(f.base||f.baseGrams||100) || 0;
+    if (key === 'protein') return Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
+    if (key === 'fat') return Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
+    if (key === 'sugar') return Number(f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb))) || 0;
+    if (key === 'cal') return Number(f.cal100 !== undefined ? f.cal100 : f.cal) || 0;
+    return 0;
+  }
+
+  // 食材庫管理表格：依目前的類別篩選 + 排序欄位/方向回傳要顯示的清單
+  function sortedFoods(){
+    var list = state.foods.slice();
+    if (state.foodCategoryFilter){
+      list = list.filter(function(f){ return (f.category||'') === state.foodCategoryFilter; });
+    }
+    var key = state.foodSort.key, dir = state.foodSort.dir === 'desc' ? -1 : 1;
+    list.sort(function(a,b){
+      var va = foodMetric(a, key), vb = foodMetric(b, key);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+    return list;
+  }
+
+  var FOOD_SORT_LABELS = { name:'名稱', base:'基準', protein:'蛋白', fat:'脂肪', sugar:'糖', cal:'熱量' };
+
+  // 目前食材庫裡實際被使用過的類別（唯一真實來源——沒有任何預先產生的清單，
+  // 有新增食材填了某個類別，這個類別才會出現在下面各處的篩選/切頁清單）。
+  function usedCategories(){
+    var cats = [];
+    state.foods.forEach(function(f){
+      if (f.category && cats.indexOf(f.category) === -1) cats.push(f.category);
+    });
+    cats.sort(function(a,b){ return a.localeCompare(b, 'zh-Hant'); });
+    return cats;
+  }
+
+  // 「食材庫管理」的類別篩選：展開成一排可以直接點的類別 chip，取代下拉選單。
+  function renderFoodCategoryChips(){
+    var wrap = document.getElementById('foodCategoryChips');
+    if (!wrap) return;
+    var cats = usedCategories();
+    var html = '<button type="button" class="chip' + (!state.foodCategoryFilter?' active':'') + '" data-cat-filter="">全部類別</button>';
+    html += cats.map(function(c){
+      return '<button type="button" class="chip' + (state.foodCategoryFilter===c?' active':'') + '" data-cat-filter="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+    wrap.innerHTML = html;
+  }
+
+  // 「新增這一餐」挑選食材時的類別篩選：同樣是展開式 chip，點了立刻切頁篩選。
+  function renderPickerCategoryChips(){
+    var wrap = document.getElementById('pickerCategoryChips');
+    if (!wrap) return;
+    var cats = usedCategories();
+    var html = '<button type="button" class="chip' + (!state.pickerCategoryFilter?' active':'') + '" data-picker-cat="">全部類別</button>';
+    html += cats.map(function(c){
+      return '<button type="button" class="chip' + (state.pickerCategoryFilter===c?' active':'') + '" data-picker-cat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+    wrap.innerHTML = html;
+  }
+
+  // 新增／編輯食材表單裡選類別：一樣是 chip，外加一顆「＋ 新增類別」讓輸入全新的類別。
+  function renderFCategoryChips(){
+    var wrap = document.getElementById('fCategoryChips');
+    if (!wrap) return;
+    var cats = usedCategories();
+    var sel = state.fCategorySelected;
+    var html = cats.map(function(c){
+      return '<button type="button" class="chip' + (sel===c?' active':'') + '" data-fcat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+    html += '<button type="button" class="chip chip-add" id="fCategoryAddChip">＋ 新增類別</button>';
+    wrap.innerHTML = html;
+  }
+
+  function setFCategory(val){
+    state.fCategorySelected = val || '';
+    document.getElementById('fCategory').value = state.fCategorySelected;
+    renderFCategoryChips();
+  }
+
+  function renderFoodTableHead(){
+    var head = document.getElementById('foodTableHead');
+    if (!head) return;
+    head.querySelectorAll('[data-sort]').forEach(function(span){
+      var key = span.getAttribute('data-sort');
+      var active = state.foodSort.key === key;
+      span.textContent = FOOD_SORT_LABELS[key] + (active ? (state.foodSort.dir === 'desc' ? ' ▾' : ' ▴') : '');
+      span.classList.toggle('sort-active', active);
+    });
+  }
+
+  function renderFoodSelectBar(){
+    var editBtn = document.getElementById('foodEditToggle');
+    var delBtn = document.getElementById('foodDeleteToggle');
+    var hint = document.getElementById('foodEditHint');
+    var bar = document.getElementById('foodSelectBar');
+    var countEl = document.getElementById('foodSelectCount');
+    editBtn.classList.toggle('on', state.foodMode === 'edit');
+    editBtn.classList.toggle('mode-edit', state.foodMode === 'edit');
+    editBtn.textContent = state.foodMode === 'edit' ? '取消編輯' : '編輯';
+    delBtn.classList.toggle('on', state.foodMode === 'delete');
+    delBtn.classList.toggle('mode-delete', state.foodMode === 'delete');
+    delBtn.textContent = state.foodMode === 'delete' ? '取消刪除' : '刪除';
+    hint.style.display = state.foodMode === 'edit' ? 'block' : 'none';
+    bar.style.display = state.foodMode === 'delete' ? 'flex' : 'none';
+    countEl.textContent = '已選 ' + state.foodDeleteSelected.length + ' 項';
+  }
+
+  function renderFoodTable(){
+    var el = document.getElementById('foodTable');
+    renderFoodCategoryChips();
+    renderPickerCategoryChips();
+    renderFCategoryChips();
+    renderFoodTableHead();
+    renderFoodSelectBar();
+    var list = sortedFoods();
+    if (!list.length){
+      el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
+      return;
+    }
+    el.innerHTML = list.map(function(f){
+      var cal = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
+      var sug = f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb||0));
+      var protein = f.protein100 !== undefined ? f.protein100 : f.protein;
+      var fat = f.fat100 !== undefined ? f.fat100 : f.fat;
+      var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
+      var rowCls = 'food-row';
+      var tail = '<span class="food-actions"></span>';
+      if (state.foodMode === 'edit'){
+        rowCls += ' selectable-row';
+      } else if (state.foodMode === 'delete'){
+        rowCls += ' selectable-row';
+        var checked = state.foodDeleteSelected.indexOf(f.id) > -1;
+        if (checked) rowCls += ' picked';
+        tail = '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span></span>';
       }
-      if (payload.foodName !== undefined) sheet.getRange(rowNum, map['foodName'] + 1).setValue(payload.foodName);
-      if (payload.grams !== undefined) sheet.getRange(rowNum, map['grams'] + 1).setValue(payload.grams == null ? '' : payload.grams);
-      if (payload.protein !== undefined) sheet.getRange(rowNum, map['protein'] + 1).setValue(Number(payload.protein) || 0);
-      if (payload.fat !== undefined) sheet.getRange(rowNum, map['fat'] + 1).setValue(Number(payload.fat) || 0);
-      if (sugarVal !== undefined) sheet.getRange(rowNum, map['sugar'] + 1).setValue(Number(sugarVal) || 0);
-      if (payload.cal !== undefined) sheet.getRange(rowNum, map['cal'] + 1).setValue(Number(payload.cal) || 0);
-      SpreadsheetApp.flush();
-      return { success: true };
+      return '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
+        '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
+        '<span class="num" data-label="基準">' + (f.base||f.baseGrams||100) + escapeHtml(f.unit || 'g') + '</span>' +
+        '<span class="num" data-label="蛋白">' + protein + '</span>' +
+        '<span class="num" data-label="脂肪">' + fat + '</span>' +
+        '<span class="num" data-label="糖">' + sug + '</span>' +
+        '<span class="num" data-label="熱量">' + cal + '</span>' +
+        tail +
+        '</div>';
+    }).join('');
+  }
+
+  function renderPickerList(){
+    var el = document.getElementById('pickerList');
+    var q = (document.getElementById('foodSearch').value || '').trim().toLowerCase();
+    var cat = state.pickerCategoryFilter;
+    var list = state.foods.filter(function(f){
+      return (!q || f.name.toLowerCase().indexOf(q) > -1) && (!cat || (f.category||'') === cat);
+    });
+    renderPickerCategoryChips();
+    if (!list.length){
+      el.innerHTML = '<div class="empty">' + (state.foods.length ? '找不到符合的食材。' : '食材庫是空的，先到下方新增食材。') + '</div>';
+      renderBatchList();
+      return;
+    }
+    el.innerHTML = list.map(function(f){
+      var inBatch = state.batch.some(function(b){ return b.foodId === f.id; });
+      return '<div class="food-chip' + (inBatch?' selected':'') + '" data-pick="' + escapeHtml(f.id) + '">' +
+        '<span class="fname">' + escapeHtml(f.name) + '</span>' +
+        '<span class="fmacro">每' + (f.base||100) + escapeHtml(f.unit || 'g') + '</span>' +
+        '</div>';
+    }).join('');
+    renderBatchList();
+  }
+
+  // 「新增這一餐」批次清單：把已選的每樣食材列出來，各自可調克數，最後一次送出
+  function renderBatchList(){
+    var wrap = document.getElementById('pickerDetail');
+    var el = document.getElementById('batchList');
+    if (!state.batch.length){
+      wrap.style.display = 'none';
+      el.innerHTML = '';
+      return;
+    }
+    wrap.style.display = 'block';
+    el.innerHTML = state.batch.map(function(b){
+      var food = state.foods.find(function(f){ return f.id === b.foodId; });
+      if (!food) return '';
+      var m = computeMacros(food, b.grams);
+      return '<div class="batch-row" data-batch-row="' + escapeHtml(b.foodId) + '">' +
+        '<div class="field">' +
+          '<label>' + escapeHtml(food.name) + '</label>' +
+          '<div class="qty-wrap">' +
+            '<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + escapeHtml(b.foodId) + '">' +
+            '<span class="qty-unit">' + escapeHtml(food.unit || 'g') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="preview" data-batch-preview="' + escapeHtml(b.foodId) + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
+        '<button type="button" class="btn-danger" data-batch-remove="' + escapeHtml(b.foodId) + '">移除</button>' +
+        '</div>';
+    }).join('');
+    document.getElementById('batchAddBtn').textContent = '全部加入紀錄（' + state.batch.length + ' 項）';
+  }
+
+  function renderAll(){
+    renderDateNav();
+    renderHero();
+    renderLogList();
+    renderFoodTable();
+    renderPickerList();
+  }
+
+  // ---------- mutations ----------
+  async function persistFoodsAndRender(){
+    await saveLocalFoods();
+    renderAll();
+  }
+  async function persistLogsAndRender(){
+    await saveLocalLogs();
+    renderAll();
+  }
+
+  // 以下的寫入操作都採「本機先行、背景同步」：
+  // 先把資料寫進本機狀態並立刻畫面更新，網路同步在背景做，不會卡住操作。
+  // 同步失敗也不會讓本機資料消失，只會顯示錯誤狀態；成功了才悄悄更新真正的 id。
+  // 這裡刻意不在每次寫入後整批重新抓取試算表——那個「整批重抓」正是先前紀錄
+  // 有時候會被較慢的背景回應蓋掉、看起來像消失的主因。
+
+  async function addFood(food){
+    food.id = food.id || uid('f');
+    state.foods.push(food);
+    await persistFoodsAndRender();
+
+    if (hasSheet()){
+      sheetPost('addFood', Object.assign({}, food)).then(function(res){
+        if (res && res.id && res.id !== food.id){
+          food.id = res.id;
+          saveLocalFoods();
+        }
+        setSheetStatus('食材已新增，試算表已同步。', 'ok');
+      }).catch(function(e){
+        setSheetStatus('新增食材同步失敗：' + e.message + '（已保留在本機）', 'err');
+      });
     }
   }
-  return { error: 'log not found' };
-}
 
-function deleteLog(payload) {
-  var sheet = getLogsSheet();
-  var map = headerIndexMap(sheet);
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][map['id']] === payload.id) {
-      sheet.deleteRow(i + 1);
-      SpreadsheetApp.flush();
-      return { success: true };
+  async function updateFood(food){
+    var idx = state.foods.findIndex(function(f){ return f.id === food.id; });
+    if (idx !== -1) state.foods[idx] = food;
+    await persistFoodsAndRender();
+
+    if (hasSheet()){
+      sheetPost('updateFood', food).then(function(){
+        setSheetStatus('食材修改已同步到試算表。', 'ok');
+      }).catch(function(e){
+        setSheetStatus('更新食材同步失敗：' + e.message + '（已保留本機資料）', 'err');
+      });
     }
   }
-  return { error: 'log not found' };
-}
 
-/**
- * 手動修復小工具：如果你想在不呼叫 API 的情況下，馬上把 Foods / Logs 分頁的
- * carb100 / carb 欄位合併成 sugar100 / sugar，可以在 Apps Script 編輯器裡
- * 選這個函式，按「執行」跑一次。只會動欄位名稱與搬資料，不會刪除任何一列。
- */
-function migrateHeaders() {
-  getFoodsSheet();
-  getLogsSheet();
-  return 'done';
-}
+  async function deleteFood(id){
+    state.foods = state.foods.filter(function(f){ return f.id !== id; });
+    if (state.selectedFoodId === id) state.selectedFoodId = null;
+    if (state.editingFoodId === id) clearFoodForm();
+    state.batch = state.batch.filter(function(b){ return b.foodId !== id; });
+    await persistFoodsAndRender();
+
+    if (hasSheet()){
+      sheetPost('deleteFood', {id:id}).then(function(){
+        setSheetStatus('食材已刪除，試算表已同步。', 'ok');
+      }).catch(function(e){
+        setSheetStatus('刪除食材同步失敗：' + e.message, 'err');
+      });
+    }
+  }
+
+  // 刪除模式下一次刪除多項已勾選的食材
+  async function deleteFoodsBatch(ids){
+    if (!ids.length) return;
+    var idSet = {};
+    ids.forEach(function(id){ idSet[id] = true; });
+    state.foods = state.foods.filter(function(f){ return !idSet[f.id]; });
+    if (state.selectedFoodId && idSet[state.selectedFoodId]) state.selectedFoodId = null;
+    if (state.editingFoodId && idSet[state.editingFoodId]) clearFoodForm();
+    state.batch = state.batch.filter(function(b){ return !idSet[b.foodId]; });
+    await persistFoodsAndRender();
+
+    if (hasSheet()){
+      ids.forEach(function(id){
+        sheetPost('deleteFood', {id:id}).catch(function(e){
+          setSheetStatus('刪除食材同步失敗：' + e.message, 'err');
+        });
+      });
+    }
+  }
+
+  async function addLog(entry){
+    entry.date = state.currentDate;
+    entry.time = nowTime();
+    entry.person = activeProfile();
+    entry.id = uid('l');
+    state.logs.push(entry);
+    await persistLogsAndRender();
+
+    if (hasSheet()){
+      sheetPost('addLog', entry).then(function(res){
+        if (res && res.id && res.id !== entry.id){
+          entry.id = res.id;
+          saveLocalLogs();
+        }
+      }).catch(function(e){
+        setSheetStatus('新增紀錄時同步失敗：' + e.message + '（已保留在本機）', 'err');
+      });
+    }
+  }
+
+  async function deleteLog(id){
+    state.logs = state.logs.filter(function(l){ return l.id !== id; });
+    await persistLogsAndRender();
+
+    if (hasSheet()){
+      sheetPost('deleteLog', {id:id}).catch(function(e){
+        setSheetStatus('刪除紀錄時同步失敗：' + e.message, 'err');
+      });
+    }
+  }
+
+  // 刪除模式下一次刪除多筆已勾選的紀錄
+  async function deleteLogsBatch(ids){
+    if (!ids.length) return;
+    var idSet = {};
+    ids.forEach(function(id){ idSet[id] = true; });
+    state.logs = state.logs.filter(function(l){ return !idSet[l.id]; });
+    await persistLogsAndRender();
+
+    if (hasSheet()){
+      ids.forEach(function(id){
+        sheetPost('deleteLog', {id:id}).catch(function(e){
+          setSheetStatus('刪除紀錄時同步失敗：' + e.message, 'err');
+        });
+      });
+    }
+  }
+
+  function clearFoodForm(){
+    state.editingFoodId = null;
+    ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('fBase').value = 100;
+    document.getElementById('fUnit').value = 'g';
+    setFCategory('');
+    document.getElementById('fCategoryNewRow').style.display = 'none';
+    document.getElementById('fCategoryNewInput').value = '';
+    ['nPerServeProtein','nPerServeFat','nPerServeSugar','nPerServeCal','nServings'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('nutritionCalcBox').style.display = 'none';
+    document.getElementById('fSaveBtn').textContent = '新增食材';
+  }
+
+  // ---------- event wiring ----------
+  function wireCollapsibles(){
+    document.querySelectorAll('[data-toggle]').forEach(function(head){
+      head.addEventListener('click', function(){
+        var id = head.getAttribute('data-toggle');
+        document.getElementById(id).classList.toggle('collapsed');
+      });
+    });
+  }
+
+  function wireDateNav(){
+    document.getElementById('prevDay').addEventListener('click', function(){
+      var d = new Date(state.currentDate + 'T00:00:00');
+      d.setDate(d.getDate()-1);
+      state.currentDate = fmtDate(d);
+      renderAll();
+    });
+    document.getElementById('nextDay').addEventListener('click', function(){
+      var d = new Date(state.currentDate + 'T00:00:00');
+      d.setDate(d.getDate()+1);
+      state.currentDate = fmtDate(d);
+      renderAll();
+    });
+  }
+
+  function wireProfileTabs(){
+    document.getElementById('profileTabs').addEventListener('click', async function(e){
+      var btn = e.target.closest('[data-profile]');
+      if (!btn) return;
+      var k = btn.getAttribute('data-profile');
+      if (!PROFILES[k] || state.settings.profile === k) return;
+      var confirmMsg = '切換到「' + PROFILES[k].name + '」（' + PROFILES[k].desc + '）？\n將改為顯示這個身份的今日目標與紀錄。';
+      if (!window.confirm(confirmMsg)) return;
+      state.settings.profile = k;
+      await saveLocalSettings();
+      renderAll();
+    });
+  }
+
+  function wireGoalsBox(){
+    document.getElementById('toggleGoals').addEventListener('click', function(){
+      var box = document.getElementById('goalsBox');
+      box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+    });
+    document.getElementById('gSaveBtn').addEventListener('click', async function(){
+      var goals = currentGoals();
+      var np = Number(document.getElementById('gProtein').value);
+      var nf = Number(document.getElementById('gFat').value);
+      var ns = Number(document.getElementById('gSugar').value);
+      var nk = Number(document.getElementById('gCal').value);
+      if (!isNaN(np) && np >= 0) goals.protein = np;
+      if (!isNaN(nf) && nf >= 0) goals.fat = nf;
+      if (!isNaN(ns) && ns >= 0) goals.sugar = ns;
+      if (!isNaN(nk) && nk >= 0) goals.cal = nk;
+      await saveLocalSettings();
+      renderHero();
+    });
+    document.getElementById('gResetBtn').addEventListener('click', async function(){
+      var p = activeProfile();
+      state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
+      await saveLocalSettings();
+      renderHero();
+    });
+  }
+
+  function wirePicker(){
+    document.getElementById('foodSearch').addEventListener('input', renderPickerList);
+    document.getElementById('pickerCategoryChips').addEventListener('click', function(e){
+      var chip = e.target.closest('[data-picker-cat]');
+      if (!chip) return;
+      state.pickerCategoryFilter = chip.getAttribute('data-picker-cat');
+      renderPickerList();
+    });
+
+    // 點食材：加入／移出批次清單（可以一次點多樣）
+    document.getElementById('pickerList').addEventListener('click', function(e){
+      var chip = e.target.closest('[data-pick]');
+      if (!chip) return;
+      var id = chip.getAttribute('data-pick');
+      var idx = state.batch.findIndex(function(b){ return b.foodId === id; });
+      if (idx === -1){
+        var food = state.foods.find(function(f){ return f.id === id; });
+        state.batch.push({ foodId: id, grams: (food && (food.base || food.baseGrams)) || 100 });
+      } else {
+        state.batch.splice(idx, 1);
+      }
+      renderPickerList();
+    });
+
+    // 批次清單裡改克數：只更新該列的預覽數字,不整包重畫(避免輸入到一半失焦)
+    document.getElementById('batchList').addEventListener('input', function(e){
+      var input = e.target.closest('[data-batch-grams]');
+      if (!input) return;
+      var id = input.getAttribute('data-batch-grams');
+      var b = state.batch.find(function(x){ return x.foodId === id; });
+      if (!b) return;
+      b.grams = Number(input.value) || 0;
+      var food = state.foods.find(function(f){ return f.id === id; });
+      if (!food) return;
+      var m = computeMacros(food, b.grams);
+      var prev = document.querySelector('[data-batch-preview="' + id + '"]');
+      if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
+    });
+
+    // 批次清單裡移除某一項
+    document.getElementById('batchList').addEventListener('click', function(e){
+      var rm = e.target.closest('[data-batch-remove]');
+      if (!rm) return;
+      var id = rm.getAttribute('data-batch-remove');
+      state.batch = state.batch.filter(function(b){ return b.foodId !== id; });
+      renderPickerList();
+    });
+
+    // 一次把批次清單裡所有食材送出成紀錄
+    document.getElementById('batchAddBtn').addEventListener('click', async function(){
+      if (!state.batch.length) return;
+      var items = state.batch.slice();
+      state.batch = [];
+      for (var i = 0; i < items.length; i++){
+        var food = state.foods.find(function(f){ return f.id === items[i].foodId; });
+        if (!food || !items[i].grams || items[i].grams <= 0) continue;
+        var m = computeMacros(food, items[i].grams);
+        await addLog({
+          type:'selected', foodId: food.id, foodName: food.name, grams: items[i].grams, unit: food.unit || 'g',
+          protein: m.protein, fat: m.fat, sugar: m.sugar, cal: m.cal
+        });
+      }
+      renderPickerList();
+    });
+  }
+
+  function wireManual(){
+    document.getElementById('toggleManual').addEventListener('click', function(){
+      var box = document.getElementById('manualBox');
+      box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+    });
+    document.getElementById('manualAddBtn').addEventListener('click', async function(){
+      var protein = Number(document.getElementById('manualProtein').value);
+      if (!protein || protein < 0){ alert('請輸入蛋白質克數'); return; }
+      var name = document.getElementById('manualName').value.trim() || '手動紀錄';
+      var fat = Number(document.getElementById('manualFat').value) || 0;
+      var sugar = Number(document.getElementById('manualSugar').value) || 0;
+      var calInput = document.getElementById('manualCal').value;
+      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
+      await addLog({ type:'manual', foodId:null, foodName:name, grams:null, protein:round1(protein), fat:round1(fat), sugar:round1(sugar), cal:Math.round(cal) });
+      document.getElementById('manualName').value = '';
+      document.getElementById('manualProtein').value = '';
+      document.getElementById('manualFat').value = '';
+      document.getElementById('manualSugar').value = '';
+      document.getElementById('manualCal').value = '';
+    });
+  }
+
+  function wireLogList(){
+    var listEl = document.getElementById('logList');
+
+    // ---- 刪除模式：勾選 / 點列即可勾選 ----
+    listEl.addEventListener('click', function(e){
+      if (!state.logDeleteMode) return;
+      var row = e.target.closest('.log-item');
+      if (!row) return;
+      var id = row.getAttribute('data-log-id');
+      var idx = state.logDeleteSelected.indexOf(id);
+      if (idx === -1) state.logDeleteSelected.push(id); else state.logDeleteSelected.splice(idx, 1);
+      renderLogList();
+    });
+
+    document.getElementById('logDeleteToggle').addEventListener('click', function(){
+      state.logDeleteMode = !state.logDeleteMode;
+      state.logDeleteSelected = [];
+      renderLogList();
+    });
+    document.getElementById('logSelectCancel').addEventListener('click', function(){
+      state.logDeleteMode = false;
+      state.logDeleteSelected = [];
+      renderLogList();
+    });
+    document.getElementById('logSelectConfirm').addEventListener('click', async function(){
+      if (!state.logDeleteSelected.length){ alert('請先勾選要刪除的紀錄'); return; }
+      if (!confirm('確定要刪除已選取的 ' + state.logDeleteSelected.length + ' 筆紀錄嗎？')) return;
+      var ids = state.logDeleteSelected.slice();
+      state.logDeleteMode = false;
+      state.logDeleteSelected = [];
+      await deleteLogsBatch(ids);
+    });
+  }
+
+  function wireFoodForm(){
+    document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
+
+    document.getElementById('toggleNutritionCalc').addEventListener('click', function(){
+      var box = document.getElementById('nutritionCalcBox');
+      box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+    });
+
+    // 直接抄營養標示上「每份」的數字，乘以「本包裝含幾份」，
+    // 算出整包（這個食材單位）的總量，套用到下面蛋白質/脂肪/糖/熱量欄位。
+    // 因為食品營養標示本來就是用「每份 × 份數」的方式標示，不需要额外知道總克數。
+    document.getElementById('nCalcApplyBtn').addEventListener('click', function(){
+      var pServe = Number(document.getElementById('nPerServeProtein').value);
+      var fServe = Number(document.getElementById('nPerServeFat').value);
+      var sServe = Number(document.getElementById('nPerServeSugar').value);
+      var cServeInput = document.getElementById('nPerServeCal').value;
+      var servings = Number(document.getElementById('nServings').value);
+
+      if (!servings || servings <= 0){ alert('請先填「本包裝含幾份」'); return; }
+      if (isNaN(pServe) || pServe < 0){ alert('請至少填「每份 蛋白質」'); return; }
+
+      var f = isNaN(fServe) ? 0 : fServe;
+      var s = isNaN(sServe) ? 0 : sServe;
+      var cServe = cServeInput !== '' ? Number(cServeInput) : estimateCalories(pServe, f, s);
+
+      document.getElementById('fProtein').value = round1(pServe * servings);
+      document.getElementById('fFat').value = round1(f * servings);
+      document.getElementById('fSugar').value = round1(s * servings);
+      document.getElementById('fCal').value = Math.round(cServe * servings);
+    });
+
+    document.getElementById('fAutoCal').addEventListener('click', function(){
+      var protein = Number(document.getElementById('fProtein').value) || 0;
+      var fat = Number(document.getElementById('fFat').value) || 0;
+      var sugar = Number(document.getElementById('fSugar').value) || 0;
+      document.getElementById('fCal').value = estimateCalories(protein, fat, sugar);
+    });
+
+    document.getElementById('fSaveBtn').addEventListener('click', async function(){
+      var name = document.getElementById('fName').value.trim();
+      var base = Number(document.getElementById('fBase').value);
+      if (!base || base <= 0) base = 100;
+      var unit = document.getElementById('fUnit').value.trim() || 'g';
+      var category = document.getElementById('fCategory').value.trim();
+      var protein = Number(document.getElementById('fProtein').value);
+      var fat = Number(document.getElementById('fFat').value) || 0;
+      var sugar = Number(document.getElementById('fSugar').value) || 0;
+      var calInput = document.getElementById('fCal').value;
+      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
+
+      if (!name){ alert('請輸入食材名稱'); return; }
+      if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
+
+      var foodPayload = {
+        name: name,
+        base: base,
+        unit: unit,
+        category: category,
+        protein100: round1(protein),
+        fat100: round1(fat),
+        sugar100: round1(sugar),
+        cal100: Math.round(cal)
+      };
+
+      if (state.editingFoodId) {
+        foodPayload.id = state.editingFoodId;
+        await updateFood(foodPayload);
+      } else {
+        await addFood(foodPayload);
+      }
+
+      clearFoodForm();
+    });
+
+    // ---- 新增/編輯食材表單：選擇類別（chip）或輸入全新的類別 ----
+    document.getElementById('fCategoryChips').addEventListener('click', function(e){
+      var addChip = e.target.closest('#fCategoryAddChip');
+      if (addChip){
+        var row = document.getElementById('fCategoryNewRow');
+        row.style.display = (row.style.display === 'none') ? 'flex' : 'none';
+        if (row.style.display === 'flex') document.getElementById('fCategoryNewInput').focus();
+        return;
+      }
+      var chip = e.target.closest('[data-fcat]');
+      if (!chip) return;
+      var val = chip.getAttribute('data-fcat');
+      setFCategory(state.fCategorySelected === val ? '' : val); // 再點一次可以取消選取
+    });
+    document.getElementById('fCategoryNewConfirm').addEventListener('click', function(){
+      var val = document.getElementById('fCategoryNewInput').value.trim();
+      if (!val){ alert('請輸入類別名稱'); return; }
+      setFCategory(val);
+      document.getElementById('fCategoryNewRow').style.display = 'none';
+      document.getElementById('fCategoryNewInput').value = '';
+    });
+
+    // ---- 食材庫管理：類別篩選 chip（展開直接點，取代下拉選單）----
+    document.getElementById('foodCategoryChips').addEventListener('click', function(e){
+      var chip = e.target.closest('[data-cat-filter]');
+      if (!chip) return;
+      state.foodCategoryFilter = chip.getAttribute('data-cat-filter');
+      renderFoodTable();
+    });
+
+    document.getElementById('foodTableHead').addEventListener('click', function(e){
+      var span = e.target.closest('[data-sort]');
+      if (!span) return;
+      var key = span.getAttribute('data-sort');
+      if (state.foodSort.key === key){
+        state.foodSort.dir = state.foodSort.dir === 'desc' ? 'asc' : 'desc';
+      } else {
+        state.foodSort.key = key;
+        state.foodSort.dir = (key === 'name' || key === 'base') ? 'asc' : 'desc';
+      }
+      renderFoodTable();
+    });
+
+    // ---- 一個「編輯」開關、一個「刪除」開關，取代每列各自的按鈕 ----
+    function loadFoodIntoForm(food){
+      state.editingFoodId = food.id;
+      var editBase = Number(food.base || food.baseGrams) || 100;
+      var editUnit = food.unit || 'g';
+      var editProtein = food.protein100 !== undefined ? food.protein100 : food.protein;
+      var editFat = food.fat100 !== undefined ? food.fat100 : food.fat;
+      var editSugar = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
+      var editCal = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
+
+      document.getElementById('fName').value = food.name || '';
+      document.getElementById('fBase').value = editBase;
+      document.getElementById('fUnit').value = editUnit;
+      setFCategory(food.category || '');
+      document.getElementById('fProtein').value = editProtein;
+      document.getElementById('fFat').value = editFat;
+      document.getElementById('fSugar').value = editSugar;
+      document.getElementById('fCal').value = editCal;
+
+      // 把換算工具的欄位帶回原本輸入的數值：目前存的蛋白質/脂肪/糖/熱量
+      // 直接當成「每份」的起始值、份數預設 1（乘出來會跟原數字一樣，不影響原資料）。
+      // 之後只要改「總份數」再按一次套用，就能用乘法快速重算成新的總量。
+      document.getElementById('nPerServeProtein').value = editProtein;
+      document.getElementById('nPerServeFat').value = editFat;
+      document.getElementById('nPerServeSugar').value = editSugar;
+      document.getElementById('nPerServeCal').value = editCal;
+      document.getElementById('nServings').value = 1;
+      document.getElementById('nutritionCalcBox').style.display = 'block';
+
+      document.getElementById('fSaveBtn').textContent = '儲存修改';
+      document.getElementById('secFoods').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.getElementById('foodEditToggle').addEventListener('click', function(){
+      state.foodMode = (state.foodMode === 'edit') ? '' : 'edit';
+      state.foodDeleteSelected = [];
+      renderFoodTable();
+    });
+    document.getElementById('foodDeleteToggle').addEventListener('click', function(){
+      state.foodMode = (state.foodMode === 'delete') ? '' : 'delete';
+      state.foodDeleteSelected = [];
+      renderFoodTable();
+    });
+    document.getElementById('foodSelectCancel').addEventListener('click', function(){
+      state.foodMode = '';
+      state.foodDeleteSelected = [];
+      renderFoodTable();
+    });
+    document.getElementById('foodSelectConfirm').addEventListener('click', async function(){
+      if (!state.foodDeleteSelected.length){ alert('請先勾選要刪除的食材'); return; }
+      if (!confirm('刪除已選取的 ' + state.foodDeleteSelected.length + ' 項食材？（過去的紀錄不會被刪除）')) return;
+      var ids = state.foodDeleteSelected.slice();
+      state.foodMode = '';
+      state.foodDeleteSelected = [];
+      await deleteFoodsBatch(ids);
+    });
+
+    document.getElementById('foodTable').addEventListener('click', function(e){
+      var row = e.target.closest('[data-food-id]');
+      if (!row) return;
+      var id = row.getAttribute('data-food-id');
+
+      if (state.foodMode === 'delete'){
+        var idx = state.foodDeleteSelected.indexOf(id);
+        if (idx === -1) state.foodDeleteSelected.push(id); else state.foodDeleteSelected.splice(idx, 1);
+        renderFoodTable();
+        return;
+      }
+      if (state.foodMode === 'edit'){
+        var food = state.foods.find(function(f){ return f.id === id; });
+        if (food){
+          loadFoodIntoForm(food);
+          state.foodMode = '';
+          renderFoodTable();
+        }
+      }
+    });
+  }
+
+  function wireSettings(){
+    document.getElementById('sheetUrl').value = state.settings.sheetUrl || '';
+    document.getElementById('syncDot').addEventListener('click', function(){
+      document.getElementById('secSettings').classList.remove('collapsed');
+      document.getElementById('secSettings').scrollIntoView({behavior:'smooth', block:'start'});
+    });
+    document.getElementById('sheetSaveBtn').addEventListener('click', async function(){
+      var url = document.getElementById('sheetUrl').value.trim();
+      if (!url){ setSheetStatus('請先貼上 Web App 網址，或按「清除連結」改用本機儲存。', 'err'); return; }
+      state.settings.sheetUrl = url;
+      await saveLocalSettings();
+      setSheetStatus('連線中…', '');
+      var ok = await refreshFromSheet(true);
+      if (ok) renderAll();
+    });
+    document.getElementById('sheetClearBtn').addEventListener('click', async function(){
+      state.settings.sheetUrl = '';
+      document.getElementById('sheetUrl').value = '';
+      await saveLocalSettings();
+      document.getElementById('syncDot').className = 'sync-dot';
+      document.getElementById('syncLabel').textContent = '本機儲存';
+      setSheetStatus('已改為僅使用本機儲存。', 'ok');
+    });
+  }
+
+  // ---------- init ----------
+  async function init(){
+    await loadLocal();
+    wireCollapsibles();
+    wireDateNav();
+    wireProfileTabs();
+    wireGoalsBox();
+    wirePicker();
+    wireManual();
+    wireLogList();
+    wireFoodForm();
+    wireSettings();
+
+    // 先用本機資料立即顯示畫面，不用等試算表回應
+    renderAll();
+
+    // 試算表同步在背景進行；抓到資料後才悄悄更新畫面，不會卡住開啟頁面的過程
+    if (hasSheet()){
+      refreshFromSheet(false).then(function(ok){
+        if (ok) renderAll();
+      });
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
