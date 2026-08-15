@@ -141,6 +141,10 @@
   .base-unit-row .field{min-width:0;}
   .base-unit-row .field-base{flex:1.2;}
   .base-unit-row .field-unit{flex:1;}
+  .nutrition-calc-box{
+    margin:10px 0 14px;padding:12px;border:1px dashed var(--carb);border-radius:var(--radius-sm);background:var(--carb-tint);
+  }
+  .nutrition-calc-box .hint{margin:0 0 10px;}
   .btn{
     font-family:var(--font-body);font-weight:700;font-size:13.5px;border:none;border-radius:999px;
     padding:10px 18px;cursor:pointer;transition:transform .08s, opacity .15s;
@@ -385,6 +389,26 @@
           </datalist>
         </div>
       </div>
+
+      <div class="toggle-manual" id="toggleNutritionCalc">用營養標示的「每100g」自動換算 ＋</div>
+      <div class="nutrition-calc-box" id="nutritionCalcBox" style="display:none;">
+        <p class="hint">抄包裝上「每100g」的數字，再填這個單位（跟上面的基準數量＋單位對應）總共幾克，按下面按鈕就會自動算出並填入下方欄位。例如豆腐一盒 400g，基準填 1、單位填「盒」，這裡的總克數就填 400。</p>
+        <div class="row">
+          <div class="field"><label>每100g 蛋白質 (g)</label><input type="number" id="nProtein100" min="0" step="0.1"></div>
+          <div class="field"><label>每100g 脂肪 (g)</label><input type="number" id="nFat100" min="0" step="0.1"></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>每100g 糖（Sugar）(g)</label><input type="number" id="nSugar100" min="0" step="0.1"></div>
+          <div class="field"><label>每100g 熱量 (kcal，選填)</label><input type="number" id="nCal100" min="0" step="1"></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>這個單位總共幾克</label><input type="number" id="nTotalGrams" min="0" step="any" placeholder="例如 400"></div>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" id="nCalcApplyBtn">換算並套用到上方</button>
+        </div>
+      </div>
+
       <div class="row" style="margin-top:8px;">
         <div class="field"><label>蛋白質 (g)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
         <div class="field"><label>脂肪 (g)</label><input type="number" id="fFat" min="0" step="0.1"></div>
@@ -914,6 +938,8 @@
     ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('fBase').value = 100;
     document.getElementById('fUnit').value = 'g';
+    ['nProtein100','nFat100','nSugar100','nCal100','nTotalGrams'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('nutritionCalcBox').style.display = 'none';
     document.getElementById('fSaveBtn').textContent = '新增食材';
   }
 
@@ -1074,6 +1100,34 @@
 
   function wireFoodForm(){
     document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
+
+    document.getElementById('toggleNutritionCalc').addEventListener('click', function(){
+      var box = document.getElementById('nutritionCalcBox');
+      box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+    });
+
+    // 用「每100g」的營養標示數字＋這個單位總克數，自動換算成「這個單位」的量，
+    // 直接套用到下面蛋白質/脂肪/糖/熱量欄位，不用自己按計算機。
+    document.getElementById('nCalcApplyBtn').addEventListener('click', function(){
+      var p100 = Number(document.getElementById('nProtein100').value);
+      var f100 = Number(document.getElementById('nFat100').value);
+      var s100 = Number(document.getElementById('nSugar100').value);
+      var c100Input = document.getElementById('nCal100').value;
+      var totalGrams = Number(document.getElementById('nTotalGrams').value);
+
+      if (!totalGrams || totalGrams <= 0){ alert('請先填「這個單位總共幾克」'); return; }
+      if (isNaN(p100) || p100 < 0){ alert('請至少填「每100g 蛋白質」'); return; }
+
+      var ratio = totalGrams / 100;
+      var f = isNaN(f100) ? 0 : f100;
+      var s = isNaN(s100) ? 0 : s100;
+      var c100 = c100Input !== '' ? Number(c100Input) : estimateCalories(p100, f, s);
+
+      document.getElementById('fProtein').value = round1(p100 * ratio);
+      document.getElementById('fFat').value = round1(f * ratio);
+      document.getElementById('fSugar').value = round1(s * ratio);
+      document.getElementById('fCal').value = Math.round(c100 * ratio);
+    });
 
     document.getElementById('fAutoCal').addEventListener('click', function(){
       var protein = Number(document.getElementById('fProtein').value) || 0;
