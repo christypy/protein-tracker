@@ -390,22 +390,22 @@
         </div>
       </div>
 
-      <div class="toggle-manual" id="toggleNutritionCalc">用營養標示的「每100g」自動換算 ＋</div>
+      <div class="toggle-manual" id="toggleNutritionCalc">用「每份 × 總份數」自動換算 ＋</div>
       <div class="nutrition-calc-box" id="nutritionCalcBox" style="display:none;">
-        <p class="hint">抄包裝上「每100g」的數字，再填這個單位（跟上面的基準數量＋單位對應）總共幾克，按下面按鈕就會自動算出並填入下方欄位。例如豆腐一盒 400g，基準填 1、單位填「盒」，這裡的總克數就填 400。</p>
+        <p class="hint">直接抄營養標示上「每份」的蛋白質／脂肪／糖／熱量，再填「本包裝含幾份」，按下面按鈕就會自動乘出整包（這個單位）的總量並套用到下方欄位。例如標示寫每份蛋白質 8g、本包裝含 4 份，這裡份數就填 4，算出來整盒就是 32g。</p>
         <div class="row">
-          <div class="field"><label>每100g 蛋白質 (g)</label><input type="number" id="nProtein100" min="0" step="0.1"></div>
-          <div class="field"><label>每100g 脂肪 (g)</label><input type="number" id="nFat100" min="0" step="0.1"></div>
+          <div class="field"><label>每份 蛋白質 (g)</label><input type="number" id="nPerServeProtein" min="0" step="0.1"></div>
+          <div class="field"><label>每份 脂肪 (g)</label><input type="number" id="nPerServeFat" min="0" step="0.1"></div>
         </div>
         <div class="row" style="margin-top:8px;">
-          <div class="field"><label>每100g 糖（Sugar）(g)</label><input type="number" id="nSugar100" min="0" step="0.1"></div>
-          <div class="field"><label>每100g 熱量 (kcal，選填)</label><input type="number" id="nCal100" min="0" step="1"></div>
+          <div class="field"><label>每份 糖（Sugar）(g)</label><input type="number" id="nPerServeSugar" min="0" step="0.1"></div>
+          <div class="field"><label>每份 熱量 (kcal，選填)</label><input type="number" id="nPerServeCal" min="0" step="1"></div>
         </div>
         <div class="row" style="margin-top:8px;">
-          <div class="field"><label>這個單位總共幾克</label><input type="number" id="nTotalGrams" min="0" step="any" placeholder="例如 400"></div>
+          <div class="field"><label>本包裝含幾份（總份數）</label><input type="number" id="nServings" min="0.01" step="any" placeholder="例如 4"></div>
         </div>
         <div class="btn-row">
-          <button type="button" class="btn btn-primary" id="nCalcApplyBtn">換算並套用到上方</button>
+          <button type="button" class="btn btn-primary" id="nCalcApplyBtn">換算並套用到上方（每份 × 份數）</button>
         </div>
       </div>
 
@@ -938,7 +938,7 @@
     ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('fBase').value = 100;
     document.getElementById('fUnit').value = 'g';
-    ['nProtein100','nFat100','nSugar100','nCal100','nTotalGrams'].forEach(function(id){ document.getElementById(id).value = ''; });
+    ['nPerServeProtein','nPerServeFat','nPerServeSugar','nPerServeCal','nServings'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('nutritionCalcBox').style.display = 'none';
     document.getElementById('fSaveBtn').textContent = '新增食材';
   }
@@ -1106,27 +1106,27 @@
       box.style.display = (box.style.display === 'none' ? 'block' : 'none');
     });
 
-    // 用「每100g」的營養標示數字＋這個單位總克數，自動換算成「這個單位」的量，
-    // 直接套用到下面蛋白質/脂肪/糖/熱量欄位，不用自己按計算機。
+    // 直接抄營養標示上「每份」的數字，乘以「本包裝含幾份」，
+    // 算出整包（這個食材單位）的總量，套用到下面蛋白質/脂肪/糖/熱量欄位。
+    // 因為食品營養標示本來就是用「每份 × 份數」的方式標示，不需要额外知道總克數。
     document.getElementById('nCalcApplyBtn').addEventListener('click', function(){
-      var p100 = Number(document.getElementById('nProtein100').value);
-      var f100 = Number(document.getElementById('nFat100').value);
-      var s100 = Number(document.getElementById('nSugar100').value);
-      var c100Input = document.getElementById('nCal100').value;
-      var totalGrams = Number(document.getElementById('nTotalGrams').value);
+      var pServe = Number(document.getElementById('nPerServeProtein').value);
+      var fServe = Number(document.getElementById('nPerServeFat').value);
+      var sServe = Number(document.getElementById('nPerServeSugar').value);
+      var cServeInput = document.getElementById('nPerServeCal').value;
+      var servings = Number(document.getElementById('nServings').value);
 
-      if (!totalGrams || totalGrams <= 0){ alert('請先填「這個單位總共幾克」'); return; }
-      if (isNaN(p100) || p100 < 0){ alert('請至少填「每100g 蛋白質」'); return; }
+      if (!servings || servings <= 0){ alert('請先填「本包裝含幾份」'); return; }
+      if (isNaN(pServe) || pServe < 0){ alert('請至少填「每份 蛋白質」'); return; }
 
-      var ratio = totalGrams / 100;
-      var f = isNaN(f100) ? 0 : f100;
-      var s = isNaN(s100) ? 0 : s100;
-      var c100 = c100Input !== '' ? Number(c100Input) : estimateCalories(p100, f, s);
+      var f = isNaN(fServe) ? 0 : fServe;
+      var s = isNaN(sServe) ? 0 : sServe;
+      var cServe = cServeInput !== '' ? Number(cServeInput) : estimateCalories(pServe, f, s);
 
-      document.getElementById('fProtein').value = round1(p100 * ratio);
-      document.getElementById('fFat').value = round1(f * ratio);
-      document.getElementById('fSugar').value = round1(s * ratio);
-      document.getElementById('fCal').value = Math.round(c100 * ratio);
+      document.getElementById('fProtein').value = round1(pServe * servings);
+      document.getElementById('fFat').value = round1(f * servings);
+      document.getElementById('fSugar').value = round1(s * servings);
+      document.getElementById('fCal').value = Math.round(cServe * servings);
     });
 
     document.getElementById('fAutoCal').addEventListener('click', function(){
@@ -1183,13 +1183,30 @@
         var food = state.foods.find(function(f){ return f.id === id; });
         if (food) {
           state.editingFoodId = food.id;
+          var editBase = Number(food.base || food.baseGrams) || 100;
+          var editUnit = food.unit || 'g';
+          var editProtein = food.protein100 !== undefined ? food.protein100 : food.protein;
+          var editFat = food.fat100 !== undefined ? food.fat100 : food.fat;
+          var editSugar = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
+          var editCal = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
+
           document.getElementById('fName').value = food.name || '';
-          document.getElementById('fBase').value = food.base || food.baseGrams || 100;
-          document.getElementById('fUnit').value = food.unit || 'g';
-          document.getElementById('fProtein').value = food.protein100 !== undefined ? food.protein100 : food.protein;
-          document.getElementById('fFat').value = food.fat100 !== undefined ? food.fat100 : food.fat;
-          document.getElementById('fSugar').value = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
-          document.getElementById('fCal').value = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
+          document.getElementById('fBase').value = editBase;
+          document.getElementById('fUnit').value = editUnit;
+          document.getElementById('fProtein').value = editProtein;
+          document.getElementById('fFat').value = editFat;
+          document.getElementById('fSugar').value = editSugar;
+          document.getElementById('fCal').value = editCal;
+
+          // 把換算工具的欄位帶回原本輸入的數值：目前存的蛋白質/脂肪/糖/熱量
+          // 直接當成「每份」的起始值、份數預設 1（乘出來會跟原數字一樣，不影響原資料）。
+          // 之後只要改「總份數」再按一次套用，就能用乘法快速重算成新的總量。
+          document.getElementById('nPerServeProtein').value = editProtein;
+          document.getElementById('nPerServeFat').value = editFat;
+          document.getElementById('nPerServeSugar').value = editSugar;
+          document.getElementById('nPerServeCal').value = editCal;
+          document.getElementById('nServings').value = 1;
+          document.getElementById('nutritionCalcBox').style.display = 'block';
 
           document.getElementById('fSaveBtn').textContent = '儲存修改';
           document.getElementById('secFoods').scrollIntoView({ behavior: 'smooth', block: 'start' });
