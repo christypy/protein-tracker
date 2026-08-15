@@ -20,14 +20,17 @@
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'protein100', 'fat100', 'sugar100', 'cal100'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'category', 'protein100', 'fat100', 'sugar100', 'cal100'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal'];
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v7-units';
+var APP_BACKEND_VERSION = 'v8-category';
 // 【v7 新增】Foods / Logs 都新增了 unit 欄位（例如 g、顆、盒、碗）。
 // 舊試算表沒有這欄時，ensureHeaders() 會自動補上，不需要手動搬移；
 // 讀取舊資料時 unit 欄位若是空的，一律視為 'g'，行為與升級前完全一致。
+// 【v8 新增】Foods 新增了 category 欄位（食材類別，例如肉類、蔬菜、乳製品…），
+// 用來讓「新增這一餐」時可以用類別快速篩選食材。舊試算表沒有這欄時 ensureHeaders()
+// 會自動補上；讀取舊資料時 category 欄位若是空的，一律視為「未分類」。
 
 function doGet(e) {
   var action = e.parameter.action;
@@ -217,6 +220,7 @@ function readFoods() {
       name: r[map['name']],
       base: Number(r[map['base']]) || 100,
       unit: (map.hasOwnProperty('unit') && r[map['unit']]) ? String(r[map['unit']]) : 'g',
+      category: (map.hasOwnProperty('category') && r[map['category']]) ? String(r[map['category']]) : '',
       protein100: Number(r[map['protein100']]) || 0,
       fat100: Number(r[map['fat100']]) || 0,
       sugar100: Number(r[map['sugar100']]) || 0,
@@ -281,6 +285,7 @@ function addFood(payload) {
     name: payload.name || '',
     base: Number(payload.base) || 100,
     unit: payload.unit ? String(payload.unit) : 'g',
+    category: payload.category ? String(payload.category) : '',
     protein100: Number(payload.protein100) || 0,
     fat100: Number(payload.fat100) || 0,
     sugar100: Number(sugarVal) || 0,
@@ -307,6 +312,12 @@ function updateFood(payload) {
         map['unit'] = newUnitCol - 1;
       }
       sheet.getRange(rowNum, map['unit'] + 1).setValue(payload.unit ? String(payload.unit) : 'g');
+      if (!map.hasOwnProperty('category')) {
+        var newCatCol = sheet.getLastColumn() + 1;
+        sheet.getRange(1, newCatCol).setValue('category');
+        map['category'] = newCatCol - 1;
+      }
+      sheet.getRange(rowNum, map['category'] + 1).setValue(payload.category ? String(payload.category) : '');
       sheet.getRange(rowNum, map['protein100'] + 1).setValue(Number(payload.protein100) || 0);
       sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
       sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);

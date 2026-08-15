@@ -94,6 +94,9 @@
   .hero-logs-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
   .hero-logs-count{font-size:11.5px;color:var(--ink-soft);font-family:var(--font-num);}
   .hero-logs .empty{padding:14px 0;}
+  .log-sort-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
+  .log-sort-row label{font-size:11.5px;color:var(--ink-soft);flex:none;}
+  .log-sort-row select{width:auto;flex:none;padding:5px 8px;font-size:12px;border-radius:8px;}
   .goal-edit{
     font-family:var(--font-num);font-size:15px;border:1px solid var(--line);background:var(--paper);
     border-radius:8px;padding:3px 8px;width:64px;
@@ -136,11 +139,18 @@
     border-radius:var(--radius-sm);background:var(--paper);color:var(--ink);width:100%;
   }
   input:focus{outline:2px solid var(--protein);outline-offset:1px;}
+  select{
+    font-family:var(--font-body);font-size:14px;padding:9px 10px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:var(--paper);color:var(--ink);width:100%;
+  }
+  select:focus{outline:2px solid var(--protein);outline-offset:1px;}
   .field.field-unit{max-width:96px;}
+  .field.field-category{max-width:150px;}
   .base-unit-row{display:flex;gap:8px;}
   .base-unit-row .field{min-width:0;}
   .base-unit-row .field-base{flex:1.2;}
   .base-unit-row .field-unit{flex:1;}
+  .base-unit-row .field-category{flex:1.4;}
   .nutrition-calc-box{
     margin:10px 0 14px;padding:12px;border:1px dashed var(--carb);border-radius:var(--radius-sm);background:var(--carb-tint);
   }
@@ -161,6 +171,9 @@
 
   /* ---- Food picker ---- */
   .search-wrap{position:relative;margin-bottom:10px;}
+  .picker-filter-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
+  .picker-filter-row label{font-size:11.5px;color:var(--ink-soft);flex:none;}
+  .picker-filter-row select{width:auto;flex:none;max-width:160px;padding:6px 8px;font-size:12.5px;border-radius:8px;}
   /* 方形格子：手機上不用一直下拉，一眼就能看到、點好幾樣 */
   .food-list{
     display:grid;grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
@@ -203,6 +216,10 @@
   .batch-row .preview{margin:0;white-space:nowrap;font-size:12px;}
   .batch-row .btn-danger{flex-shrink:0;}
 
+  /* ---- Food library filter row ---- */
+  .food-filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .food-filter-row .field{flex:none;min-width:150px;}
+
   /* ---- Food library table ---- */
   .food-table-wrap{overflow-x:auto;}
   .food-row{
@@ -217,12 +234,40 @@
   }
   .food-row:last-child{border-bottom:none;}
   .food-row.head{color:var(--ink-soft);font-size:11px;font-weight:500;}
+  .food-row.head > span[data-sort]{cursor:pointer;user-select:none;}
+  .food-row.head > span[data-sort]:hover{color:var(--protein-dark);}
+  .food-row.head > span.sort-active{color:var(--protein-dark);font-weight:700;}
   .food-row > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .food-row > span.num{font-family:var(--font-num);text-align:right;}
+  .food-row .fcat{
+    font-style:normal;font-size:10px;font-weight:500;color:var(--protein-dark);background:var(--protein-tint);
+    border-radius:999px;padding:2px 7px;margin-left:5px;white-space:nowrap;
+  }
   .food-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap;}
   .food-actions .btn-edit{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer;}
   .food-actions .btn-edit:hover{background:var(--protein-tint);border-color:var(--protein);}
   .food-actions .btn-danger{padding:5px 6px;}
+
+  /* ---- Food library table：手機版改成卡片式，按鈕不用再往右拉才看得到 ---- */
+  @media (max-width:640px){
+    .food-table-wrap{overflow-x:visible;}
+    .food-row.head{display:none;}
+    .food-row{
+      display:flex;flex-wrap:wrap;align-items:center;
+      min-width:0;gap:4px 10px;padding:11px 0;
+    }
+    .food-row > span{overflow:visible;white-space:normal;text-overflow:clip;flex:none;}
+    .food-row > span.fname{
+      flex:1 1 100%;order:-2;font-weight:700;font-size:14px;color:var(--ink);
+      display:flex;align-items:center;flex-wrap:wrap;
+    }
+    .food-actions{flex:1 1 100%;order:-1;justify-content:flex-start;margin:2px 0 2px;}
+    .food-row > span.num{
+      text-align:left;font-family:var(--font-num);font-size:12px;color:var(--ink);
+      background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:3px 8px;
+    }
+    .food-row > span.num::before{content:attr(data-label) '：';color:var(--ink-soft);font-family:var(--font-body);}
+  }
 
   /* ---- Log list ---- */
   .log-item{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--line);}
@@ -248,10 +293,6 @@
   .status-msg.err{color:var(--danger);}
 
   footer{text-align:center;color:var(--ink-soft);font-size:11px;margin-top:24px;}
-  @media (max-width:420px){
-    .food-table-wrap{margin-right:-6px;}
-    .food-row{grid-template-columns:minmax(110px,1.5fr) 54px 50px 50px 50px 62px 108px;min-width:544px;gap:5px;}
-  }
 </style>
 </head>
 <body>
@@ -287,6 +328,10 @@
         <span class="hero-logs-title">今日紀錄</span>
         <span class="hero-logs-count" id="logCount"></span>
       </div>
+      <div class="log-sort-row">
+        <label for="logSortSelect">排序</label>
+        <select id="logSortSelect"></select>
+      </div>
       <div id="logList"></div>
     </div>
 
@@ -318,6 +363,10 @@
 
       <div class="search-wrap">
         <input type="text" id="foodSearch" placeholder="搜尋食材，例如：雞胸肉">
+      </div>
+      <div class="picker-filter-row">
+        <label for="pickerCategoryFilter">類別</label>
+        <select id="pickerCategoryFilter"><option value="">全部類別</option></select>
       </div>
       <div class="food-list" id="pickerList"></div>
       <div class="food-detail" id="pickerDetail" style="display:none;">
@@ -388,6 +437,11 @@
             <option value="匙"></option>
           </datalist>
         </div>
+        <div class="field field-category">
+          <label>類別（選填）</label>
+          <input type="text" id="fCategory" list="categorySuggestions" placeholder="例如：肉類">
+          <datalist id="categorySuggestions"></datalist>
+        </div>
       </div>
 
       <div class="toggle-manual" id="toggleNutritionCalc">用「每份 × 總份數」自動換算 ＋</div>
@@ -423,9 +477,16 @@
         </span>
       </div>
 
-      <div class="food-table-wrap" style="margin-top:18px;">
-        <div class="food-row head">
-          <span>名稱</span><span>基準</span><span>蛋白</span><span>脂肪</span><span>糖</span><span>熱量</span><span></span>
+      <div class="food-filter-row" style="margin-top:18px;">
+        <div class="field field-category">
+          <label>依類別篩選</label>
+          <select id="foodCategoryFilter"><option value="">全部類別</option></select>
+        </div>
+        <p class="hint" style="margin:0;flex:1;min-width:160px;">點欄位標題可依該項排序，再點一次切換高低。</p>
+      </div>
+      <div class="food-table-wrap" style="margin-top:10px;">
+        <div class="food-row head" id="foodTableHead">
+          <span data-sort="name">名稱</span><span data-sort="base">基準</span><span data-sort="protein">蛋白</span><span data-sort="fat">脂肪</span><span data-sort="sugar">糖</span><span data-sort="cal">熱量</span><span></span>
         </div>
         <div id="foodTable"></div>
       </div>
@@ -482,6 +543,18 @@
   };
   var PROFILE_ORDER = ['A', 'B'];
 
+  // 食材類別常見選項（可自行輸入其他文字，這只是快速選單的建議清單）
+  var FOOD_CATEGORIES = ['肉類', '海鮮', '蛋', '豆製品', '乳製品', '主食/澱粉', '蔬菜', '水果', '堅果/油脂', '飲品', '調味/醬料', '其他'];
+
+  var LOG_SORT_OPTIONS = [
+    { key: 'time_asc', label: '時間（早→晚）' },
+    { key: 'time_desc', label: '時間（晚→早）' },
+    { key: 'protein_desc', label: '蛋白質（高→低）' },
+    { key: 'fat_desc', label: '脂肪（高→低）' },
+    { key: 'sugar_desc', label: '糖（高→低）' },
+    { key: 'cal_desc', label: '熱量（高→低）' }
+  ];
+
   // ---------- state ----------
   var state = {
     foods: [],
@@ -490,7 +563,11 @@
     selectedFoodId: null,
     editingFoodId: null,
     batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams}]
-    currentDate: fmtDate(new Date())
+    currentDate: fmtDate(new Date()),
+    logSort: 'time_asc', // 今日紀錄排序方式
+    foodSort: { key: 'name', dir: 'asc' }, // 食材庫管理表格排序方式
+    foodCategoryFilter: '', // 食材庫管理表格的類別篩選
+    pickerCategoryFilter: '' // 「新增這一餐」挑選食材時的類別篩選
   };
 
   function defaultGoalsSet(){
@@ -658,8 +735,29 @@
 
   function logsForCurrentDate(){
     var p = activeProfile();
-    return state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; })
-      .sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
+    var list = state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; });
+    return sortLogs(list, state.logSort);
+  }
+
+  // 今日紀錄排序：時間（早→晚 / 晚→早）或依營養素（蛋白質／脂肪／糖／熱量，高→低）
+  function sortLogs(list, sortKey){
+    var arr = list.slice();
+    function sugarOf(l){ return Number(l.sugar !== undefined ? l.sugar : l.carb) || 0; }
+    switch (sortKey){
+      case 'time_desc':
+        return arr.sort(function(a,b){ return (b.time||'').localeCompare(a.time||''); });
+      case 'protein_desc':
+        return arr.sort(function(a,b){ return (Number(b.protein)||0) - (Number(a.protein)||0); });
+      case 'fat_desc':
+        return arr.sort(function(a,b){ return (Number(b.fat)||0) - (Number(a.fat)||0); });
+      case 'sugar_desc':
+        return arr.sort(function(a,b){ return sugarOf(b) - sugarOf(a); });
+      case 'cal_desc':
+        return arr.sort(function(a,b){ return (Number(b.cal)||0) - (Number(a.cal)||0); });
+      case 'time_asc':
+      default:
+        return arr.sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
+    }
   }
 
   function renderDateNav(){
@@ -731,9 +829,20 @@
     return 'dot-sugar';
   }
 
+  function renderLogSortSelect(){
+    var sel = document.getElementById('logSortSelect');
+    if (!sel.options.length){
+      sel.innerHTML = LOG_SORT_OPTIONS.map(function(o){
+        return '<option value="' + o.key + '">' + escapeHtml(o.label) + '</option>';
+      }).join('');
+    }
+    sel.value = state.logSort;
+  }
+
   function renderLogList(){
     var el = document.getElementById('logList');
     var countEl = document.getElementById('logCount');
+    renderLogSortSelect();
     var logs = logsForCurrentDate();
     if (countEl) countEl.textContent = logs.length ? (logs.length + ' 筆') : '';
     if (!logs.length){
@@ -758,22 +867,95 @@
     }).join('');
   }
 
+  // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值
+  function foodMetric(f, key){
+    if (key === 'name') return (f.name||'').toLowerCase();
+    if (key === 'base') return Number(f.base||f.baseGrams||100) || 0;
+    if (key === 'protein') return Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
+    if (key === 'fat') return Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
+    if (key === 'sugar') return Number(f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb))) || 0;
+    if (key === 'cal') return Number(f.cal100 !== undefined ? f.cal100 : f.cal) || 0;
+    return 0;
+  }
+
+  // 食材庫管理表格：依目前的類別篩選 + 排序欄位/方向回傳要顯示的清單
+  function sortedFoods(){
+    var list = state.foods.slice();
+    if (state.foodCategoryFilter){
+      list = list.filter(function(f){ return (f.category||'') === state.foodCategoryFilter; });
+    }
+    var key = state.foodSort.key, dir = state.foodSort.dir === 'desc' ? -1 : 1;
+    list.sort(function(a,b){
+      var va = foodMetric(a, key), vb = foodMetric(b, key);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+    return list;
+  }
+
+  var FOOD_SORT_LABELS = { name:'名稱', base:'基準', protein:'蛋白', fat:'脂肪', sugar:'糖', cal:'熱量' };
+  function renderFoodTableHead(){
+    var head = document.getElementById('foodTableHead');
+    if (!head) return;
+    head.querySelectorAll('[data-sort]').forEach(function(span){
+      var key = span.getAttribute('data-sort');
+      var active = state.foodSort.key === key;
+      span.textContent = FOOD_SORT_LABELS[key] + (active ? (state.foodSort.dir === 'desc' ? ' ▾' : ' ▴') : '');
+      span.classList.toggle('sort-active', active);
+    });
+  }
+
+  // 依目前食材庫裡實際使用的類別，動態更新篩選下拉選單與新增食材時的建議清單
+  function renderCategoryOptions(){
+    var cats = [];
+    state.foods.forEach(function(f){
+      if (f.category && cats.indexOf(f.category) === -1) cats.push(f.category);
+    });
+    FOOD_CATEGORIES.forEach(function(c){ if (cats.indexOf(c) === -1) cats.push(c); });
+
+    var filterSel = document.getElementById('foodCategoryFilter');
+    if (filterSel){
+      var prevVal = state.foodCategoryFilter;
+      filterSel.innerHTML = '<option value="">全部類別</option>' +
+        cats.map(function(c){ return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
+      filterSel.value = prevVal;
+    }
+    var pickerSel = document.getElementById('pickerCategoryFilter');
+    if (pickerSel){
+      var prevPick = state.pickerCategoryFilter;
+      pickerSel.innerHTML = '<option value="">全部類別</option>' +
+        cats.map(function(c){ return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
+      pickerSel.value = prevPick;
+    }
+    var datalist = document.getElementById('categorySuggestions');
+    if (datalist){
+      datalist.innerHTML = cats.map(function(c){ return '<option value="' + escapeHtml(c) + '"></option>'; }).join('');
+    }
+  }
+
   function renderFoodTable(){
     var el = document.getElementById('foodTable');
-    if (!state.foods.length){
-      el.innerHTML = '<div class="empty">尚未新增任何食材。</div>';
+    renderCategoryOptions();
+    renderFoodTableHead();
+    var list = sortedFoods();
+    if (!list.length){
+      el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材。') + '</div>';
       return;
     }
-    el.innerHTML = state.foods.map(function(f){
+    el.innerHTML = list.map(function(f){
       var cal = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
       var sug = f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb||0));
+      var protein = f.protein100 !== undefined ? f.protein100 : f.protein;
+      var fat = f.fat100 !== undefined ? f.fat100 : f.fat;
+      var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
       return '<div class="food-row">' +
-        '<span>' + escapeHtml(f.name) + '</span>' +
-        '<span class="num">' + (f.base||f.baseGrams||100) + escapeHtml(f.unit || 'g') + '</span>' +
-        '<span class="num">' + (f.protein100 !== undefined ? f.protein100 : f.protein) + '</span>' +
-        '<span class="num">' + (f.fat100 !== undefined ? f.fat100 : f.fat) + '</span>' +
-        '<span class="num">' + sug + '</span>' +
-        '<span class="num">' + cal + '</span>' +
+        '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
+        '<span class="num" data-label="基準">' + (f.base||f.baseGrams||100) + escapeHtml(f.unit || 'g') + '</span>' +
+        '<span class="num" data-label="蛋白">' + protein + '</span>' +
+        '<span class="num" data-label="脂肪">' + fat + '</span>' +
+        '<span class="num" data-label="糖">' + sug + '</span>' +
+        '<span class="num" data-label="熱量">' + cal + '</span>' +
         '<span class="food-actions">' +
           '<button class="btn-edit" data-edit-food="' + escapeHtml(f.id) + '">編輯</button>' +
           '<button class="btn-danger" data-del-food="' + escapeHtml(f.id) + '">刪除</button>' +
@@ -785,7 +967,10 @@
   function renderPickerList(){
     var el = document.getElementById('pickerList');
     var q = (document.getElementById('foodSearch').value || '').trim().toLowerCase();
-    var list = state.foods.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q) > -1; });
+    var cat = state.pickerCategoryFilter;
+    var list = state.foods.filter(function(f){
+      return (!q || f.name.toLowerCase().indexOf(q) > -1) && (!cat || (f.category||'') === cat);
+    });
     if (!list.length){
       el.innerHTML = '<div class="empty">' + (state.foods.length ? '找不到符合的食材。' : '食材庫是空的，先到下方新增食材。') + '</div>';
       renderBatchList();
@@ -938,6 +1123,7 @@
     ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('fBase').value = 100;
     document.getElementById('fUnit').value = 'g';
+    document.getElementById('fCategory').value = '';
     ['nPerServeProtein','nPerServeFat','nPerServeSugar','nPerServeCal','nServings'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('nutritionCalcBox').style.display = 'none';
     document.getElementById('fSaveBtn').textContent = '新增食材';
@@ -1010,6 +1196,10 @@
 
   function wirePicker(){
     document.getElementById('foodSearch').addEventListener('input', renderPickerList);
+    document.getElementById('pickerCategoryFilter').addEventListener('change', function(e){
+      state.pickerCategoryFilter = e.target.value;
+      renderPickerList();
+    });
 
     // 點食材：加入／移出批次清單（可以一次點多樣）
     document.getElementById('pickerList').addEventListener('click', function(e){
@@ -1096,6 +1286,10 @@
       if (!btn) return;
       if (confirm('確定要刪除這筆紀錄嗎？')) deleteLog(btn.getAttribute('data-del-log'));
     });
+    document.getElementById('logSortSelect').addEventListener('change', function(e){
+      state.logSort = e.target.value;
+      renderLogList();
+    });
   }
 
   function wireFoodForm(){
@@ -1141,6 +1335,7 @@
       var base = Number(document.getElementById('fBase').value);
       if (!base || base <= 0) base = 100;
       var unit = document.getElementById('fUnit').value.trim() || 'g';
+      var category = document.getElementById('fCategory').value.trim();
       var protein = Number(document.getElementById('fProtein').value);
       var fat = Number(document.getElementById('fFat').value) || 0;
       var sugar = Number(document.getElementById('fSugar').value) || 0;
@@ -1154,6 +1349,7 @@
         name: name,
         base: base,
         unit: unit,
+        category: category,
         protein100: round1(protein),
         fat100: round1(fat),
         sugar100: round1(sugar),
@@ -1168,6 +1364,24 @@
       }
 
       clearFoodForm();
+    });
+
+    document.getElementById('foodCategoryFilter').addEventListener('change', function(e){
+      state.foodCategoryFilter = e.target.value;
+      renderFoodTable();
+    });
+
+    document.getElementById('foodTableHead').addEventListener('click', function(e){
+      var span = e.target.closest('[data-sort]');
+      if (!span) return;
+      var key = span.getAttribute('data-sort');
+      if (state.foodSort.key === key){
+        state.foodSort.dir = state.foodSort.dir === 'desc' ? 'asc' : 'desc';
+      } else {
+        state.foodSort.key = key;
+        state.foodSort.dir = (key === 'name' || key === 'base') ? 'asc' : 'desc';
+      }
+      renderFoodTable();
     });
 
     document.getElementById('foodTable').addEventListener('click', function(e){
@@ -1193,6 +1407,7 @@
           document.getElementById('fName').value = food.name || '';
           document.getElementById('fBase').value = editBase;
           document.getElementById('fUnit').value = editUnit;
+          document.getElementById('fCategory').value = food.category || '';
           document.getElementById('fProtein').value = editProtein;
           document.getElementById('fFat').value = editFat;
           document.getElementById('fSugar').value = editSugar;
