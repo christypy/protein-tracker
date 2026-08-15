@@ -94,9 +94,6 @@
   .hero-logs-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
   .hero-logs-count{font-size:11.5px;color:var(--ink-soft);font-family:var(--font-num);}
   .hero-logs .empty{padding:14px 0;}
-  .log-sort-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
-  .log-sort-row label{font-size:11.5px;color:var(--ink-soft);flex:none;}
-  .log-sort-row select{width:auto;flex:none;padding:5px 8px;font-size:12px;border-radius:8px;}
   .goal-edit{
     font-family:var(--font-num);font-size:15px;border:1px solid var(--line);background:var(--paper);
     border-radius:8px;padding:3px 8px;width:64px;
@@ -145,12 +142,10 @@
   }
   select:focus{outline:2px solid var(--protein);outline-offset:1px;}
   .field.field-unit{max-width:96px;}
-  .field.field-category{max-width:150px;}
   .base-unit-row{display:flex;gap:8px;}
   .base-unit-row .field{min-width:0;}
   .base-unit-row .field-base{flex:1.2;}
   .base-unit-row .field-unit{flex:1;}
-  .base-unit-row .field-category{flex:1.4;}
   .nutrition-calc-box{
     margin:10px 0 14px;padding:12px;border:1px dashed var(--carb);border-radius:var(--radius-sm);background:var(--carb-tint);
   }
@@ -171,9 +166,6 @@
 
   /* ---- Food picker ---- */
   .search-wrap{position:relative;margin-bottom:10px;}
-  .picker-filter-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
-  .picker-filter-row label{font-size:11.5px;color:var(--ink-soft);flex:none;}
-  .picker-filter-row select{width:auto;flex:none;max-width:160px;padding:6px 8px;font-size:12.5px;border-radius:8px;}
   /* 方形格子：手機上不用一直下拉，一眼就能看到、點好幾樣 */
   .food-list{
     display:grid;grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
@@ -216,10 +208,6 @@
   .batch-row .preview{margin:0;white-space:nowrap;font-size:12px;}
   .batch-row .btn-danger{flex-shrink:0;}
 
-  /* ---- Food library filter row ---- */
-  .food-filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
-  .food-filter-row .field{flex:none;min-width:150px;}
-
   /* ---- Food library table ---- */
   .food-table-wrap{overflow-x:auto;}
   .food-row{
@@ -244,11 +232,8 @@
     border-radius:999px;padding:2px 7px;margin-left:5px;white-space:nowrap;
   }
   .food-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap;}
-  .food-actions .btn-edit{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer;}
-  .food-actions .btn-edit:hover{background:var(--protein-tint);border-color:var(--protein);}
-  .food-actions .btn-danger{padding:5px 6px;}
 
-  /* ---- Food library table：手機版改成卡片式，按鈕不用再往右拉才看得到 ---- */
+  /* ---- Food library table：手機版改成卡片式，跟網頁版共用同一套標記與互動邏輯 ---- */
   @media (max-width:640px){
     .food-table-wrap{overflow-x:visible;}
     .food-row.head{display:none;}
@@ -270,8 +255,9 @@
   }
 
   /* ---- Log list ---- */
-  .log-item{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .log-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);}
   .log-item:last-child{border-bottom:none;padding-bottom:0;}
+  .log-item .drag-handle{margin-left:-4px;}
   .log-dot{width:8px;height:8px;min-width:8px;border-radius:50%;flex:none;}
   .log-dot.dot-protein{background:var(--protein);}
   .log-dot.dot-fat{background:var(--fat);}
@@ -285,6 +271,63 @@
   .log-macros .f{color:var(--fat);}
   .log-macros .s{color:var(--carb);}
   .log-macros .k{color:var(--cal);}
+
+  /* ---- Category chips (取代下拉選單，展開即點即切) ---- */
+  .chip-scroll{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{
+    font-family:var(--font-body);font-size:12.5px;font-weight:700;padding:7px 13px;
+    border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    cursor:pointer;white-space:nowrap;line-height:1.2;
+  }
+  .chip:hover{border-color:var(--protein);}
+  .chip.active{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
+  .chip.chip-add{border-style:dashed;color:var(--protein-dark);background:transparent;}
+  .chip-field-label{font-size:11px;color:var(--ink-soft);margin:0 0 6px;}
+  .chip-new-row{display:flex;gap:6px;margin-top:8px;}
+  .chip-new-row input{flex:1;}
+
+  /* ---- List toolbar：把一堆散落的「編輯/刪除」按鈕收成兩顆總開關 ---- */
+  .list-toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;}
+  .tool-btn{
+    font-family:var(--font-body);font-weight:700;font-size:12.5px;padding:7px 14px;border-radius:999px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;
+  }
+  .tool-btn:hover{background:var(--protein-tint);}
+  .tool-btn.on.mode-edit{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
+  .tool-btn.on.mode-delete{background:var(--danger);border-color:var(--danger);color:#fff;}
+
+  .select-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--protein-tint);border:1px solid var(--protein);border-radius:var(--radius-sm);
+    padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--protein-dark);font-weight:700;
+  }
+  .select-bar .select-actions{display:flex;gap:8px;}
+  .select-bar .btn-mini{
+    font-family:var(--font-body);font-weight:700;font-size:12px;padding:6px 12px;border-radius:999px;
+    border:none;cursor:pointer;
+  }
+  .select-bar .btn-mini.confirm{background:var(--danger);color:#fff;}
+  .select-bar .btn-mini.cancel{background:transparent;color:var(--ink-soft);text-decoration:underline;}
+  .select-hint{font-size:11.5px;margin:0 0 8px;color:var(--protein-dark);}
+
+  .row-check{
+    flex:none;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--card);
+  }
+  .row-check input{margin:0;width:16px;height:16px;accent-color:var(--protein-dark);cursor:pointer;}
+
+  .selectable-row{cursor:pointer;}
+  .selectable-row:hover{background:var(--protein-tint);}
+  .selectable-row.picked{background:var(--protein-tint);}
+
+  /* ---- Drag handle：今日紀錄改成手動拖移排序 ---- */
+  .drag-handle{
+    flex:none;width:22px;height:100%;display:flex;align-items:center;justify-content:center;
+    color:var(--ink-soft);font-size:15px;cursor:grab;touch-action:none;user-select:none;letter-spacing:-2px;
+  }
+  .drag-handle:active{cursor:grabbing;}
+  .log-item.dragging{opacity:0.45;}
+  .log-item.drag-active{position:relative;z-index:5;box-shadow:var(--shadow);background:var(--card);border-radius:var(--radius-sm);}
 
   /* ---- Settings ---- */
   .settings-note{font-size:12px;color:var(--ink-soft);line-height:1.6;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
@@ -328,9 +371,16 @@
         <span class="hero-logs-title">今日紀錄</span>
         <span class="hero-logs-count" id="logCount"></span>
       </div>
-      <div class="log-sort-row">
-        <label for="logSortSelect">排序</label>
-        <select id="logSortSelect"></select>
+      <p class="hint" style="margin:0 0 8px;">按住左側 <b>⠿</b> 可以拖移調整順序；想刪除的話，先按下面「刪除」再勾選。</p>
+      <div class="list-toolbar">
+        <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
+      </div>
+      <div class="select-bar" id="logSelectBar" style="display:none;">
+        <span id="logSelectCount">已選 0 筆</span>
+        <span class="select-actions">
+          <button type="button" class="btn-mini cancel" id="logSelectCancel">取消</button>
+          <button type="button" class="btn-mini confirm" id="logSelectConfirm">刪除選取</button>
+        </span>
       </div>
       <div id="logList"></div>
     </div>
@@ -364,10 +414,8 @@
       <div class="search-wrap">
         <input type="text" id="foodSearch" placeholder="搜尋食材，例如：雞胸肉">
       </div>
-      <div class="picker-filter-row">
-        <label for="pickerCategoryFilter">類別</label>
-        <select id="pickerCategoryFilter"><option value="">全部類別</option></select>
-      </div>
+      <p class="chip-field-label">類別</p>
+      <div class="chip-scroll" id="pickerCategoryChips" style="margin-bottom:10px;"></div>
       <div class="food-list" id="pickerList"></div>
       <div class="food-detail" id="pickerDetail" style="display:none;">
         <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，填好數量（依各食材單位而定）後按下面按鈕一次送出。</p>
@@ -437,11 +485,16 @@
             <option value="匙"></option>
           </datalist>
         </div>
-        <div class="field field-category">
-          <label>類別（選填）</label>
-          <input type="text" id="fCategory" list="categorySuggestions" placeholder="例如：肉類">
-          <datalist id="categorySuggestions"></datalist>
+      </div>
+
+      <div class="field" style="margin-top:8px;">
+        <label>類別（選填）</label>
+        <div class="chip-scroll" id="fCategoryChips"></div>
+        <div class="chip-new-row" id="fCategoryNewRow" style="display:none;">
+          <input type="text" id="fCategoryNewInput" placeholder="輸入新類別名稱，例如：肉類">
+          <button type="button" class="btn btn-ghost" id="fCategoryNewConfirm">加入</button>
         </div>
+        <input type="hidden" id="fCategory" value="">
       </div>
 
       <div class="toggle-manual" id="toggleNutritionCalc">用「每份 × 總份數」自動換算 ＋</div>
@@ -477,13 +530,23 @@
         </span>
       </div>
 
-      <div class="food-filter-row" style="margin-top:18px;">
-        <div class="field field-category">
-          <label>依類別篩選</label>
-          <select id="foodCategoryFilter"><option value="">全部類別</option></select>
-        </div>
-        <p class="hint" style="margin:0;flex:1;min-width:160px;">點欄位標題可依該項排序，再點一次切換高低。</p>
+      <p class="chip-field-label" style="margin-top:18px;">依類別篩選</p>
+      <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
+      <p class="hint" style="margin:6px 0 0;">點欄位標題可依該項排序，再點一次切換高低。</p>
+
+      <div class="list-toolbar" style="margin-top:14px;">
+        <button type="button" class="tool-btn" id="foodEditToggle">編輯</button>
+        <button type="button" class="tool-btn" id="foodDeleteToggle">刪除</button>
       </div>
+      <p class="select-hint" id="foodEditHint" style="display:none;">點選要編輯的食材（一次一項）</p>
+      <div class="select-bar" id="foodSelectBar" style="display:none;">
+        <span id="foodSelectCount">已選 0 項</span>
+        <span class="select-actions">
+          <button type="button" class="btn-mini cancel" id="foodSelectCancel">取消</button>
+          <button type="button" class="btn-mini confirm" id="foodSelectConfirm">刪除選取</button>
+        </span>
+      </div>
+
       <div class="food-table-wrap" style="margin-top:10px;">
         <div class="food-row head" id="foodTableHead">
           <span data-sort="name">名稱</span><span data-sort="base">基準</span><span data-sort="protein">蛋白</span><span data-sort="fat">脂肪</span><span data-sort="sugar">糖</span><span data-sort="cal">熱量</span><span></span>
@@ -543,17 +606,8 @@
   };
   var PROFILE_ORDER = ['A', 'B'];
 
-  // 食材類別常見選項（可自行輸入其他文字，這只是快速選單的建議清單）
-  var FOOD_CATEGORIES = ['肉類', '海鮮', '蛋', '豆製品', '乳製品', '主食/澱粉', '蔬菜', '水果', '堅果/油脂', '飲品', '調味/醬料', '其他'];
-
-  var LOG_SORT_OPTIONS = [
-    { key: 'time_asc', label: '時間（早→晚）' },
-    { key: 'time_desc', label: '時間（晚→早）' },
-    { key: 'protein_desc', label: '蛋白質（高→低）' },
-    { key: 'fat_desc', label: '脂肪（高→低）' },
-    { key: 'sugar_desc', label: '糖（高→低）' },
-    { key: 'cal_desc', label: '熱量（高→低）' }
-  ];
+  // 食材類別不預先產生任何選項——類別清單完全來自使用者實際新增過的食材，
+  // 有新增食材時填了什麼類別，之後篩選/切頁的清單裡才會出現對應的類別。
 
   // ---------- state ----------
   var state = {
@@ -562,12 +616,21 @@
     settings: { sheetUrl: "", profile: 'A', goals: null },
     selectedFoodId: null,
     editingFoodId: null,
+    fCategorySelected: '', // 新增/編輯食材表單目前選取的類別
     batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams}]
     currentDate: fmtDate(new Date()),
-    logSort: 'time_asc', // 今日紀錄排序方式
     foodSort: { key: 'name', dir: 'asc' }, // 食材庫管理表格排序方式
     foodCategoryFilter: '', // 食材庫管理表格的類別篩選
-    pickerCategoryFilter: '' // 「新增這一餐」挑選食材時的類別篩選
+    pickerCategoryFilter: '', // 「新增這一餐」挑選食材時的類別篩選
+
+    // 食材庫管理：一個「編輯」開關、一個「刪除」開關，取代每列各自的按鈕
+    foodMode: '', // '' | 'edit' | 'delete'
+    foodDeleteSelected: [], // 刪除模式下已勾選的食材 id
+
+    // 今日紀錄：手動拖移排序 + 單一「刪除」開關（取代每列各自的刪除鈕）
+    logDeleteMode: false,
+    logDeleteSelected: [], // 刪除模式下已勾選的紀錄 id
+    dragging: null // 拖移排序時的暫存狀態
   };
 
   function defaultGoalsSet(){
@@ -733,30 +796,33 @@
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
   }
 
+  // 今日紀錄的排序完全由使用者手動拖移決定（存在每筆紀錄的 order 欄位），
+  // 不再依時間或營養素高低自動排序。舊資料如果沒有 order，第一次顯示時
+  // 用時間排序當作預設順序（只在記憶體中補上，實際拖移過一次才會真正存檔)。
   function logsForCurrentDate(){
     var p = activeProfile();
     var list = state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; });
-    return sortLogs(list, state.logSort);
+    var hasAnyOrder = list.some(function(l){ return typeof l.order === 'number'; });
+    if (!hasAnyOrder){
+      list.sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
+      list.forEach(function(l, i){ l.order = i; });
+    } else {
+      var maxOrder = list.reduce(function(m,l){ return typeof l.order === 'number' ? Math.max(m,l.order) : m; }, -1);
+      list.forEach(function(l){ if (typeof l.order !== 'number') l.order = ++maxOrder; });
+      list.sort(function(a,b){ return a.order - b.order; });
+    }
+    return list;
   }
 
-  // 今日紀錄排序：時間（早→晚 / 晚→早）或依營養素（蛋白質／脂肪／糖／熱量，高→低）
-  function sortLogs(list, sortKey){
-    var arr = list.slice();
-    function sugarOf(l){ return Number(l.sugar !== undefined ? l.sugar : l.carb) || 0; }
-    switch (sortKey){
-      case 'time_desc':
-        return arr.sort(function(a,b){ return (b.time||'').localeCompare(a.time||''); });
-      case 'protein_desc':
-        return arr.sort(function(a,b){ return (Number(b.protein)||0) - (Number(a.protein)||0); });
-      case 'fat_desc':
-        return arr.sort(function(a,b){ return (Number(b.fat)||0) - (Number(a.fat)||0); });
-      case 'sugar_desc':
-        return arr.sort(function(a,b){ return sugarOf(b) - sugarOf(a); });
-      case 'cal_desc':
-        return arr.sort(function(a,b){ return (Number(b.cal)||0) - (Number(a.cal)||0); });
-      case 'time_asc':
-      default:
-        return arr.sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
+  // 拖移排序結束後：把目前這份清單（同一天、同一身份）重新編號 0..n-1，
+  // 存回本機，並在有連線試算表時把每一筆變動同步過去。
+  async function persistLogOrder(orderedList){
+    orderedList.forEach(function(l, i){ l.order = i; });
+    await saveLocalLogs();
+    if (hasSheet()){
+      orderedList.forEach(function(l){
+        sheetPost('updateLog', { id: l.id, order: l.order }).catch(function(){ /* 排序同步失敗不影響本機操作 */ });
+      });
     }
   }
 
@@ -829,20 +895,21 @@
     return 'dot-sugar';
   }
 
-  function renderLogSortSelect(){
-    var sel = document.getElementById('logSortSelect');
-    if (!sel.options.length){
-      sel.innerHTML = LOG_SORT_OPTIONS.map(function(o){
-        return '<option value="' + o.key + '">' + escapeHtml(o.label) + '</option>';
-      }).join('');
-    }
-    sel.value = state.logSort;
+  function renderLogSelectBar(){
+    var toggle = document.getElementById('logDeleteToggle');
+    var bar = document.getElementById('logSelectBar');
+    var countEl = document.getElementById('logSelectCount');
+    toggle.classList.toggle('on', state.logDeleteMode);
+    toggle.classList.toggle('mode-delete', state.logDeleteMode);
+    toggle.textContent = state.logDeleteMode ? '取消刪除' : '刪除';
+    bar.style.display = state.logDeleteMode ? 'flex' : 'none';
+    countEl.textContent = '已選 ' + state.logDeleteSelected.length + ' 筆';
   }
 
   function renderLogList(){
     var el = document.getElementById('logList');
     var countEl = document.getElementById('logCount');
-    renderLogSortSelect();
+    renderLogSelectBar();
     var logs = logsForCurrentDate();
     if (countEl) countEl.textContent = logs.length ? (logs.length + ' 筆') : '';
     if (!logs.length){
@@ -853,7 +920,12 @@
       var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + (l.unit || 'g')) : '');
       var sVal = l.sugar !== undefined ? l.sugar : (l.carb||0);
       var dotCls = dominantMacroClass(l.protein, l.fat, sVal);
-      return '<div class="log-item">' +
+      var checked = state.logDeleteSelected.indexOf(l.id) > -1;
+      var leftControl = state.logDeleteMode
+        ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span>'
+        : '<span class="drag-handle" data-drag-handle="' + escapeHtml(l.id) + '">⠿</span>';
+      return '<div class="log-item" data-log-id="' + escapeHtml(l.id) + '">' +
+        leftControl +
         '<span class="log-dot ' + dotCls + '"></span>' +
         '<div class="log-time">' + escapeHtml(l.time||'') + '</div>' +
         '<div class="log-main"><div class="name">' + escapeHtml(l.foodName || '未命名') + '</div>' +
@@ -862,7 +934,6 @@
         '<span class="f">F ' + round1(l.fat) + '</span>' +
         '<span class="s">S ' + round1(sVal) + '</span>' +
         '<span class="k">' + Math.round(l.cal||0) + 'kcal</span></div>' +
-        '<button class="btn-danger" data-del-log="' + escapeHtml(l.id) + '">刪除</button>' +
         '</div>';
     }).join('');
   }
@@ -895,6 +966,61 @@
   }
 
   var FOOD_SORT_LABELS = { name:'名稱', base:'基準', protein:'蛋白', fat:'脂肪', sugar:'糖', cal:'熱量' };
+
+  // 目前食材庫裡實際被使用過的類別（唯一真實來源——沒有任何預先產生的清單，
+  // 有新增食材填了某個類別，這個類別才會出現在下面各處的篩選/切頁清單）。
+  function usedCategories(){
+    var cats = [];
+    state.foods.forEach(function(f){
+      if (f.category && cats.indexOf(f.category) === -1) cats.push(f.category);
+    });
+    cats.sort(function(a,b){ return a.localeCompare(b, 'zh-Hant'); });
+    return cats;
+  }
+
+  // 「食材庫管理」的類別篩選：展開成一排可以直接點的類別 chip，取代下拉選單。
+  function renderFoodCategoryChips(){
+    var wrap = document.getElementById('foodCategoryChips');
+    if (!wrap) return;
+    var cats = usedCategories();
+    var html = '<button type="button" class="chip' + (!state.foodCategoryFilter?' active':'') + '" data-cat-filter="">全部類別</button>';
+    html += cats.map(function(c){
+      return '<button type="button" class="chip' + (state.foodCategoryFilter===c?' active':'') + '" data-cat-filter="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+    wrap.innerHTML = html;
+  }
+
+  // 「新增這一餐」挑選食材時的類別篩選：同樣是展開式 chip，點了立刻切頁篩選。
+  function renderPickerCategoryChips(){
+    var wrap = document.getElementById('pickerCategoryChips');
+    if (!wrap) return;
+    var cats = usedCategories();
+    var html = '<button type="button" class="chip' + (!state.pickerCategoryFilter?' active':'') + '" data-picker-cat="">全部類別</button>';
+    html += cats.map(function(c){
+      return '<button type="button" class="chip' + (state.pickerCategoryFilter===c?' active':'') + '" data-picker-cat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+    wrap.innerHTML = html;
+  }
+
+  // 新增／編輯食材表單裡選類別：一樣是 chip，外加一顆「＋ 新增類別」讓輸入全新的類別。
+  function renderFCategoryChips(){
+    var wrap = document.getElementById('fCategoryChips');
+    if (!wrap) return;
+    var cats = usedCategories();
+    var sel = state.fCategorySelected;
+    var html = cats.map(function(c){
+      return '<button type="button" class="chip' + (sel===c?' active':'') + '" data-fcat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+    html += '<button type="button" class="chip chip-add" id="fCategoryAddChip">＋ 新增類別</button>';
+    wrap.innerHTML = html;
+  }
+
+  function setFCategory(val){
+    state.fCategorySelected = val || '';
+    document.getElementById('fCategory').value = state.fCategorySelected;
+    renderFCategoryChips();
+  }
+
   function renderFoodTableHead(){
     var head = document.getElementById('foodTableHead');
     if (!head) return;
@@ -906,41 +1032,33 @@
     });
   }
 
-  // 依目前食材庫裡實際使用的類別，動態更新篩選下拉選單與新增食材時的建議清單
-  function renderCategoryOptions(){
-    var cats = [];
-    state.foods.forEach(function(f){
-      if (f.category && cats.indexOf(f.category) === -1) cats.push(f.category);
-    });
-    FOOD_CATEGORIES.forEach(function(c){ if (cats.indexOf(c) === -1) cats.push(c); });
-
-    var filterSel = document.getElementById('foodCategoryFilter');
-    if (filterSel){
-      var prevVal = state.foodCategoryFilter;
-      filterSel.innerHTML = '<option value="">全部類別</option>' +
-        cats.map(function(c){ return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
-      filterSel.value = prevVal;
-    }
-    var pickerSel = document.getElementById('pickerCategoryFilter');
-    if (pickerSel){
-      var prevPick = state.pickerCategoryFilter;
-      pickerSel.innerHTML = '<option value="">全部類別</option>' +
-        cats.map(function(c){ return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
-      pickerSel.value = prevPick;
-    }
-    var datalist = document.getElementById('categorySuggestions');
-    if (datalist){
-      datalist.innerHTML = cats.map(function(c){ return '<option value="' + escapeHtml(c) + '"></option>'; }).join('');
-    }
+  function renderFoodSelectBar(){
+    var editBtn = document.getElementById('foodEditToggle');
+    var delBtn = document.getElementById('foodDeleteToggle');
+    var hint = document.getElementById('foodEditHint');
+    var bar = document.getElementById('foodSelectBar');
+    var countEl = document.getElementById('foodSelectCount');
+    editBtn.classList.toggle('on', state.foodMode === 'edit');
+    editBtn.classList.toggle('mode-edit', state.foodMode === 'edit');
+    editBtn.textContent = state.foodMode === 'edit' ? '取消編輯' : '編輯';
+    delBtn.classList.toggle('on', state.foodMode === 'delete');
+    delBtn.classList.toggle('mode-delete', state.foodMode === 'delete');
+    delBtn.textContent = state.foodMode === 'delete' ? '取消刪除' : '刪除';
+    hint.style.display = state.foodMode === 'edit' ? 'block' : 'none';
+    bar.style.display = state.foodMode === 'delete' ? 'flex' : 'none';
+    countEl.textContent = '已選 ' + state.foodDeleteSelected.length + ' 項';
   }
 
   function renderFoodTable(){
     var el = document.getElementById('foodTable');
-    renderCategoryOptions();
+    renderFoodCategoryChips();
+    renderPickerCategoryChips();
+    renderFCategoryChips();
     renderFoodTableHead();
+    renderFoodSelectBar();
     var list = sortedFoods();
     if (!list.length){
-      el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材。') + '</div>';
+      el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
       return;
     }
     el.innerHTML = list.map(function(f){
@@ -949,17 +1067,24 @@
       var protein = f.protein100 !== undefined ? f.protein100 : f.protein;
       var fat = f.fat100 !== undefined ? f.fat100 : f.fat;
       var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
-      return '<div class="food-row">' +
+      var rowCls = 'food-row';
+      var tail = '<span class="food-actions"></span>';
+      if (state.foodMode === 'edit'){
+        rowCls += ' selectable-row';
+      } else if (state.foodMode === 'delete'){
+        rowCls += ' selectable-row';
+        var checked = state.foodDeleteSelected.indexOf(f.id) > -1;
+        if (checked) rowCls += ' picked';
+        tail = '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span></span>';
+      }
+      return '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
         '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
         '<span class="num" data-label="基準">' + (f.base||f.baseGrams||100) + escapeHtml(f.unit || 'g') + '</span>' +
         '<span class="num" data-label="蛋白">' + protein + '</span>' +
         '<span class="num" data-label="脂肪">' + fat + '</span>' +
         '<span class="num" data-label="糖">' + sug + '</span>' +
         '<span class="num" data-label="熱量">' + cal + '</span>' +
-        '<span class="food-actions">' +
-          '<button class="btn-edit" data-edit-food="' + escapeHtml(f.id) + '">編輯</button>' +
-          '<button class="btn-danger" data-del-food="' + escapeHtml(f.id) + '">刪除</button>' +
-        '</span>' +
+        tail +
         '</div>';
     }).join('');
   }
@@ -971,6 +1096,7 @@
     var list = state.foods.filter(function(f){
       return (!q || f.name.toLowerCase().indexOf(q) > -1) && (!cat || (f.category||'') === cat);
     });
+    renderPickerCategoryChips();
     if (!list.length){
       el.innerHTML = '<div class="empty">' + (state.foods.length ? '找不到符合的食材。' : '食材庫是空的，先到下方新增食材。') + '</div>';
       renderBatchList();
@@ -1087,11 +1213,35 @@
     }
   }
 
+  // 刪除模式下一次刪除多項已勾選的食材
+  async function deleteFoodsBatch(ids){
+    if (!ids.length) return;
+    var idSet = {};
+    ids.forEach(function(id){ idSet[id] = true; });
+    state.foods = state.foods.filter(function(f){ return !idSet[f.id]; });
+    if (state.selectedFoodId && idSet[state.selectedFoodId]) state.selectedFoodId = null;
+    if (state.editingFoodId && idSet[state.editingFoodId]) clearFoodForm();
+    state.batch = state.batch.filter(function(b){ return !idSet[b.foodId]; });
+    await persistFoodsAndRender();
+
+    if (hasSheet()){
+      ids.forEach(function(id){
+        sheetPost('deleteFood', {id:id}).catch(function(e){
+          setSheetStatus('刪除食材同步失敗：' + e.message, 'err');
+        });
+      });
+    }
+  }
+
   async function addLog(entry){
     entry.date = state.currentDate;
     entry.time = nowTime();
     entry.person = activeProfile();
     entry.id = uid('l');
+    // 新紀錄放在「今日紀錄」手動排序清單的最後面
+    var sameGroup = state.logs.filter(function(l){ return l.date === entry.date && (l.person||'A') === entry.person; });
+    var maxOrder = sameGroup.reduce(function(m,l){ return typeof l.order === 'number' ? Math.max(m,l.order) : m; }, -1);
+    entry.order = maxOrder + 1;
     state.logs.push(entry);
     await persistLogsAndRender();
 
@@ -1118,12 +1268,31 @@
     }
   }
 
+  // 刪除模式下一次刪除多筆已勾選的紀錄
+  async function deleteLogsBatch(ids){
+    if (!ids.length) return;
+    var idSet = {};
+    ids.forEach(function(id){ idSet[id] = true; });
+    state.logs = state.logs.filter(function(l){ return !idSet[l.id]; });
+    await persistLogsAndRender();
+
+    if (hasSheet()){
+      ids.forEach(function(id){
+        sheetPost('deleteLog', {id:id}).catch(function(e){
+          setSheetStatus('刪除紀錄時同步失敗：' + e.message, 'err');
+        });
+      });
+    }
+  }
+
   function clearFoodForm(){
     state.editingFoodId = null;
     ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('fBase').value = 100;
     document.getElementById('fUnit').value = 'g';
-    document.getElementById('fCategory').value = '';
+    setFCategory('');
+    document.getElementById('fCategoryNewRow').style.display = 'none';
+    document.getElementById('fCategoryNewInput').value = '';
     ['nPerServeProtein','nPerServeFat','nPerServeSugar','nPerServeCal','nServings'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('nutritionCalcBox').style.display = 'none';
     document.getElementById('fSaveBtn').textContent = '新增食材';
@@ -1196,8 +1365,10 @@
 
   function wirePicker(){
     document.getElementById('foodSearch').addEventListener('input', renderPickerList);
-    document.getElementById('pickerCategoryFilter').addEventListener('change', function(e){
-      state.pickerCategoryFilter = e.target.value;
+    document.getElementById('pickerCategoryChips').addEventListener('click', function(e){
+      var chip = e.target.closest('[data-picker-cat]');
+      if (!chip) return;
+      state.pickerCategoryFilter = chip.getAttribute('data-picker-cat');
       renderPickerList();
     });
 
@@ -1280,15 +1451,86 @@
     });
   }
 
+  // 依拖移時的指標 Y 座標，找出目前應該插入在哪個項目之前（標準的拖移排序演算法）
+  function getLogDragAfterElement(container, y){
+    var els = Array.prototype.slice.call(container.querySelectorAll('.log-item:not(.dragging)'));
+    return els.reduce(function(closest, child){
+      var box = child.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset){
+        return { offset: offset, element: child };
+      }
+      return closest;
+    }, { offset: -Infinity, element: null }).element;
+  }
+
   function wireLogList(){
-    document.getElementById('logList').addEventListener('click', function(e){
-      var btn = e.target.closest('[data-del-log]');
-      if (!btn) return;
-      if (confirm('確定要刪除這筆紀錄嗎？')) deleteLog(btn.getAttribute('data-del-log'));
-    });
-    document.getElementById('logSortSelect').addEventListener('change', function(e){
-      state.logSort = e.target.value;
+    var listEl = document.getElementById('logList');
+
+    // ---- 刪除模式：勾選 / 點列即可勾選 ----
+    listEl.addEventListener('click', function(e){
+      if (!state.logDeleteMode) return;
+      var row = e.target.closest('.log-item');
+      if (!row) return;
+      var id = row.getAttribute('data-log-id');
+      var idx = state.logDeleteSelected.indexOf(id);
+      if (idx === -1) state.logDeleteSelected.push(id); else state.logDeleteSelected.splice(idx, 1);
       renderLogList();
+    });
+
+    document.getElementById('logDeleteToggle').addEventListener('click', function(){
+      state.logDeleteMode = !state.logDeleteMode;
+      state.logDeleteSelected = [];
+      renderLogList();
+    });
+    document.getElementById('logSelectCancel').addEventListener('click', function(){
+      state.logDeleteMode = false;
+      state.logDeleteSelected = [];
+      renderLogList();
+    });
+    document.getElementById('logSelectConfirm').addEventListener('click', async function(){
+      if (!state.logDeleteSelected.length){ alert('請先勾選要刪除的紀錄'); return; }
+      if (!confirm('確定要刪除已選取的 ' + state.logDeleteSelected.length + ' 筆紀錄嗎？')) return;
+      var ids = state.logDeleteSelected.slice();
+      state.logDeleteMode = false;
+      state.logDeleteSelected = [];
+      await deleteLogsBatch(ids);
+    });
+
+    // ---- 手動拖移排序（滑鼠與觸控都用 Pointer Events，一套邏輯通用） ----
+    listEl.addEventListener('pointerdown', function(e){
+      if (state.logDeleteMode) return;
+      var handle = e.target.closest('[data-drag-handle]');
+      if (!handle) return;
+      var item = handle.closest('.log-item');
+      if (!item) return;
+      e.preventDefault();
+      item.classList.add('dragging', 'drag-active');
+      try { handle.setPointerCapture(e.pointerId); } catch(err){}
+
+      function onMove(ev){
+        var after = getLogDragAfterElement(listEl, ev.clientY);
+        if (after == null) listEl.appendChild(item);
+        else listEl.insertBefore(item, after);
+      }
+      function onUp(){
+        item.classList.remove('dragging', 'drag-active');
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        try { handle.releasePointerCapture(e.pointerId); } catch(err){}
+
+        // 依目前的 DOM 順序，重新對應回資料並存檔（本機 + 試算表)
+        var ids = Array.prototype.slice.call(listEl.querySelectorAll('.log-item'))
+          .map(function(el){ return el.getAttribute('data-log-id'); });
+        var orderedList = ids.map(function(id){
+          return state.logs.find(function(l){ return l.id === id; });
+        }).filter(Boolean);
+        persistLogOrder(orderedList).then(function(){ renderLogList(); });
+      }
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
     });
   }
 
@@ -1366,8 +1608,33 @@
       clearFoodForm();
     });
 
-    document.getElementById('foodCategoryFilter').addEventListener('change', function(e){
-      state.foodCategoryFilter = e.target.value;
+    // ---- 新增/編輯食材表單：選擇類別（chip）或輸入全新的類別 ----
+    document.getElementById('fCategoryChips').addEventListener('click', function(e){
+      var addChip = e.target.closest('#fCategoryAddChip');
+      if (addChip){
+        var row = document.getElementById('fCategoryNewRow');
+        row.style.display = (row.style.display === 'none') ? 'flex' : 'none';
+        if (row.style.display === 'flex') document.getElementById('fCategoryNewInput').focus();
+        return;
+      }
+      var chip = e.target.closest('[data-fcat]');
+      if (!chip) return;
+      var val = chip.getAttribute('data-fcat');
+      setFCategory(state.fCategorySelected === val ? '' : val); // 再點一次可以取消選取
+    });
+    document.getElementById('fCategoryNewConfirm').addEventListener('click', function(){
+      var val = document.getElementById('fCategoryNewInput').value.trim();
+      if (!val){ alert('請輸入類別名稱'); return; }
+      setFCategory(val);
+      document.getElementById('fCategoryNewRow').style.display = 'none';
+      document.getElementById('fCategoryNewInput').value = '';
+    });
+
+    // ---- 食材庫管理：類別篩選 chip（展開直接點，取代下拉選單）----
+    document.getElementById('foodCategoryChips').addEventListener('click', function(e){
+      var chip = e.target.closest('[data-cat-filter]');
+      if (!chip) return;
+      state.foodCategoryFilter = chip.getAttribute('data-cat-filter');
       renderFoodTable();
     });
 
@@ -1384,47 +1651,80 @@
       renderFoodTable();
     });
 
+    // ---- 一個「編輯」開關、一個「刪除」開關，取代每列各自的按鈕 ----
+    function loadFoodIntoForm(food){
+      state.editingFoodId = food.id;
+      var editBase = Number(food.base || food.baseGrams) || 100;
+      var editUnit = food.unit || 'g';
+      var editProtein = food.protein100 !== undefined ? food.protein100 : food.protein;
+      var editFat = food.fat100 !== undefined ? food.fat100 : food.fat;
+      var editSugar = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
+      var editCal = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
+
+      document.getElementById('fName').value = food.name || '';
+      document.getElementById('fBase').value = editBase;
+      document.getElementById('fUnit').value = editUnit;
+      setFCategory(food.category || '');
+      document.getElementById('fProtein').value = editProtein;
+      document.getElementById('fFat').value = editFat;
+      document.getElementById('fSugar').value = editSugar;
+      document.getElementById('fCal').value = editCal;
+
+      // 把換算工具的欄位帶回原本輸入的數值：目前存的蛋白質/脂肪/糖/熱量
+      // 直接當成「每份」的起始值、份數預設 1（乘出來會跟原數字一樣，不影響原資料）。
+      // 之後只要改「總份數」再按一次套用，就能用乘法快速重算成新的總量。
+      document.getElementById('nPerServeProtein').value = editProtein;
+      document.getElementById('nPerServeFat').value = editFat;
+      document.getElementById('nPerServeSugar').value = editSugar;
+      document.getElementById('nPerServeCal').value = editCal;
+      document.getElementById('nServings').value = 1;
+      document.getElementById('nutritionCalcBox').style.display = 'block';
+
+      document.getElementById('fSaveBtn').textContent = '儲存修改';
+      document.getElementById('secFoods').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.getElementById('foodEditToggle').addEventListener('click', function(){
+      state.foodMode = (state.foodMode === 'edit') ? '' : 'edit';
+      state.foodDeleteSelected = [];
+      renderFoodTable();
+    });
+    document.getElementById('foodDeleteToggle').addEventListener('click', function(){
+      state.foodMode = (state.foodMode === 'delete') ? '' : 'delete';
+      state.foodDeleteSelected = [];
+      renderFoodTable();
+    });
+    document.getElementById('foodSelectCancel').addEventListener('click', function(){
+      state.foodMode = '';
+      state.foodDeleteSelected = [];
+      renderFoodTable();
+    });
+    document.getElementById('foodSelectConfirm').addEventListener('click', async function(){
+      if (!state.foodDeleteSelected.length){ alert('請先勾選要刪除的食材'); return; }
+      if (!confirm('刪除已選取的 ' + state.foodDeleteSelected.length + ' 項食材？（過去的紀錄不會被刪除）')) return;
+      var ids = state.foodDeleteSelected.slice();
+      state.foodMode = '';
+      state.foodDeleteSelected = [];
+      await deleteFoodsBatch(ids);
+    });
+
     document.getElementById('foodTable').addEventListener('click', function(e){
-      var delBtn = e.target.closest('[data-del-food]');
-      if (delBtn) {
-        if (confirm('刪除這個食材？（過去的紀錄不會被刪除）')) deleteFood(delBtn.getAttribute('data-del-food'));
+      var row = e.target.closest('[data-food-id]');
+      if (!row) return;
+      var id = row.getAttribute('data-food-id');
+
+      if (state.foodMode === 'delete'){
+        var idx = state.foodDeleteSelected.indexOf(id);
+        if (idx === -1) state.foodDeleteSelected.push(id); else state.foodDeleteSelected.splice(idx, 1);
+        renderFoodTable();
         return;
       }
-
-      var editBtn = e.target.closest('[data-edit-food]');
-      if (editBtn) {
-        var id = editBtn.getAttribute('data-edit-food');
+      if (state.foodMode === 'edit'){
         var food = state.foods.find(function(f){ return f.id === id; });
-        if (food) {
-          state.editingFoodId = food.id;
-          var editBase = Number(food.base || food.baseGrams) || 100;
-          var editUnit = food.unit || 'g';
-          var editProtein = food.protein100 !== undefined ? food.protein100 : food.protein;
-          var editFat = food.fat100 !== undefined ? food.fat100 : food.fat;
-          var editSugar = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
-          var editCal = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
-
-          document.getElementById('fName').value = food.name || '';
-          document.getElementById('fBase').value = editBase;
-          document.getElementById('fUnit').value = editUnit;
-          document.getElementById('fCategory').value = food.category || '';
-          document.getElementById('fProtein').value = editProtein;
-          document.getElementById('fFat').value = editFat;
-          document.getElementById('fSugar').value = editSugar;
-          document.getElementById('fCal').value = editCal;
-
-          // 把換算工具的欄位帶回原本輸入的數值：目前存的蛋白質/脂肪/糖/熱量
-          // 直接當成「每份」的起始值、份數預設 1（乘出來會跟原數字一樣，不影響原資料）。
-          // 之後只要改「總份數」再按一次套用，就能用乘法快速重算成新的總量。
-          document.getElementById('nPerServeProtein').value = editProtein;
-          document.getElementById('nPerServeFat').value = editFat;
-          document.getElementById('nPerServeSugar').value = editSugar;
-          document.getElementById('nPerServeCal').value = editCal;
-          document.getElementById('nServings').value = 1;
-          document.getElementById('nutritionCalcBox').style.display = 'block';
-
-          document.getElementById('fSaveBtn').textContent = '儲存修改';
-          document.getElementById('secFoods').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (food){
+          loadFoodIntoForm(food);
+          state.foodMode = '';
+          renderFoodTable();
         }
       }
     });

@@ -21,10 +21,13 @@
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
 var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'category', 'protein100', 'fat100', 'sugar100', 'cal100'];
-var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal'];
+var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order'];
+// 【v9 新增】Logs 新增了 order 欄位，用來記錄「今日紀錄」使用者手動拖移排序後的順序
+// （單純一個數字，同一天、同一身份的紀錄依這個數字由小到大顯示）。舊試算表沒有這欄時
+// ensureHeaders() 會自動補上；讀取舊資料時 order 欄位若是空的，前端會用時間排序當作預設值。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v8-category';
+var APP_BACKEND_VERSION = 'v9-manual-order';
 // 【v7 新增】Foods / Logs 都新增了 unit 欄位（例如 g、顆、盒、碗）。
 // 舊試算表沒有這欄時，ensureHeaders() 會自動補上，不需要手動搬移；
 // 讀取舊資料時 unit 欄位若是空的，一律視為 'g'，行為與升級前完全一致。
@@ -56,6 +59,7 @@ function doPost(e) {
       case 'updateFood': result = updateFood(payload); break;
       case 'deleteFood': result = deleteFood(payload); break;
       case 'addLog': result = addLog(payload); break;
+      case 'updateLog': result = updateLog(payload); break;
       case 'deleteLog': result = deleteLog(payload); break;
       default: result = { error: 'unknown action: ' + action };
     }
@@ -255,7 +259,8 @@ function readLogs() {
     var r = rows[i];
     if (!r[map['id']]) continue;
     var gramsRaw = r[map['grams']];
-    logs.push({
+    var orderRaw = map.hasOwnProperty('order') ? r[map['order']] : '';
+    var logObj = {
       id: r[map['id']],
       person: r[map['person']] || 'A',
       date: formatDateCell(r[map['date']], tz),
@@ -269,7 +274,13 @@ function readLogs() {
       fat: Number(r[map['fat']]) || 0,
       sugar: Number(r[map['sugar']]) || 0,
       cal: Number(r[map['cal']]) || 0
-    });
+    };
+    // order 欄位若是空的（例如舊資料、還沒被拖移過），刻意不帶這個屬性，
+    // 讓前端自己用時間排序當作預設順序，而不是把每筆都塞一個 0 造成排序錯亂。
+    if (orderRaw !== '' && orderRaw !== undefined && orderRaw !== null && !isNaN(Number(orderRaw))) {
+      logObj.order = Number(orderRaw);
+    }
+    logs.push(logObj);
   }
   return logs;
 }
@@ -360,10 +371,45 @@ function addLog(payload) {
     protein: Number(payload.protein) || 0,
     fat: Number(payload.fat) || 0,
     sugar: Number(sugarVal) || 0,
-    cal: Number(payload.cal) || 0
+    cal: Number(payload.cal) || 0,
+    order: payload.order != null ? Number(payload.order) : ''
   });
   SpreadsheetApp.flush();
   return { success: true, id: id };
+}
+
+// 局部更新一筆已存在的紀錄。目前主要用途是「今日紀錄」手動拖移排序後同步
+// order 欄位，但也支援一併更新其他欄位（例如未來若要編輯紀錄本身的數值），
+// 沒有帶到的欄位維持原值不動。
+function updateLog(payload) {
+  if (!payload || !payload.id) return { error: 'missing id' };
+  var sheet = getLogsSheet();
+  var map = headerIndexMap(sheet);
+  var data = sheet.getDataRange().getValues();
+  var sugarVal = payload.sugar !== undefined ? payload.sugar : payload.carb;
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][map['id']] === payload.id) {
+      var rowNum = i + 1;
+      if (payload.order !== undefined) {
+        if (!map.hasOwnProperty('order')) {
+          var newOrderCol = sheet.getLastColumn() + 1;
+          sheet.getRange(1, newOrderCol).setValue('order');
+          map['order'] = newOrderCol - 1;
+        }
+        sheet.getRange(rowNum, map['order'] + 1).setValue(Number(payload.order) || 0);
+      }
+      if (payload.foodName !== undefined) sheet.getRange(rowNum, map['foodName'] + 1).setValue(payload.foodName);
+      if (payload.grams !== undefined) sheet.getRange(rowNum, map['grams'] + 1).setValue(payload.grams == null ? '' : payload.grams);
+      if (payload.protein !== undefined) sheet.getRange(rowNum, map['protein'] + 1).setValue(Number(payload.protein) || 0);
+      if (payload.fat !== undefined) sheet.getRange(rowNum, map['fat'] + 1).setValue(Number(payload.fat) || 0);
+      if (sugarVal !== undefined) sheet.getRange(rowNum, map['sugar'] + 1).setValue(Number(sugarVal) || 0);
+      if (payload.cal !== undefined) sheet.getRange(rowNum, map['cal'] + 1).setValue(Number(payload.cal) || 0);
+      SpreadsheetApp.flush();
+      return { success: true };
+    }
+  }
+  return { error: 'log not found' };
 }
 
 function deleteLog(payload) {
