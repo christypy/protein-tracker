@@ -136,6 +136,11 @@
     border-radius:var(--radius-sm);background:var(--paper);color:var(--ink);width:100%;
   }
   input:focus{outline:2px solid var(--protein);outline-offset:1px;}
+  .field.field-unit{max-width:96px;}
+  .base-unit-row{display:flex;gap:8px;}
+  .base-unit-row .field{min-width:0;}
+  .base-unit-row .field-base{flex:1.2;}
+  .base-unit-row .field-unit{flex:1;}
   .btn{
     font-family:var(--font-body);font-weight:700;font-size:13.5px;border:none;border-radius:999px;
     padding:10px 18px;cursor:pointer;transition:transform .08s, opacity .15s;
@@ -188,6 +193,9 @@
   .batch-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .batch-row .field{flex:1;min-width:0;}
   .batch-row .field label{font-weight:700;color:var(--ink);font-size:12.5px;}
+  .batch-row .qty-wrap{display:flex;align-items:center;gap:6px;}
+  .batch-row .qty-wrap input{width:100%;}
+  .batch-row .qty-unit{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;flex:none;}
   .batch-row .preview{margin:0;white-space:nowrap;font-size:12px;}
   .batch-row .btn-danger{flex-shrink:0;}
 
@@ -302,14 +310,14 @@
       <span class="chev">▾</span>
     </div>
     <div class="section-body">
-      <p class="hint">從食材庫挑選並輸入克數，或手動輸入蛋白質、脂肪與糖（Sugar）。</p>
+      <p class="hint">從食材庫挑選並輸入數量（克數、顆數、盒數…依食材單位而定），或手動輸入蛋白質、脂肪與糖（Sugar）。</p>
 
       <div class="search-wrap">
         <input type="text" id="foodSearch" placeholder="搜尋食材，例如：雞胸肉">
       </div>
       <div class="food-list" id="pickerList"></div>
       <div class="food-detail" id="pickerDetail" style="display:none;">
-        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，填好克數後按下面按鈕一次送出。</p>
+        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，填好數量（依各食材單位而定）後按下面按鈕一次送出。</p>
         <div id="batchList"></div>
         <div class="btn-row">
           <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
@@ -356,10 +364,26 @@
       <span class="chev">▾</span>
     </div>
     <div class="section-body">
-      <p class="hint">輸入某個「基準克數」下食材對應的蛋白質／脂肪／糖（Sugar）／熱量，之後就能依實際食用克數自動換算。</p>
+      <p class="hint">輸入某個「基準數量＋單位」下食材對應的蛋白質／脂肪／糖（Sugar）／熱量，之後就能依實際攝取的數量自動換算。單位不一定要是公克，像雞蛋可以用「顆」、豆腐可以用「盒」，就不用每次秤重。</p>
       <div class="row">
-        <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉"></div>
-        <div class="field" style="max-width:90px;"><label>基準克數</label><input type="number" id="fBase" value="100" min="1"></div>
+        <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉 / 水煮蛋 / 嫩豆腐"></div>
+      </div>
+      <div class="base-unit-row" style="margin-top:8px;">
+        <div class="field field-base"><label>基準數量</label><input type="number" id="fBase" value="100" min="0.01" step="any"></div>
+        <div class="field field-unit">
+          <label>單位</label>
+          <input type="text" id="fUnit" value="g" list="unitSuggestions" placeholder="g">
+          <datalist id="unitSuggestions">
+            <option value="g"></option>
+            <option value="ml"></option>
+            <option value="顆"></option>
+            <option value="盒"></option>
+            <option value="碗"></option>
+            <option value="份"></option>
+            <option value="片"></option>
+            <option value="匙"></option>
+          </datalist>
+        </div>
       </div>
       <div class="row" style="margin-top:8px;">
         <div class="field"><label>蛋白質 (g)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
@@ -693,7 +717,7 @@
       return;
     }
     el.innerHTML = logs.map(function(l){
-      var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + 'g') : '');
+      var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + (l.unit || 'g')) : '');
       var sVal = l.sugar !== undefined ? l.sugar : (l.carb||0);
       var dotCls = dominantMacroClass(l.protein, l.fat, sVal);
       return '<div class="log-item">' +
@@ -721,7 +745,7 @@
       var sug = f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb||0));
       return '<div class="food-row">' +
         '<span>' + escapeHtml(f.name) + '</span>' +
-        '<span class="num">' + (f.base||f.baseGrams||100) + 'g</span>' +
+        '<span class="num">' + (f.base||f.baseGrams||100) + escapeHtml(f.unit || 'g') + '</span>' +
         '<span class="num">' + (f.protein100 !== undefined ? f.protein100 : f.protein) + '</span>' +
         '<span class="num">' + (f.fat100 !== undefined ? f.fat100 : f.fat) + '</span>' +
         '<span class="num">' + sug + '</span>' +
@@ -747,6 +771,7 @@
       var inBatch = state.batch.some(function(b){ return b.foodId === f.id; });
       return '<div class="food-chip' + (inBatch?' selected':'') + '" data-pick="' + escapeHtml(f.id) + '">' +
         '<span class="fname">' + escapeHtml(f.name) + '</span>' +
+        '<span class="fmacro">每' + (f.base||100) + escapeHtml(f.unit || 'g') + '</span>' +
         '</div>';
     }).join('');
     renderBatchList();
@@ -769,7 +794,10 @@
       return '<div class="batch-row" data-batch-row="' + escapeHtml(b.foodId) + '">' +
         '<div class="field">' +
           '<label>' + escapeHtml(food.name) + '</label>' +
-          '<input type="number" min="0" step="1" value="' + b.grams + '" data-batch-grams="' + escapeHtml(b.foodId) + '">' +
+          '<div class="qty-wrap">' +
+            '<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + escapeHtml(b.foodId) + '">' +
+            '<span class="qty-unit">' + escapeHtml(food.unit || 'g') + '</span>' +
+          '</div>' +
         '</div>' +
         '<div class="preview" data-batch-preview="' + escapeHtml(b.foodId) + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
         '<button type="button" class="btn-danger" data-batch-remove="' + escapeHtml(b.foodId) + '">移除</button>' +
@@ -885,6 +913,7 @@
     state.editingFoodId = null;
     ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('fBase').value = 100;
+    document.getElementById('fUnit').value = 'g';
     document.getElementById('fSaveBtn').textContent = '新增食材';
   }
 
@@ -1005,7 +1034,7 @@
         if (!food || !items[i].grams || items[i].grams <= 0) continue;
         var m = computeMacros(food, items[i].grams);
         await addLog({
-          type:'selected', foodId: food.id, foodName: food.name, grams: items[i].grams,
+          type:'selected', foodId: food.id, foodName: food.name, grams: items[i].grams, unit: food.unit || 'g',
           protein: m.protein, fat: m.fat, sugar: m.sugar, cal: m.cal
         });
       }
@@ -1055,7 +1084,9 @@
 
     document.getElementById('fSaveBtn').addEventListener('click', async function(){
       var name = document.getElementById('fName').value.trim();
-      var base = Number(document.getElementById('fBase').value) || 100;
+      var base = Number(document.getElementById('fBase').value);
+      if (!base || base <= 0) base = 100;
+      var unit = document.getElementById('fUnit').value.trim() || 'g';
       var protein = Number(document.getElementById('fProtein').value);
       var fat = Number(document.getElementById('fFat').value) || 0;
       var sugar = Number(document.getElementById('fSugar').value) || 0;
@@ -1068,6 +1099,7 @@
       var foodPayload = {
         name: name,
         base: base,
+        unit: unit,
         protein100: round1(protein),
         fat100: round1(fat),
         sugar100: round1(sugar),
@@ -1099,6 +1131,7 @@
           state.editingFoodId = food.id;
           document.getElementById('fName').value = food.name || '';
           document.getElementById('fBase').value = food.base || food.baseGrams || 100;
+          document.getElementById('fUnit').value = food.unit || 'g';
           document.getElementById('fProtein').value = food.protein100 !== undefined ? food.protein100 : food.protein;
           document.getElementById('fFat').value = food.fat100 !== undefined ? food.fat100 : food.fat;
           document.getElementById('fSugar').value = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
