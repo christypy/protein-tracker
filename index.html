@@ -212,7 +212,7 @@
   .food-table-wrap{overflow-x:auto;}
   .food-row{
     display:grid;
-    grid-template-columns:minmax(120px,1.6fr) 68px 62px 62px 56px 74px 46px 112px;
+    grid-template-columns:minmax(120px,1.6fr) 68px 74px 62px 62px 56px 46px 112px;
     gap:7px;
     align-items:center;
     min-width:600px;
@@ -222,9 +222,7 @@
   }
   .food-row:last-child{border-bottom:none;}
   .food-row.head{color:var(--ink-soft);font-size:11px;font-weight:500;}
-  .food-row.head > span[data-sort]{cursor:pointer;user-select:none;}
-  .food-row.head > span[data-sort]:hover{color:var(--protein-dark);}
-  .food-row.head > span.sort-active{color:var(--protein-dark);font-weight:700;}
+  .food-row.row6{grid-template-columns:minmax(120px,1.6fr) 62px 62px 66px 56px 56px;min-width:460px;}
   .food-row > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .food-row > span.num{font-family:var(--font-num);text-align:right;}
   .food-row .fcat{
@@ -493,7 +491,6 @@
 
       <p class="chip-field-label" style="margin-top:18px;">依類別篩選</p>
       <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
-      <p class="hint" style="margin:6px 0 0;">點欄位標題可依該項排序，再點一次切換高低。</p>
 
       <div class="list-toolbar" style="margin-top:14px;">
         <button type="button" class="tool-btn" id="foodEditToggle">編輯</button>
@@ -508,12 +505,25 @@
         </span>
       </div>
 
-      <p class="hint" style="margin-top:10px;">下表「一份克數」顯示的是你當初輸入的原始基準（例如水煮蛋 5g、雞胸肉 100g），不會被改動；蛋白/脂肪/糖/熱量欄位則統一換算成「每10克」的密度，方便不同基準的食材互相比較濃度與排序，跟原本儲存的每份數值是分開的兩件事。</p>
+      <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。</p>
       <div class="food-table-wrap" style="margin-top:10px;">
         <div class="food-row head" id="foodTableHead">
-          <span data-sort="name">名稱</span><span data-sort="base">一份克數</span><span data-sort="protein">蛋白/10g</span><span data-sort="fat">脂肪/10g</span><span data-sort="sugar">糖/10g</span><span data-sort="cal">熱量/10g</span><span>份數</span><span></span>
+          <span>名稱</span><span>一份克數</span><span>熱量</span><span>蛋白質</span><span>脂肪</span><span>糖</span><span>份數</span><span></span>
         </div>
         <div id="foodTable"></div>
+      </div>
+
+      <div class="btn-row" style="justify-content:flex-start;margin-top:14px;">
+        <button type="button" class="btn btn-ghost" id="per100ToggleBtn">查看每份100克營養密度</button>
+      </div>
+      <div id="per100Wrap" style="display:none;margin-top:10px;">
+        <p class="hint" style="margin:0 0 8px;">下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數欄位是該食材目前設定的總份數，不受這個換算影響。</p>
+        <div class="food-table-wrap">
+          <div class="food-row head row6">
+            <span>名稱</span><span>蛋白質</span><span>脂肪</span><span>熱量</span><span>糖</span><span>份數</span>
+          </div>
+          <div id="per100Table"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -581,7 +591,6 @@
     fCategorySelected: '', // 新增/編輯食材表單目前選取的類別
     batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams}]
     currentDate: fmtDate(new Date()),
-    foodSort: { key: 'name', dir: 'asc' }, // 食材庫管理表格排序方式
     foodCategoryFilter: '', // 食材庫管理表格的類別篩選
     pickerCategoryFilter: '', // 「新增這一餐」挑選食材時的類別篩選
 
@@ -879,12 +888,8 @@
 
   // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值。
   // 注意：每項食材的營養數值是「以該食材一份的克數（base，例如 30g、50g、100g…）」
-  // 所填寫的，不是統一以 100g 為準。如果直接拿原始數值互相比大小，基準不同會比不準
-  // （例如 A 食材一份 30g 蛋白 5g、B 食材一份 100g 蛋白 5g，兩者根本不對等）。
-  // 所以排序時一律先換算成「每 10 克」的密度再比較，才能公平比較所有食材。
-  // 單位一律是公克（g），所以一份克數（base）本身就是克重，不需要再另外換算。
-  var SORT_NORMALIZE_BASE = 10; // 排序／顯示統一換算成的基準量：10 克
-  // 取得食材原始填寫的營養「原始值」（以「一份克數」為基準，不做任何換算），供顯示/排序共用邏輯呼叫
+  // 所填寫的原始輸入值，不做任何換算。
+  // 取得食材原始填寫的營養「原始值」（以「一份克數」為基準，不做任何換算），供顯示邏輯呼叫
   function foodRawNutrient(f, key){
     if (key === 'protein') return Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
     if (key === 'fat') return Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
@@ -901,49 +906,75 @@
     var s = Number(f.servings);
     return (s && s > 0) ? s : 1;
   }
-  // 排序用的比較值：一律換算成「每 10 克」的密度來比較，單位固定是克，永遠算得出來。
-  function foodMetric(f, key){
-    if (key === 'name') return (f.name||'').toLowerCase();
-    var base = foodBaseGrams(f);
-    if (key === 'base') return base;
-    if (key === 'servings') return foodTotalServings(f);
-    if (key !== 'protein' && key !== 'fat' && key !== 'sugar' && key !== 'cal') return 0;
-    var raw = foodRawNutrient(f, key);
-    return (raw / base) * SORT_NORMALIZE_BASE;
-  }
-  // 表格顯示用：「一份克數」欄位顯示食材真正輸入的原始基準（例如水煮蛋 5g、雞胸肉 100g），
-  // 不會被换算掩蓋掉；蛋白/脂肪/糖/熱量欄位則換算成「每10克」的密度，方便不同基準的食材互相比較，
-  // 欄位標題會加註「/10g」提醒這些數字已經是換算後的密度，不是這一份原本的量。
+  // 表格顯示用：所有數值都直接顯示當初輸入的原始紀錄，不做 /10 或其他任何換算。
   function foodDisplayRow(f){
     var base = foodBaseGrams(f);
     return {
       baseLabel: base + 'g',
-      baseTitle: '一份 ' + base + 'g；右側蛋白/脂肪/糖/熱量已換算成每10g方便跟其他食材比較濃度。',
+      baseTitle: '一份 ' + base + 'g（原始輸入數值）。',
       servings: foodTotalServings(f),
-      protein: round1(foodRawNutrient(f, 'protein') / base * SORT_NORMALIZE_BASE),
-      fat: round1(foodRawNutrient(f, 'fat') / base * SORT_NORMALIZE_BASE),
-      sugar: round1(foodRawNutrient(f, 'sugar') / base * SORT_NORMALIZE_BASE),
-      cal: round1(foodRawNutrient(f, 'cal') / base * SORT_NORMALIZE_BASE)
+      cal: Math.round(foodRawNutrient(f, 'cal')),
+      protein: round1(foodRawNutrient(f, 'protein')),
+      fat: round1(foodRawNutrient(f, 'fat')),
+      sugar: round1(foodRawNutrient(f, 'sugar'))
     };
   }
 
-  // 食材庫管理表格：依目前的類別篩選 + 排序欄位/方向回傳要顯示的清單
+  // 食材庫管理表格：已取消排序功能，只依目前的類別篩選回傳清單，維持原本的資料順序。
   function sortedFoods(){
     var list = state.foods.slice();
     if (state.foodCategoryFilter){
       list = list.filter(function(f){ return (f.category||'') === state.foodCategoryFilter; });
     }
-    var key = state.foodSort.key, dir = state.foodSort.dir === 'desc' ? -1 : 1;
-    list.sort(function(a,b){
-      var va = foodMetric(a, key), vb = foodMetric(b, key);
-      if (va < vb) return -1 * dir;
-      if (va > vb) return 1 * dir;
+    return list;
+  }
+
+  // 「每份100克」換算：把食材依「一份克數」比例換算成 100 克時對應的數值，方便比較營養密度。
+  function per100Value(f, key){
+    var base = foodBaseGrams(f);
+    var raw = foodRawNutrient(f, key);
+    return raw / base * 100;
+  }
+
+  // 每份100克檢視表：依目前的類別篩選，換算成每100克數值，並依蛋白質高到低排序，
+  // 蛋白質相同時再依熱量高到低排序。
+  function per100Foods(){
+    var list = state.foods.slice();
+    if (state.foodCategoryFilter){
+      list = list.filter(function(f){ return (f.category||'') === state.foodCategoryFilter; });
+    }
+    list.sort(function(a, b){
+      var pa = per100Value(a, 'protein'), pb = per100Value(b, 'protein');
+      if (pa !== pb) return pb - pa;
+      var ca = per100Value(a, 'cal'), cb = per100Value(b, 'cal');
+      if (ca !== cb) return cb - ca;
       return (a.name||'').localeCompare(b.name||'');
     });
     return list;
   }
 
-  var FOOD_SORT_LABELS = { name:'名稱', base:'一份克數', protein:'蛋白/10g', fat:'脂肪/10g', sugar:'糖/10g', cal:'熱量/10g' };
+  function renderPer100Table(){
+    var el = document.getElementById('per100Table');
+    if (!el) return;
+    var wrap = document.getElementById('per100Wrap');
+    if (wrap && wrap.style.display === 'none') return; // 收合時不需要重算
+    var list = per100Foods();
+    if (!list.length){
+      el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
+      return;
+    }
+    el.innerHTML = list.map(function(f){
+      var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
+      return '<div class="food-row row6" data-food-id="' + escapeHtml(f.id) + '">' +
+        '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
+        '<span class="num" data-label="蛋白質">' + round1(per100Value(f, 'protein')) + '</span>' +
+        '<span class="num" data-label="脂肪">' + round1(per100Value(f, 'fat')) + '</span>' +
+        '<span class="num" data-label="熱量">' + Math.round(per100Value(f, 'cal')) + '</span>' +
+        '<span class="num" data-label="糖">' + round1(per100Value(f, 'sugar')) + '</span>' +
+        '<span class="num" data-label="份數">' + foodTotalServings(f) + '</span>' +
+        '</div>';
+    }).join('');
+  }
 
   // 目前食材庫裡實際被使用過的類別（唯一真實來源——沒有任何預先產生的清單，
   // 有新增食材填了某個類別，這個類別才會出現在下面各處的篩選/切頁清單）。
@@ -999,17 +1030,6 @@
     renderFCategoryChips();
   }
 
-  function renderFoodTableHead(){
-    var head = document.getElementById('foodTableHead');
-    if (!head) return;
-    head.querySelectorAll('[data-sort]').forEach(function(span){
-      var key = span.getAttribute('data-sort');
-      var active = state.foodSort.key === key;
-      span.textContent = FOOD_SORT_LABELS[key] + (active ? (state.foodSort.dir === 'desc' ? ' ▾' : ' ▴') : '');
-      span.classList.toggle('sort-active', active);
-    });
-  }
-
   function renderFoodSelectBar(){
     var editBtn = document.getElementById('foodEditToggle');
     var delBtn = document.getElementById('foodDeleteToggle');
@@ -1032,39 +1052,38 @@
     renderFoodCategoryChips();
     renderPickerCategoryChips();
     renderFCategoryChips();
-    renderFoodTableHead();
     renderFoodSelectBar();
     var list = sortedFoods();
     if (!list.length){
       el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
-      return;
+    } else {
+      el.innerHTML = list.map(function(f){
+        // 顯示的數字直接用 foodDisplayRow 取出當初輸入的原始紀錄，不做任何換算。
+        var d = foodDisplayRow(f);
+        var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
+        var rowCls = 'food-row';
+        var tail = '<span class="food-actions"></span>';
+        if (state.foodMode === 'edit'){
+          rowCls += ' selectable-row';
+        } else if (state.foodMode === 'delete'){
+          rowCls += ' selectable-row';
+          var checked = state.foodDeleteSelected.indexOf(f.id) > -1;
+          if (checked) rowCls += ' picked';
+          tail = '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span></span>';
+        }
+        return '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
+          '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
+          '<span class="num" data-label="一份克數" title="' + escapeHtml(d.baseTitle || '') + '">' + escapeHtml(d.baseLabel) + '</span>' +
+          '<span class="num" data-label="熱量">' + d.cal + '</span>' +
+          '<span class="num" data-label="蛋白質">' + d.protein + '</span>' +
+          '<span class="num" data-label="脂肪">' + d.fat + '</span>' +
+          '<span class="num" data-label="糖">' + d.sugar + '</span>' +
+          '<span class="num" data-label="份數">' + d.servings + '</span>' +
+          tail +
+          '</div>';
+      }).join('');
     }
-    el.innerHTML = list.map(function(f){
-      // 顯示的數字統一用 foodDisplayRow 換算，跟排序依據（每10克/毫升，或每1個非克類單位）保持一致，
-      // 這樣使用者看到的「基準」欄位跟蛋白/脂肪/糖/熱量欄位，才是同一套換算後的標準，方便互相比較。
-      var d = foodDisplayRow(f);
-      var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
-      var rowCls = 'food-row';
-      var tail = '<span class="food-actions"></span>';
-      if (state.foodMode === 'edit'){
-        rowCls += ' selectable-row';
-      } else if (state.foodMode === 'delete'){
-        rowCls += ' selectable-row';
-        var checked = state.foodDeleteSelected.indexOf(f.id) > -1;
-        if (checked) rowCls += ' picked';
-        tail = '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span></span>';
-      }
-      return '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
-        '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
-        '<span class="num" data-label="一份克數" title="' + escapeHtml(d.baseTitle || '') + '">' + escapeHtml(d.baseLabel) + '</span>' +
-        '<span class="num" data-label="蛋白/10g">' + d.protein + '</span>' +
-        '<span class="num" data-label="脂肪/10g">' + d.fat + '</span>' +
-        '<span class="num" data-label="糖/10g">' + d.sugar + '</span>' +
-        '<span class="num" data-label="熱量/10g">' + d.cal + '</span>' +
-        '<span class="num" data-label="份數">' + d.servings + '</span>' +
-        tail +
-        '</div>';
-    }).join('');
+    renderPer100Table();
   }
 
   function renderPickerList(){
@@ -1481,6 +1500,15 @@
   function wireFoodForm(){
     document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
 
+    // ---- 查看每份100克營養密度：展開/收合，展開時即時算好排序清單 ----
+    document.getElementById('per100ToggleBtn').addEventListener('click', function(){
+      var wrap = document.getElementById('per100Wrap');
+      var showing = wrap.style.display !== 'none';
+      wrap.style.display = showing ? 'none' : 'block';
+      this.textContent = showing ? '查看每份100克營養密度' : '收合每份100克營養密度';
+      if (!showing) renderPer100Table();
+    });
+
     // 基礎一份克數／總份數／每份營養任何一個欄位變動，就即時重算整包預覽，
     // 方便使用者確認「一份克數 × 總份數」算出來的整包總量／總營養對不對。
     ['fBase','fServings','fProtein','fFat','fSugar','fCal'].forEach(function(id){
@@ -1564,19 +1592,6 @@
       var chip = e.target.closest('[data-cat-filter]');
       if (!chip) return;
       state.foodCategoryFilter = chip.getAttribute('data-cat-filter');
-      renderFoodTable();
-    });
-
-    document.getElementById('foodTableHead').addEventListener('click', function(e){
-      var span = e.target.closest('[data-sort]');
-      if (!span) return;
-      var key = span.getAttribute('data-sort');
-      if (state.foodSort.key === key){
-        state.foodSort.dir = state.foodSort.dir === 'desc' ? 'asc' : 'desc';
-      } else {
-        state.foodSort.key = key;
-        state.foodSort.dir = (key === 'name' || key === 'base') ? 'asc' : 'desc';
-      }
       renderFoodTable();
     });
 
