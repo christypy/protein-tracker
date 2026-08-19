@@ -20,17 +20,21 @@
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'category', 'protein100', 'fat100', 'sugar100', 'cal100'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'protein100', 'fat100', 'sugar100', 'cal100'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order'];
 // 【v9 新增】Logs 新增了 order 欄位，用來記錄「今日紀錄」使用者手動拖移排序後的順序
 // （單純一個數字，同一天、同一身份的紀錄依這個數字由小到大顯示）。舊試算表沒有這欄時
 // ensureHeaders() 會自動補上；讀取舊資料時 order 欄位若是空的，前端會用時間排序當作預設值。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v9-manual-order';
+var APP_BACKEND_VERSION = 'v10-servings';
 // 【v7 新增】Foods / Logs 都新增了 unit 欄位（例如 g、顆、盒、碗）。
 // 舊試算表沒有這欄時，ensureHeaders() 會自動補上，不需要手動搬移；
-// 讀取舊資料時 unit 欄位若是空的，一律視為 'g'，行為與升級前完全一致。
+// 讀取舊資料時 unit 欄位若是空的，一律視為 'g'。
+// 【v10 新增】前端現在強制單位一律是公克（g），並改用「基礎一份克數（base）＋總份數（servings）」
+// 的資料模型：Foods 新增了 servings 欄位（這個食材整包/整份含幾份），跟 base（一份幾克）
+// 搭配起來就能算出「整包總重量、總營養」= base × servings。舊試算表沒有這欄時 ensureHeaders()
+// 會自動補上；讀取舊資料時 servings 欄位若是空的或不是有效數字，一律視為 1 份，行為與升級前一致。
 // 【v8 新增】Foods 新增了 category 欄位（食材類別，例如肉類、蔬菜、乳製品…），
 // 用來讓「新增這一餐」時可以用類別快速篩選食材。舊試算表沒有這欄時 ensureHeaders()
 // 會自動補上；讀取舊資料時 category 欄位若是空的，一律視為「未分類」。
@@ -224,6 +228,7 @@ function readFoods() {
       name: r[map['name']],
       base: Number(r[map['base']]) || 100,
       unit: (map.hasOwnProperty('unit') && r[map['unit']]) ? String(r[map['unit']]) : 'g',
+      servings: (map.hasOwnProperty('servings') && Number(r[map['servings']]) > 0) ? Number(r[map['servings']]) : 1,
       category: (map.hasOwnProperty('category') && r[map['category']]) ? String(r[map['category']]) : '',
       protein100: Number(r[map['protein100']]) || 0,
       fat100: Number(r[map['fat100']]) || 0,
@@ -296,6 +301,7 @@ function addFood(payload) {
     name: payload.name || '',
     base: Number(payload.base) || 100,
     unit: payload.unit ? String(payload.unit) : 'g',
+    servings: Number(payload.servings) > 0 ? Number(payload.servings) : 1,
     category: payload.category ? String(payload.category) : '',
     protein100: Number(payload.protein100) || 0,
     fat100: Number(payload.fat100) || 0,
@@ -323,6 +329,12 @@ function updateFood(payload) {
         map['unit'] = newUnitCol - 1;
       }
       sheet.getRange(rowNum, map['unit'] + 1).setValue(payload.unit ? String(payload.unit) : 'g');
+      if (!map.hasOwnProperty('servings')) {
+        var newServingsCol = sheet.getLastColumn() + 1;
+        sheet.getRange(1, newServingsCol).setValue('servings');
+        map['servings'] = newServingsCol - 1;
+      }
+      sheet.getRange(rowNum, map['servings'] + 1).setValue(Number(payload.servings) > 0 ? Number(payload.servings) : 1);
       if (!map.hasOwnProperty('category')) {
         var newCatCol = sheet.getLastColumn() + 1;
         sheet.getRange(1, newCatCol).setValue('category');
