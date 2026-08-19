@@ -476,6 +476,12 @@
           </datalist>
         </div>
       </div>
+      <div class="field" id="fGramsEquivWrap" style="margin-top:8px; display:none;">
+        <label>這個基準數量約等於多少克（選填，例如「1盒」約 300 克就填 300）</label>
+        <input type="number" id="fGramsEquiv" min="0.01" step="any" placeholder="例如 300">
+        <p class="hint" style="margin:4px 0 0;">單位不是克／毫升時系統沒辦法自動知道實際重量，補上這欄之後，食材庫的排序／比較才會跟其他食材一樣準；不填的話會先用「每 1 個單位」粗略比較。</p>
+      </div>
+
 
       <div class="field" style="margin-top:8px;">
         <label>類別（選填）</label>
@@ -537,6 +543,7 @@
         </span>
       </div>
 
+      <p class="hint" style="margin-top:10px;">下表的「基準」與蛋白/脂肪/糖/熱量欄位，已統一換算成每 10 克（克/毫升類食材）或每 1 個單位（顆/盒/碗等非秤重類食材）方便比較濃度；原本輸入的基準與數量不會被改動，只有這裡的顯示與排序是換算後的結果。</p>
       <div class="food-table-wrap" style="margin-top:10px;">
         <div class="food-row head" id="foodTableHead">
           <span data-sort="name">名稱</span><span data-sort="base">基準</span><span data-sort="protein">蛋白</span><span data-sort="fat">脂肪</span><span data-sort="sugar">糖</span><span data-sort="cal">熱量</span><span></span>
@@ -906,23 +913,73 @@
   }
 
   // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值。
-  // 注意：每項食材的營養數值是「以該食材自訂的基準克數（base，例如 30g、50g、100g…）」
+  // 注意：每項食材的營養數值是「以該食材自訂的基準量（base，例如 30g、50g、100g…）」
   // 所填寫的，不是統一以 100g 為準。如果直接拿原始數值互相比大小，基準不同會比不準
   // （例如 A 食材以 30g 為基準蛋白 5g、B 食材以 100g 為基準蛋白 5g，兩者根本不對等）。
-  // 所以排序時一律先換算成「每 10 克」的量再比較，才能公平比較所有食材。
-  var SORT_NORMALIZE_BASE = 10; // 排序用的統一基準：每 10 克
+  // 所以排序時一律先換算成「每 10 克」的密度再比較，才能公平比較所有食材。
+  var SORT_NORMALIZE_BASE = 10; // 排序／顯示統一換算成的基準量：10 克
+  // 只有基準單位是「克 / 公克 / ml / 毫升」這類可以直接秤重、量體積的單位，換算成「每10克」
+  // 才有意義；如果食材的單位是「顆」「盒」「碗」「份」「片」「匙」這種計量單位，
+  // 沒辦法換算成克數，所以改成用「每 1 個單位」的密度來排序，不強行冒充是 10 克。
+  var GRAM_LIKE_UNITS = ['g', 'ml', '公克', '克', '公撮', '毫升'];
+  function isGramLikeUnit(unit){
+    var u = (unit || 'g').trim();
+    return GRAM_LIKE_UNITS.indexOf(u) > -1 || GRAM_LIKE_UNITS.indexOf(u.toLowerCase()) > -1;
+  }
+  // 取得食材原始填寫的營養「原始值」與「基準量」（不做任何換算），供顯示/排序共用邏輯呼叫
+  function foodRawNutrient(f, key){
+    if (key === 'protein') return Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
+    if (key === 'fat') return Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
+    if (key === 'sugar') return Number(f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb))) || 0;
+    if (key === 'cal') return Number(f.cal100 !== undefined ? f.cal100 : f.cal) || 0;
+    return 0;
+  }
+  // 取得某食材「基準數量」實際對應的克重，供比較濃度用：
+  // - 單位本身就是克/毫升 → 基準數量就是克重，不用另外換算。
+  // - 單位是「顆」「盒」「碗」等非秤重單位 → 只有使用者有額外填「換算克重」(gramsEquiv) 時才知道；
+  //   沒填的話回傳 null，代表無法換算成克，只能先用「每1個單位」粗略比較。
+  function foodEquivalentGrams(f){
+    var base = Number(f.base || f.baseGrams || 100) || 100;
+    if (isGramLikeUnit(f.unit)) return base;
+    var g = Number(f.gramsEquiv);
+    return (g && g > 0) ? g : null;
+  }
+  // 排序用的比較值：能換算成克重的食材，一律換算成「每 10 克」的密度；
+  // 換算不了的（非克類單位又沒填克重），退回用「每 1 個單位」的密度粗略比較。
   function foodMetric(f, key){
     if (key === 'name') return (f.name||'').toLowerCase();
     var base = Number(f.base || f.baseGrams || 100) || 100;
     if (key === 'base') return base;
-    var raw;
-    if (key === 'protein') raw = Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
-    else if (key === 'fat') raw = Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
-    else if (key === 'sugar') raw = Number(f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb))) || 0;
-    else if (key === 'cal') raw = Number(f.cal100 !== undefined ? f.cal100 : f.cal) || 0;
-    else return 0;
-    // 換算成每 10 克的量：原始數值 ÷ 該食材基準克數 × 10
-    return (raw / base) * SORT_NORMALIZE_BASE;
+    if (key !== 'protein' && key !== 'fat' && key !== 'sugar' && key !== 'cal') return 0;
+    var raw = foodRawNutrient(f, key);
+    var grams = foodEquivalentGrams(f);
+    if (grams) return (raw / grams) * SORT_NORMALIZE_BASE;
+    return raw / base;
+  }
+  // 表格顯示用：能換算成克重的，統一顯示成「每10克」；換算不了的維持顯示原始基準＋單位，
+  // 並用 title（滑鼠移過去或手機長按會看到）附註目前狀態，提醒這筆跟其他筆不完全對等。
+  function foodDisplayRow(f){
+    var base = Number(f.base || f.baseGrams || 100) || 100;
+    var unit = f.unit || 'g';
+    var grams = foodEquivalentGrams(f);
+    if (grams){
+      return {
+        baseLabel: SORT_NORMALIZE_BASE + 'g',
+        baseTitle: isGramLikeUnit(unit) ? '' : ('原始基準：' + base + unit + ' ≈ ' + grams + 'g'),
+        protein: round1(foodRawNutrient(f, 'protein') / grams * SORT_NORMALIZE_BASE),
+        fat: round1(foodRawNutrient(f, 'fat') / grams * SORT_NORMALIZE_BASE),
+        sugar: round1(foodRawNutrient(f, 'sugar') / grams * SORT_NORMALIZE_BASE),
+        cal: round1(foodRawNutrient(f, 'cal') / grams * SORT_NORMALIZE_BASE)
+      };
+    }
+    return {
+      baseLabel: base + unit,
+      baseTitle: '尚未填克重換算，暫以每 1 個單位的量比較，跟以克為準的食材不完全對等，建議補上換算克重。',
+      protein: round1(foodRawNutrient(f, 'protein')),
+      fat: round1(foodRawNutrient(f, 'fat')),
+      sugar: round1(foodRawNutrient(f, 'sugar')),
+      cal: round1(foodRawNutrient(f, 'cal'))
+    };
   }
 
   // 食材庫管理表格：依目前的類別篩選 + 排序欄位/方向回傳要顯示的清單
@@ -1038,10 +1095,9 @@
       return;
     }
     el.innerHTML = list.map(function(f){
-      var cal = f.cal100 !== undefined ? f.cal100 : (f.cal||0);
-      var sug = f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb||0));
-      var protein = f.protein100 !== undefined ? f.protein100 : f.protein;
-      var fat = f.fat100 !== undefined ? f.fat100 : f.fat;
+      // 顯示的數字統一用 foodDisplayRow 換算，跟排序依據（每10克/毫升，或每1個非克類單位）保持一致，
+      // 這樣使用者看到的「基準」欄位跟蛋白/脂肪/糖/熱量欄位，才是同一套換算後的標準，方便互相比較。
+      var d = foodDisplayRow(f);
       var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
       var rowCls = 'food-row';
       var tail = '<span class="food-actions"></span>';
@@ -1055,11 +1111,11 @@
       }
       return '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
         '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
-        '<span class="num" data-label="基準">' + (f.base||f.baseGrams||100) + escapeHtml(f.unit || 'g') + '</span>' +
-        '<span class="num" data-label="蛋白">' + protein + '</span>' +
-        '<span class="num" data-label="脂肪">' + fat + '</span>' +
-        '<span class="num" data-label="糖">' + sug + '</span>' +
-        '<span class="num" data-label="熱量">' + cal + '</span>' +
+        '<span class="num" data-label="基準" title="' + escapeHtml(d.baseTitle || '') + '">' + escapeHtml(d.baseLabel) + '</span>' +
+        '<span class="num" data-label="蛋白">' + d.protein + '</span>' +
+        '<span class="num" data-label="脂肪">' + d.fat + '</span>' +
+        '<span class="num" data-label="糖">' + d.sugar + '</span>' +
+        '<span class="num" data-label="熱量">' + d.cal + '</span>' +
         tail +
         '</div>';
     }).join('');
@@ -1262,12 +1318,21 @@
     ['fName','fProtein','fFat','fSugar','fCal'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('fBase').value = 100;
     document.getElementById('fUnit').value = 'g';
+    document.getElementById('fGramsEquiv').value = '';
+    updateGramsEquivVisibility();
     setFCategory('');
     document.getElementById('fCategoryNewRow').style.display = 'none';
     document.getElementById('fCategoryNewInput').value = '';
     ['nPerServeProtein','nPerServeFat','nPerServeSugar','nPerServeCal','nServings'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('nutritionCalcBox').style.display = 'none';
     document.getElementById('fSaveBtn').textContent = '新增食材';
+  }
+
+  // 依目前「單位」欄位的內容，決定要不要顯示「換算克重」欄位：
+  // 單位本身就是克/毫升時不需要另外換算，其他單位（顆、盒、碗…）才需要使用者補填。
+  function updateGramsEquivVisibility(){
+    var unit = document.getElementById('fUnit').value;
+    document.getElementById('fGramsEquivWrap').style.display = isGramLikeUnit(unit) ? 'none' : 'block';
   }
 
   // ---------- event wiring ----------
@@ -1459,6 +1524,8 @@
 
   function wireFoodForm(){
     document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
+    document.getElementById('fUnit').addEventListener('input', updateGramsEquivVisibility);
+    updateGramsEquivVisibility();
 
     document.getElementById('toggleNutritionCalc').addEventListener('click', function(){
       var box = document.getElementById('nutritionCalcBox');
@@ -1506,20 +1573,30 @@
       var sugar = Number(document.getElementById('fSugar').value) || 0;
       var calInput = document.getElementById('fCal').value;
       var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
+      var gramsEquivInput = document.getElementById('fGramsEquiv').value.trim();
 
       if (!name){ alert('請輸入食材名稱'); return; }
       if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
+
+      var gramsEquiv = null;
+      if (!isGramLikeUnit(unit) && gramsEquivInput !== ''){
+        var g = Number(gramsEquivInput);
+        if (isNaN(g) || g <= 0){ alert('「換算克重」請填大於 0 的數字，或留空不填'); return; }
+        gramsEquiv = g;
+      }
 
       var foodPayload = {
         name: name,
         base: base,
         unit: unit,
+        gramsEquiv: gramsEquiv,
         category: category,
         protein100: round1(protein),
         fat100: round1(fat),
         sugar100: round1(sugar),
         cal100: Math.round(cal)
       };
+
 
       if (state.editingFoodId) {
         foodPayload.id = state.editingFoodId;
@@ -1587,6 +1664,8 @@
       document.getElementById('fName').value = food.name || '';
       document.getElementById('fBase').value = editBase;
       document.getElementById('fUnit').value = editUnit;
+      document.getElementById('fGramsEquiv').value = (food.gramsEquiv || '');
+      updateGramsEquivVisibility();
       setFCategory(food.category || '');
       document.getElementById('fProtein').value = editProtein;
       document.getElementById('fFat').value = editFat;
