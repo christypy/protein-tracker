@@ -905,15 +905,24 @@
     }).join('');
   }
 
-  // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值
+  // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值。
+  // 注意：每項食材的營養數值是「以該食材自訂的基準克數（base，例如 30g、50g、100g…）」
+  // 所填寫的，不是統一以 100g 為準。如果直接拿原始數值互相比大小，基準不同會比不準
+  // （例如 A 食材以 30g 為基準蛋白 5g、B 食材以 100g 為基準蛋白 5g，兩者根本不對等）。
+  // 所以排序時一律先換算成「每 10 克」的量再比較，才能公平比較所有食材。
+  var SORT_NORMALIZE_BASE = 10; // 排序用的統一基準：每 10 克
   function foodMetric(f, key){
     if (key === 'name') return (f.name||'').toLowerCase();
-    if (key === 'base') return Number(f.base||f.baseGrams||100) || 0;
-    if (key === 'protein') return Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
-    if (key === 'fat') return Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
-    if (key === 'sugar') return Number(f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb))) || 0;
-    if (key === 'cal') return Number(f.cal100 !== undefined ? f.cal100 : f.cal) || 0;
-    return 0;
+    var base = Number(f.base || f.baseGrams || 100) || 100;
+    if (key === 'base') return base;
+    var raw;
+    if (key === 'protein') raw = Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
+    else if (key === 'fat') raw = Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
+    else if (key === 'sugar') raw = Number(f.sugar100 !== undefined ? f.sugar100 : (f.carb100 !== undefined ? f.carb100 : (f.sugar !== undefined ? f.sugar : f.carb))) || 0;
+    else if (key === 'cal') raw = Number(f.cal100 !== undefined ? f.cal100 : f.cal) || 0;
+    else return 0;
+    // 換算成每 10 克的量：原始數值 ÷ 該食材基準克數 × 10
+    return (raw / base) * SORT_NORMALIZE_BASE;
   }
 
   // 食材庫管理表格：依目前的類別篩選 + 排序欄位/方向回傳要顯示的清單
