@@ -517,7 +517,7 @@
         <button type="button" class="btn btn-ghost" id="per100ToggleBtn">查看每份100克營養密度</button>
       </div>
       <div id="per100Wrap" style="display:none;margin-top:10px;">
-        <p class="hint" style="margin:0 0 8px;">下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數欄位是把該食材的整包總重量（一份克數 × 總份數）換算成「幾份100克」，不是原本輸入的總份數。</p>
+        <p class="hint" style="margin:0 0 8px;">下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數欄位是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37 克，100 克就約等於 2.7 份）。</p>
         <div class="food-table-wrap">
           <div class="food-row head row6">
             <span>名稱</span><span>蛋白質</span><span>脂肪</span><span>熱量</span><span>糖</span><span>份數(100g)</span>
@@ -935,10 +935,11 @@
     var raw = foodRawNutrient(f, key);
     return raw / base * 100;
   }
-  // 換算成 100 克為一份時，整包（一份克數 × 總份數 = 總重量）等於幾份 100 克。
+  // 換算成 100 克為一份時，原本「一份克數」等於幾份 100 克
+  // （例如一份 37g，100 ÷ 37 ≈ 2.7，代表 100g 相當於 2.7 份原本的 37g）。
   function per100Servings(f){
-    var totalGrams = foodBaseGrams(f) * foodTotalServings(f);
-    return totalGrams / 100;
+    var base = foodBaseGrams(f);
+    return 100 / base;
   }
 
   // 每份100克檢視表：依目前的類別篩選，換算成每100克數值，並依蛋白質高到低排序，
