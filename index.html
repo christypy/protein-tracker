@@ -143,19 +143,52 @@
   }
   .week-dots-grid {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 10px;
     background: var(--paper);
     padding: 12px 14px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line);
+  }
+  .week-row-labels {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    flex: none;
+    padding-top: 1px;
+    margin-right: 2px;
+  }
+  .week-row-labels span {
+    font-size: 9.5px;
+    line-height: 10px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .week-days-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+    flex: 1;
   }
   .week-day-col {
     display: flex;
     flex-direction: column;
     gap: 6px;
     align-items: center;
+  }
+  .week-day-col .day-label {
+    margin-top: 4px;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .week-day-col.is-today .day-label {
+    color: var(--protein-dark);
+    font-weight: 700;
   }
   .dot-symbol {
     width: 10px;
@@ -166,6 +199,19 @@
   .dot-symbol.green { background: var(--protein); }
   .dot-symbol.red { background: var(--danger); }
   .dot-symbol.gray { background: var(--line); }
+  .week-dots-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin-top: 8px;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+  .week-dots-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
 
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
@@ -412,9 +458,15 @@
     <!-- 近7天4*7點陣圖（直接整合於今日目標底下） -->
     <div class="week-dots-inline">
       <div class="week-dots-header">
-        <span>近 7 天攝取趨勢 (4×7)</span>
+        <span>近 7 天攝取趨勢</span>
       </div>
+      <p class="hint" style="margin:0 0 8px;">由上到下依序是蛋白質、脂肪、糖、熱量；每欄代表一天。</p>
       <div class="week-dots-grid" id="weekDotsGrid"></div>
+      <div class="week-dots-legend">
+        <span><i class="dot-symbol green"></i>蛋白質已達標</span>
+        <span><i class="dot-symbol red"></i>超標（脂肪／糖／熱量）</span>
+        <span><i class="dot-symbol gray"></i>尚未達標／在範圍內</span>
+      </div>
     </div>
 
     <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
@@ -524,7 +576,9 @@
         <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
         <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
       </div>
+      <p class="hint" style="margin:8px 0 0;">改了蛋白質／脂肪／糖之後，熱量不會自動換算，請按「依營養素換算熱量」或自行輸入。</p>
       <div class="btn-row">
+        <button type="button" class="btn btn-ghost" id="leAutoCalBtn">依營養素換算熱量</button>
         <button class="btn btn-ghost" id="leCancelBtn">取消</button>
         <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
       </div>
@@ -1036,6 +1090,8 @@
     });
   }
 
+  var WEEKDAY_SHORT = ['日','一','二','三','四','五','六'];
+
   // 4*7 趨勢點陣圖：直接橫向排開 7 天，每天包含 4 個點（蛋白質、脂肪、糖、熱量）
   function renderWeekDotsGrid(){
     var el = document.getElementById('weekDotsGrid');
@@ -1043,8 +1099,13 @@
     var data = weekTotals();
     var goals = currentGoals();
     var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
+    var today = todayStr();
 
-    el.innerHTML = data.map(function(d){
+    var rowLabels = '<div class="week-row-labels">' +
+      '<span>蛋白質</span><span>脂肪</span><span>糖</span><span>熱量</span>' +
+      '</div>';
+
+    var dayCols = data.map(function(d){
       var pMet = d.protein >= goals.protein;
       var fOver = d.fat > goals.fat;
       var sOver = d.sugar > sugarGoal;
@@ -1055,8 +1116,18 @@
       var sDot = sOver ? '<span class="dot-symbol red" title="糖超標"></span>' : '<span class="dot-symbol gray" title="糖正常"></span>';
       var cDot = cOver ? '<span class="dot-symbol red" title="熱量超標"></span>' : '<span class="dot-symbol gray" title="熱量正常"></span>';
 
-      return '<div class="week-day-col">' + pDot + fDot + sDot + cDot + '</div>';
+      var dt = new Date(d.date + 'T00:00:00');
+      var wd = WEEKDAY_SHORT[dt.getDay()];
+      var mmdd = d.date.slice(5).replace('-', '/');
+      var isToday = d.date === today;
+      var colCls = 'week-day-col' + (isToday ? ' is-today' : '');
+
+      return '<div class="' + colCls + '">' + pDot + fDot + sDot + cDot +
+        '<div class="day-label">' + wd + '<br>' + mmdd + '</div>' +
+        '</div>';
     }).join('');
+
+    el.innerHTML = rowLabels + '<div class="week-days-wrap">' + dayCols + '</div>';
   }
 
   function foodRawNutrient(f, key){
@@ -1576,7 +1647,7 @@
       if (idx === -1){
         var food = state.foods.find(function(f){ return f.id === id; });
         var baseGrams = (food && (food.base || food.baseGrams)) || 100;
-        state.batch.push({ foodId: id, grams: baseGrams, servings: 1, mode: 'serving' });
+        state.batch.push({ foodId: id, grams: baseGrams, servings: 1, mode: 'g' });
       } else {
         state.batch.splice(idx, 1);
       }
@@ -1765,6 +1836,13 @@
       document.getElementById('leFat').value = m.fat;
       document.getElementById('leSugar').value = m.sugar;
       document.getElementById('leCal').value = m.cal;
+    });
+
+    document.getElementById('leAutoCalBtn').addEventListener('click', function(){
+      var p = Number(document.getElementById('leProtein').value)||0;
+      var f = Number(document.getElementById('leFat').value)||0;
+      var s = Number(document.getElementById('leSugar').value)||0;
+      document.getElementById('leCal').value = estimateCalories(p, f, s);
     });
 
     document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
