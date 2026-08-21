@@ -117,6 +117,38 @@
     .cbar-val{font-size:10.5px;}
   }
 
+  /* ---- 今日目標：剩餘量卡片（最直覺的視覺呈現） ---- */
+  .remain-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}
+  .remain-tile{border-radius:var(--radius-sm);padding:10px 12px;display:flex;flex-direction:column;gap:2px;}
+  .remain-tile.protein{background:var(--protein-tint);}
+  .remain-tile.fat{background:var(--fat-tint);}
+  .remain-tile.sugar{background:var(--carb-tint);}
+  .remain-tile.cal{background:var(--cal-tint);}
+  .remain-tile .rt-label{font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .remain-tile .rt-value{font-family:var(--font-num);font-size:19px;font-weight:700;line-height:1.25;}
+  .remain-tile.protein .rt-value{color:var(--protein-dark);}
+  .remain-tile.fat .rt-value{color:var(--fat);}
+  .remain-tile.sugar .rt-value{color:var(--carb);}
+  .remain-tile.cal .rt-value{color:var(--cal);}
+  .remain-tile .rt-value small{font-size:11px;font-weight:500;color:var(--ink-soft);font-family:var(--font-body);}
+  .remain-tile.over .rt-value{color:var(--danger);}
+  .remain-tile .rt-sub{font-size:10.5px;color:var(--ink-soft);}
+  .remain-tile.over .rt-sub{color:var(--danger);font-weight:700;}
+  @media (max-width:420px){
+    .remain-tile .rt-value{font-size:16px;}
+  }
+
+  /* ---- 今日紀錄：編輯表單 ---- */
+  .log-edit-box{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
+  .log-edit-box .btn-row{margin-top:10px;}
+
+  /* ---- 近7天趨勢圖 ---- */
+  .week-chart-item{margin-bottom:16px;}
+  .week-chart-item:last-child{margin-bottom:0;}
+  .week-chart-title{font-size:12.5px;font-weight:700;margin-bottom:4px;}
+  .week-chart-title small{font-weight:500;color:var(--ink-soft);}
+  .week-chart-svg{width:100%;height:auto;display:block;}
+
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
   .section-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;user-select:none;}
@@ -349,6 +381,7 @@
   <div class="hero">
     <div class="hero-info">
       <div class="label">今日目標 · <b id="profileDesc"></b></div>
+      <div class="remain-grid" id="remainGrid"></div>
       <div class="chart-bars" id="chartBars"></div>
     </div>
 
@@ -359,10 +392,12 @@
         <span class="hero-logs-title">今日紀錄</span>
         <span class="hero-logs-count" id="logCount"></span>
       </div>
-      <p class="hint" style="margin:0 0 8px;">按住左側 <b>⠿</b> 可以拖移調整順序；想刪除的話，先按下面「刪除」再勾選。</p>
+      <p class="hint" style="margin:0 0 8px;">想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選。</p>
       <div class="list-toolbar">
+        <button type="button" class="tool-btn" id="logEditToggle">編輯</button>
         <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
       </div>
+      <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄（一次一筆）</p>
       <div class="select-bar" id="logSelectBar" style="display:none;">
         <span id="logSelectCount">已選 0 筆</span>
         <span class="select-actions">
@@ -371,6 +406,25 @@
         </span>
       </div>
       <div id="logList"></div>
+      <div class="log-edit-box" id="logEditBox" style="display:none;">
+        <div class="row">
+          <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
+        </div>
+        <div class="row" id="leGramsRow" style="margin-top:8px;display:none;align-items:flex-end;">
+          <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
+          <div class="field" style="flex:none;"><button type="button" class="btn btn-ghost" id="leRecalcBtn">依食材重新計算</button></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
+          <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
+          <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
+          <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="leCancelBtn">取消</button>
+          <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
+        </div>
+      </div>
     </div>
 
     <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
@@ -387,6 +441,18 @@
         <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
         <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 近7天趨勢 -->
+  <div class="section" id="secWeek">
+    <div class="section-head" data-toggle="secWeek">
+      <h2>近 7 天攝取趨勢</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="section-body">
+      <p class="hint">依目前選擇的身份，統計最近 7 天（含今天）每日總攝取量；虛線代表目前設定的每日目標。</p>
+      <div id="weekCharts"></div>
     </div>
   </div>
 
@@ -600,7 +666,11 @@
 
     // 今日紀錄：單一「刪除」開關（取代每列各自的刪除鈕）
     logDeleteMode: false,
-    logDeleteSelected: [] // 刪除模式下已勾選的紀錄 id
+    logDeleteSelected: [], // 刪除模式下已勾選的紀錄 id
+
+    // 今日紀錄：單一「編輯」開關，點選某一筆即可載入下方編輯表單
+    logEditMode: false,
+    editingLogId: null
   };
 
   function defaultGoalsSet(){
@@ -799,7 +869,45 @@
     if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
 
     renderProfileTabs();
+    renderRemainGrid(totals, goals);
     renderChartBars(totals, goals);
+  }
+
+  // 「今日目標」最直覺的視覺呈現：蛋白質是「要吃到多少」的目標（達標＝好事），
+  // 脂肪／糖／熱量則是「不要超過多少」的上限（超過才要留意），
+  // 所以兩種卡片文字與提示語刻意不同，一眼就能分辨方向。
+  function renderRemainGrid(totals, goals){
+    var el = document.getElementById('remainGrid');
+    if (!el) return;
+    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
+
+    var proteinLeft = round1(goals.protein - totals.protein);
+    var fatLeft = round1(goals.fat - totals.fat);
+    var sugarLeft = round1(sugarGoal - totals.sugar);
+    var calLeft = Math.round(goals.cal - totals.cal);
+
+    function targetTile(label, left, unit){
+      var reached = left <= 0;
+      return '<div class="remain-tile protein">' +
+        '<div class="rt-label">' + label + '</div>' +
+        '<div class="rt-value">' + (reached ? '已達標 ✓' : (left + '<small> ' + unit + '</small>')) + '</div>' +
+        '<div class="rt-sub">' + (reached ? '今天辛苦了，蛋白質吃夠了！' : '還需要攝取') + '</div>' +
+        '</div>';
+    }
+    function limitTile(cls, label, left, unit){
+      var over = left < 0;
+      return '<div class="remain-tile ' + cls + (over?' over':'') + '">' +
+        '<div class="rt-label">' + label + '</div>' +
+        '<div class="rt-value">' + (over ? ('超標 ' + Math.abs(left)) : left) + '<small> ' + unit + '</small></div>' +
+        '<div class="rt-sub">' + (over ? '已超過今日上限' : '還可以攝取') + '</div>' +
+        '</div>';
+    }
+
+    el.innerHTML =
+      targetTile('蛋白質', proteinLeft, 'g') +
+      limitTile('fat', '脂肪', fatLeft, 'g') +
+      limitTile('sugar', '糖', sugarLeft, 'g') +
+      limitTile('cal', '熱量', calLeft, 'kcal');
   }
 
   function renderProfileTabs(){
@@ -844,12 +952,18 @@
   }
 
   function renderLogSelectBar(){
-    var toggle = document.getElementById('logDeleteToggle');
+    var editToggle = document.getElementById('logEditToggle');
+    var delToggle = document.getElementById('logDeleteToggle');
+    var editHint = document.getElementById('logEditHint');
     var bar = document.getElementById('logSelectBar');
     var countEl = document.getElementById('logSelectCount');
-    toggle.classList.toggle('on', state.logDeleteMode);
-    toggle.classList.toggle('mode-delete', state.logDeleteMode);
-    toggle.textContent = state.logDeleteMode ? '取消刪除' : '刪除';
+    editToggle.classList.toggle('on', state.logEditMode);
+    editToggle.classList.toggle('mode-edit', state.logEditMode);
+    editToggle.textContent = state.logEditMode ? '取消編輯' : '編輯';
+    delToggle.classList.toggle('on', state.logDeleteMode);
+    delToggle.classList.toggle('mode-delete', state.logDeleteMode);
+    delToggle.textContent = state.logDeleteMode ? '取消刪除' : '刪除';
+    editHint.style.display = state.logEditMode ? 'block' : 'none';
     bar.style.display = state.logDeleteMode ? 'flex' : 'none';
     countEl.textContent = '已選 ' + state.logDeleteSelected.length + ' 筆';
   }
@@ -872,7 +986,8 @@
       var leftControl = state.logDeleteMode
         ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked?'checked':'') + ' tabindex="-1"></span>'
         : '';
-      return '<div class="log-item" data-log-id="' + escapeHtml(l.id) + '">' +
+      var rowCls = 'log-item' + (state.logEditMode ? ' selectable-row' : '');
+      return '<div class="' + rowCls + '" data-log-id="' + escapeHtml(l.id) + '">' +
         leftControl +
         '<span class="log-dot ' + dotCls + '"></span>' +
         '<div class="log-time">' + escapeHtml(l.time||'') + '</div>' +
@@ -884,6 +999,83 @@
         '<span class="k">' + Math.round(l.cal||0) + 'kcal</span></div>' +
         '</div>';
     }).join('');
+  }
+
+  // ---- 近7天趨勢圖（以目前選擇的身份、今天往前推 7 天，含今天） ----
+  function last7Dates(){
+    var arr = [];
+    var base = new Date(state.currentDate + 'T00:00:00');
+    for (var i = 6; i >= 0; i--){
+      var d = new Date(base);
+      d.setDate(base.getDate() - i);
+      arr.push(fmtDate(d));
+    }
+    return arr;
+  }
+
+  function weekTotals(){
+    var p = activeProfile();
+    return last7Dates().map(function(dt){
+      var list = state.logs.filter(function(l){ return l.date === dt && (l.person || 'A') === p; });
+      var t = list.reduce(function(acc,l){
+        acc.protein += Number(l.protein)||0;
+        acc.fat += Number(l.fat)||0;
+        acc.sugar += Number(l.sugar !== undefined ? l.sugar : l.carb)||0;
+        acc.cal += Number(l.cal)||0;
+        return acc;
+      }, {protein:0, fat:0, sugar:0, cal:0});
+      return { date: dt, protein: round1(t.protein), fat: round1(t.fat), sugar: round1(t.sugar), cal: Math.round(t.cal) };
+    });
+  }
+
+  var WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
+
+  // 畫一條簡單的 SVG 折線圖：x 軸是日期（顯示星期），y 軸依數值自動縮放，
+  // 虛線代表目前的每日目標，方便一眼比較「這幾天有沒有常常超標／達標」。
+  function buildLineChart(label, colorVar, unit, values, dates, goal){
+    var w = 300, h = 118, padL = 8, padR = 8, padT = 16, padB = 20;
+    var maxVal = Math.max.apply(null, values.concat([goal||0, 1]));
+    var scaleMax = maxVal * 1.2;
+    var innerW = w - padL - padR, innerH = h - padT - padB;
+    function x(i){ return padL + (values.length > 1 ? (i * innerW / (values.length - 1)) : innerW/2); }
+    function y(v){ return padT + innerH - (v / scaleMax) * innerH; }
+
+    var points = values.map(function(v,i){ return x(i) + ',' + y(v); }).join(' ');
+    var dots = values.map(function(v,i){
+      return '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="3" fill="var(' + colorVar + ')" />';
+    }).join('');
+    var valueTags = values.map(function(v,i){
+      return '<text x="' + x(i) + '" y="' + Math.max(10, y(v) - 7) + '" font-size="9" text-anchor="middle" fill="var(--ink)" font-family="var(--font-num)">' + v + '</text>';
+    }).join('');
+    var dayLabels = dates.map(function(dt,i){
+      var wd = WEEKDAY_LABELS[new Date(dt + 'T00:00:00').getDay()];
+      return '<text x="' + x(i) + '" y="' + (h - 4) + '" font-size="9.5" text-anchor="middle" fill="var(--ink-soft)">' + wd + '</text>';
+    }).join('');
+    var goalLine = (goal && goal > 0) ?
+      '<line x1="' + padL + '" y1="' + y(goal) + '" x2="' + (w-padR) + '" y2="' + y(goal) + '" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" />' +
+      '<text x="' + (w-padR) + '" y="' + (y(goal) - 3) + '" font-size="8.5" text-anchor="end" fill="var(--ink-soft)">目標 ' + goal + '</text>'
+      : '';
+
+    return '<div class="week-chart-item"><div class="week-chart-title">' + label + ' <small>(' + unit + ')</small></div>' +
+      '<svg viewBox="0 0 ' + w + ' ' + h + '" class="week-chart-svg" preserveAspectRatio="xMidYMid meet">' +
+        goalLine +
+        '<polyline points="' + points + '" fill="none" stroke="var(' + colorVar + ')" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />' +
+        dots + valueTags + dayLabels +
+      '</svg></div>';
+  }
+
+  function renderWeekSection(){
+    var el = document.getElementById('weekCharts');
+    if (!el) return;
+    var data = weekTotals();
+    var dates = data.map(function(d){ return d.date; });
+    var goals = currentGoals();
+    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
+    el.innerHTML =
+      buildLineChart('蛋白質', '--protein', 'g', data.map(function(d){ return d.protein; }), dates, goals.protein) +
+      buildLineChart('脂肪', '--fat', 'g', data.map(function(d){ return d.fat; }), dates, goals.fat) +
+      buildLineChart('糖', '--carb', 'g', data.map(function(d){ return d.sugar; }), dates, sugarGoal) +
+      buildLineChart('熱量', '--cal', 'kcal', data.map(function(d){ return d.cal; }), dates, goals.cal);
   }
 
   // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值。
@@ -1150,6 +1342,7 @@
     renderLogList();
     renderFoodTable();
     renderPickerList();
+    renderWeekSection();
   }
 
   // ---------- mutations ----------
@@ -1186,14 +1379,43 @@
     }
   }
 
+  // 食材的營養數值若被修正，過去用這個食材登記過的「今日紀錄」項目
+  // （只要是靠食材＋克數算出來的，type:'selected'）也要一起用新數值重算，
+  // 不然食材庫改了、紀錄裡卻還是舊的營養數字，兩邊會對不起來。
+  // 手動輸入（type:'manual'）沒有 foodId，本來就跟食材庫無關，不受影響。
+  async function syncLogsWithFood(food){
+    var changed = [];
+    state.logs.forEach(function(l){
+      if (l.foodId && l.foodId === food.id && l.grams){
+        var m = computeMacros(food, l.grams);
+        var curSugar = round1(l.sugar !== undefined ? l.sugar : (l.carb||0));
+        if (m.protein !== round1(l.protein) || m.fat !== round1(l.fat) || m.sugar !== curSugar || m.cal !== round1(l.cal||0)){
+          l.protein = m.protein; l.fat = m.fat; l.sugar = m.sugar; l.cal = m.cal;
+          delete l.carb;
+          changed.push(l);
+        }
+      }
+    });
+    if (changed.length){
+      await saveLocalLogs();
+      if (hasSheet()){
+        changed.forEach(function(l){
+          sheetPost('updateLog', { id: l.id, protein: l.protein, fat: l.fat, sugar: l.sugar, cal: l.cal }).catch(function(){});
+        });
+      }
+    }
+    return changed.length;
+  }
+
   async function updateFood(food){
     var idx = state.foods.findIndex(function(f){ return f.id === food.id; });
     if (idx !== -1) state.foods[idx] = food;
+    var syncedCount = await syncLogsWithFood(food);
     await persistFoodsAndRender();
 
     if (hasSheet()){
       sheetPost('updateFood', food).then(function(){
-        setSheetStatus('食材修改已同步到試算表。', 'ok');
+        setSheetStatus('食材修改已同步到試算表' + (syncedCount ? '，並更新了 ' + syncedCount + ' 筆使用這項食材的紀錄。' : '。'), 'ok');
       }).catch(function(e){
         setSheetStatus('更新食材同步失敗：' + e.message + '（已保留本機資料）', 'err');
       });
@@ -1472,19 +1694,37 @@
   function wireLogList(){
     var listEl = document.getElementById('logList');
 
-    // ---- 刪除模式：勾選 / 點列即可勾選 ----
+    // ---- 刪除模式：勾選 / 點列即可勾選；編輯模式：點列載入下方編輯表單 ----
     listEl.addEventListener('click', function(e){
-      if (!state.logDeleteMode) return;
       var row = e.target.closest('.log-item');
       if (!row) return;
       var id = row.getAttribute('data-log-id');
-      var idx = state.logDeleteSelected.indexOf(id);
-      if (idx === -1) state.logDeleteSelected.push(id); else state.logDeleteSelected.splice(idx, 1);
-      renderLogList();
+
+      if (state.logDeleteMode){
+        var idx = state.logDeleteSelected.indexOf(id);
+        if (idx === -1) state.logDeleteSelected.push(id); else state.logDeleteSelected.splice(idx, 1);
+        renderLogList();
+        return;
+      }
+      if (state.logEditMode){
+        var log = state.logs.find(function(l){ return l.id === id; });
+        if (log){
+          loadLogIntoForm(log);
+          state.logEditMode = false;
+          renderLogList();
+        }
+      }
     });
 
+    document.getElementById('logEditToggle').addEventListener('click', function(){
+      state.logEditMode = !state.logEditMode;
+      if (state.logEditMode){ state.logDeleteMode = false; state.logDeleteSelected = []; }
+      else { clearLogEditForm(); }
+      renderLogList();
+    });
     document.getElementById('logDeleteToggle').addEventListener('click', function(){
       state.logDeleteMode = !state.logDeleteMode;
+      if (state.logDeleteMode){ state.logEditMode = false; clearLogEditForm(); }
       state.logDeleteSelected = [];
       renderLogList();
     });
@@ -1500,6 +1740,95 @@
       state.logDeleteMode = false;
       state.logDeleteSelected = [];
       await deleteLogsBatch(ids);
+    });
+
+    wireLogEditForm();
+  }
+
+  // ---- 今日紀錄：編輯表單 ----
+  function loadLogIntoForm(log){
+    state.editingLogId = log.id;
+    var sVal = log.sugar !== undefined ? log.sugar : (log.carb||0);
+    document.getElementById('leName').value = log.foodName || '';
+    document.getElementById('leProtein').value = round1(log.protein);
+    document.getElementById('leFat').value = round1(log.fat);
+    document.getElementById('leSugar').value = round1(sVal);
+    document.getElementById('leCal').value = Math.round(log.cal||0);
+
+    var gramsRow = document.getElementById('leGramsRow');
+    if (log.foodId){
+      gramsRow.style.display = 'flex';
+      document.getElementById('leGrams').value = log.grams || '';
+    } else {
+      gramsRow.style.display = 'none';
+      document.getElementById('leGrams').value = '';
+    }
+    document.getElementById('logEditBox').style.display = 'block';
+    document.getElementById('logEditBox').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  function clearLogEditForm(){
+    state.editingLogId = null;
+    var box = document.getElementById('logEditBox');
+    if (box) box.style.display = 'none';
+    ['leName','leGrams','leProtein','leFat','leSugar','leCal'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  }
+
+  async function updateLogEntry(id, patch){
+    var log = state.logs.find(function(l){ return l.id === id; });
+    if (!log) return;
+    Object.assign(log, patch);
+    delete log.carb;
+    await persistLogsAndRender();
+
+    if (hasSheet()){
+      sheetPost('updateLog', Object.assign({ id: id }, patch)).then(function(){
+        setSheetStatus('紀錄修改已同步到試算表。', 'ok');
+      }).catch(function(e){
+        setSheetStatus('更新紀錄同步失敗：' + e.message + '（已保留本機資料）', 'err');
+      });
+    }
+  }
+
+  function wireLogEditForm(){
+    document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
+
+    document.getElementById('leRecalcBtn').addEventListener('click', function(){
+      if (!state.editingLogId) return;
+      var log = state.logs.find(function(l){ return l.id === state.editingLogId; });
+      if (!log || !log.foodId) return;
+      var food = state.foods.find(function(f){ return f.id === log.foodId; });
+      if (!food){ alert('找不到對應的食材，可能已經被刪除了'); return; }
+      var grams = Number(document.getElementById('leGrams').value);
+      if (!grams || grams <= 0){ alert('請輸入大於 0 的克數'); return; }
+      var m = computeMacros(food, grams);
+      document.getElementById('leProtein').value = m.protein;
+      document.getElementById('leFat').value = m.fat;
+      document.getElementById('leSugar').value = m.sugar;
+      document.getElementById('leCal').value = m.cal;
+    });
+
+    document.getElementById('leSaveBtn').addEventListener('click', async function(){
+      if (!state.editingLogId) return;
+      var name = document.getElementById('leName').value.trim() || '未命名';
+      var protein = Number(document.getElementById('leProtein').value);
+      if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
+      var fat = Number(document.getElementById('leFat').value) || 0;
+      var sugar = Number(document.getElementById('leSugar').value) || 0;
+      var cal = Number(document.getElementById('leCal').value) || 0;
+
+      var patch = { foodName: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal) };
+      var gramsRow = document.getElementById('leGramsRow');
+      if (gramsRow.style.display !== 'none'){
+        var grams = Number(document.getElementById('leGrams').value);
+        if (grams && grams > 0) patch.grams = grams;
+      }
+      var id = state.editingLogId;
+      clearLogEditForm();
+      await updateLogEntry(id, patch);
     });
   }
 
