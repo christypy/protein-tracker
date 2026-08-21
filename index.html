@@ -376,6 +376,19 @@
   .log-macros .s{color:var(--carb);}
   .log-macros .k{color:var(--cal);}
 
+  /* ---- 現在可以吃什麼 ---- */
+  .snack-list{display:flex;flex-direction:column;}
+  .snack-item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);}
+  .snack-item:last-child{border-bottom:none;padding-bottom:0;}
+  .snack-item.unavailable{opacity:.55;}
+  .snack-main{flex:1;min-width:0;}
+  .snack-main .name{font-size:13.5px;font-weight:700;}
+  .snack-main .sub{font-size:11px;color:var(--ink-soft);margin-top:2px;font-family:var(--font-num);}
+  .snack-amount{text-align:right;flex:none;}
+  .snack-amount .grams{font-family:var(--font-num);font-size:16px;font-weight:700;color:var(--protein-dark);white-space:nowrap;}
+  .snack-amount .grams.zero{font-family:var(--font-body);font-size:12px;font-weight:700;color:var(--danger);}
+  .snack-amount .kcal{font-size:10.5px;color:var(--ink-soft);margin-top:1px;}
+
   /* ---- Category chips ---- */
   .chip-scroll{display:flex;flex-wrap:wrap;gap:7px;}
   .chip{
@@ -493,7 +506,24 @@
     </div>
   </div>
 
-  <!-- 2. 新增這一餐 -->
+  <!-- 2. 現在可以吃什麼（零食／早餐類別，扣掉晚餐預留熱量後還能吃多少） -->
+  <div class="section collapsed" id="secSnackNow">
+    <div class="section-head" data-toggle="secSnackNow">
+      <h2>🍪 現在可以吃什麼</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="section-body">
+      <p class="select-hint">從「零食」「早餐」類別的食材裡，扣掉晚餐可能吃掉的熱量之後，抓出現在最多還能吃多少份量。</p>
+      <div class="row">
+        <div class="field"><label>晚餐預留熱量下限 (kcal)</label><input type="number" id="snackDinnerMin" min="0" step="10" value="500"></div>
+        <div class="field"><label>晚餐預留熱量上限 (kcal)</label><input type="number" id="snackDinnerMax" min="0" step="10" value="700"></div>
+      </div>
+      <div class="status-msg" id="snackBudgetSummary"></div>
+      <div class="snack-list" id="snackFoodList"></div>
+    </div>
+  </div>
+
+  <!-- 3. 新增這一餐 -->
   <div class="section" id="secAdd">
     <div class="section-head" data-toggle="secAdd">
       <h2>新增這一餐</h2>
@@ -902,6 +932,68 @@
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
   }
 
+  // ---------- 現在可以吃什麼（零食／早餐，扣掉晚餐預留熱量） ----------
+  // 只針對「上限型」的巨量營養素（脂肪／糖／熱量）做扣除，蛋白質是「目標下限」，
+  // 吃更多蛋白質不會超標，所以不拿蛋白質剩餘量去限制份量。
+  var SNACK_CATEGORIES = ['零食', '早餐'];
+
+  function snackCategoryFoods(foods){
+    return (foods || state.foods).filter(function(f){
+      return SNACK_CATEGORIES.indexOf(f.category) > -1;
+    });
+  }
+
+  // 純函式：不碰 DOM，方便單元測試。dinnerMin/dinnerMax 是「晚餐可能會吃掉的熱量」估計範圍，
+  // 為了保守起見，計算「現在還能吃多少」時，用估計範圍的上限（dinnerMax）先扣掉，
+  // 確保晚餐一定還有預算可用。
+  function computeSnackBudget(totals, goals, dinnerMin, dinnerMax){
+    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
+    dinnerMin = Number(dinnerMin) || 0;
+    dinnerMax = Number(dinnerMax) || 0;
+    if (dinnerMax < dinnerMin) { var tmp = dinnerMin; dinnerMin = dinnerMax; dinnerMax = tmp; }
+
+    var calLeftTotal = goals.cal - (totals.cal || 0);
+    return {
+      totals: totals,
+      goals: goals,
+      sugarGoal: sugarGoal,
+      dinnerMin: dinnerMin,
+      dinnerMax: dinnerMax,
+      calLeftTotal: calLeftTotal,
+      calAvailableNow: calLeftTotal - dinnerMax,
+      fatLeft: goals.fat - (totals.fat || 0),
+      sugarLeft: sugarGoal - (totals.sugar || 0)
+    };
+  }
+
+  // 純函式：算出某個食材，在目前的預算下最多還能吃幾克。
+  // 注意：food.protein100/fat100/sugar100/cal100 這幾個欄位名稱雖然有「100」，
+  // 但實際語意是「每 food.base 克」的量（不是字面上的「每100克」，base 可以是
+  // 30g、45g 等任意一份克數），必須比照 computeMacros() 的算法用 base 去反推，
+  // 不能直接假設是「每100g」。
+  // 同時用「這個食材目前庫存的總重量」（一份克數 × 份數）當作天花板，
+  // 避免熱量額度很寬鬆時，建議吃超過食材實際庫存的荒謬數字。
+  function maxGramsForFood(food, budget){
+    var base = foodBaseGrams(food);
+    var perBaseAmount = {
+      cal: foodRawNutrient(food, 'cal'),
+      fat: foodRawNutrient(food, 'fat'),
+      sugar: foodRawNutrient(food, 'sugar')
+    };
+    var remaining = { cal: budget.calAvailableNow, fat: budget.fatLeft, sugar: budget.sugarLeft };
+    var packageGrams = base * foodTotalServings(food);
+
+    var maxG = packageGrams;
+    ['cal', 'fat', 'sugar'].forEach(function(key){
+      var perBase = perBaseAmount[key];
+      if (perBase > 0){
+        var allowed = remaining[key] > 0 ? (remaining[key] / perBase * base) : 0;
+        maxG = Math.min(maxG, allowed);
+      }
+    });
+    return Math.max(0, maxG);
+  }
+
   // 從「食材表單」的原始輸入值組出要送進 state.foods / 試算表的食材物件。
   // 刻意抽成一個不碰 DOM 的純函式，這樣既能被 fSaveBtn 的 click handler呼叫，
   // 也能被單元測試直接呼叫，避免欄位名稱（例如 protein100 打成 protein）
@@ -1259,6 +1351,72 @@
     }).join('');
   }
 
+  // 讀取「今日目標」卡片已經算好的當日累積數字，避免重複寫一份加總邏輯。
+  function todayTotalsForSnack(){
+    return logsForCurrentDate().reduce(function(acc, l){
+      acc.protein += Number(l.protein) || 0;
+      acc.fat += Number(l.fat) || 0;
+      acc.sugar += Number(l.sugar !== undefined ? l.sugar : l.carb) || 0;
+      acc.cal += Number(l.cal) || 0;
+      return acc;
+    }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
+  }
+
+  function renderSnackNow(){
+    var summaryEl = document.getElementById('snackBudgetSummary');
+    var listEl = document.getElementById('snackFoodList');
+    if (!summaryEl || !listEl) return;
+
+    var minInput = document.getElementById('snackDinnerMin');
+    var maxInput = document.getElementById('snackDinnerMax');
+    var dinnerMin = minInput ? minInput.value : 500;
+    var dinnerMax = maxInput ? maxInput.value : 700;
+
+    var totals = todayTotalsForSnack();
+    var goals = currentGoals();
+    var budget = computeSnackBudget(totals, goals, dinnerMin, dinnerMax);
+
+    var summaryText = '今天已攝取熱量 ' + Math.round(totals.cal) + ' kcal（目標 ' + goals.cal + ' kcal）。';
+    if (budget.calAvailableNow <= 0){
+      summaryText += '扣掉晚餐預留的 ' + budget.dinnerMax + ' kcal 之後，目前熱量額度已經用完了，建議先不要加零食／早餐類，把額度留給晚餐。';
+      summaryEl.className = 'status-msg err';
+    } else {
+      summaryText += '扣掉晚餐預留 ' + budget.dinnerMin + '–' + budget.dinnerMax + ' kcal（保守用上限計算）後，現在最多還能吃約 ' + Math.round(budget.calAvailableNow) + ' kcal。';
+      if (budget.fatLeft <= 0) summaryText += '（脂肪額度已用完，會限制可吃的食材）';
+      if (budget.sugarLeft <= 0) summaryText += '（糖額度已用完，會限制可吃的食材）';
+      summaryEl.className = 'status-msg ok';
+    }
+    summaryEl.textContent = summaryText;
+
+    var foods = snackCategoryFoods();
+    if (!foods.length){
+      listEl.innerHTML = '<div class="empty">目前沒有分類為「零食」或「早餐」的食材，先到下面「食材管理」新增，或幫既有食材設定類別吧。</div>';
+      return;
+    }
+
+    listEl.innerHTML = foods.map(function(f){
+      var maxG = Math.floor(maxGramsForFood(f, budget));
+      var canEat = maxG >= 1;
+      var base = foodBaseGrams(f);
+      var servings = base ? round1(maxG / base) : 0;
+      var m = computeMacros(f, maxG);
+      var catBadge = '<em class="fcat">' + escapeHtml(f.category) + '</em>';
+
+      return '<div class="snack-item' + (canEat ? '' : ' unavailable') + '">' +
+        '<div class="snack-main">' +
+          '<div class="name">' + escapeHtml(f.name) + catBadge + '</div>' +
+          '<div class="sub">每100g：P' + round1(per100Value(f, 'protein')) + ' F' + round1(per100Value(f, 'fat')) +
+            ' S' + round1(per100Value(f, 'sugar')) + ' · ' + Math.round(per100Value(f, 'cal')) + 'kcal</div>' +
+        '</div>' +
+        '<div class="snack-amount">' +
+          (canEat
+            ? ('<div class="grams">' + maxG + 'g</div><div class="kcal">約 ' + servings + ' 份 · ' + m.cal + 'kcal</div>')
+            : '<div class="grams zero">目前不建議</div>') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
   function usedCategories(){
     var cats = [];
     state.foods.forEach(function(f){
@@ -1430,6 +1588,7 @@
     renderLogList();
     renderFoodTable();
     renderPickerList();
+    renderSnackNow();
   }
 
   // ---------- mutations ----------
@@ -2074,6 +2233,13 @@
     });
   }
 
+  function wireSnackNow(){
+    ['snackDinnerMin', 'snackDinnerMax'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', renderSnackNow);
+    });
+  }
+
   function wireSettings(){
     document.getElementById('sheetUrl').value = state.settings.sheetUrl || '';
     document.getElementById('syncDot').addEventListener('click', function(){
@@ -2115,6 +2281,7 @@
     wireLogList();
     wireFoodTable();
     wireSettings();
+    wireSnackNow();
 
     renderAll();
 
@@ -2145,6 +2312,9 @@
       mergeById: mergeById,
       fmtDate: fmtDate,
       uid: uid,
+      computeSnackBudget: computeSnackBudget,
+      maxGramsForFood: maxGramsForFood,
+      snackCategoryFoods: snackCategoryFoods,
       state: state
     };
   }
