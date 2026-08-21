@@ -82,24 +82,17 @@
   .profile-tab.active em{color:rgba(255,255,255,0.82);}
   .profile-hint{font-size:11px;color:var(--ink-soft);margin:0 0 14px;}
 
-  /* ---- Hero: 今日目標＋整合圖表 ---- */
-  .hero{
+  /* ---- Card Styles ---- */
+  .card-block{
     background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-    padding:22px 22px 20px;box-shadow:var(--shadow);margin-bottom:20px;
-  }
-  .hero-info .label{font-size:12px;color:var(--ink-soft);margin-bottom:10px;}
-  .hero-info .label b{color:var(--ink);font-weight:700;}
-  .hero-divider{height:1px;background:var(--line);margin:18px 0 14px;}
-  .hero-logs-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;}
-  .hero-logs-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
-  .hero-logs-count{font-size:11.5px;color:var(--ink-soft);font-family:var(--font-num);}
-  .hero-logs .empty{padding:14px 0;}
-  .goal-edit{
-    font-family:var(--font-num);font-size:15px;border:1px solid var(--line);background:var(--paper);
-    border-radius:8px;padding:3px 8px;width:64px;
+    padding:22px;box-shadow:var(--shadow);margin-bottom:20px;
   }
 
-  /* ---- 今日目標：圓環進度卡（一眼看出「還需要」／「還可以吃」） ---- */
+  /* ---- 今日目標 ---- */
+  .goal-info .label{font-size:12px;color:var(--ink-soft);margin-bottom:10px;}
+  .goal-info .label b{color:var(--ink);font-weight:700;}
+
+  /* ---- 進度卡 ---- */
   .progress-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:4px;}
   .progress-tile{
     display:flex;align-items:center;gap:12px;padding:12px 12px;border-radius:var(--radius-sm);
@@ -133,11 +126,22 @@
   .log-edit-box{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
   .log-edit-box .btn-row{margin-top:10px;}
 
-  /* ---- 近7天趨勢：日期 chip + 跟「今日目標」共用的圓環進度卡 ---- */
+  /* ---- 近7天趨勢 ---- */
   .hero-trend-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;}
-  .hero-trend-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
+  .hero-trend-title{font-family:var(--font-display);font-size:16px;font-weight:700;}
   .hero-trend-sub{font-size:10.5px;color:var(--ink-soft);}
   .week-chart-hint{font-size:11px;color:var(--ink-soft);margin:0 0 12px;}
+
+  /* 7天小圓點 trend-dots */
+  .week-dots-wrap{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+  .week-dot-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);}
+  .week-dot-date{font-family:var(--font-num);font-size:13px;font-weight:500;min-width:80px;}
+  .week-dot-indicators{display:flex;gap:12px;align-items:center;}
+  .dot-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-soft);}
+  .dot-symbol{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .dot-symbol.green{background:var(--protein);}
+  .dot-symbol.red{background:var(--danger);}
+  .dot-symbol.gray{background:var(--line);}
 
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
@@ -168,10 +172,7 @@
   .base-unit-row .field{min-width:0;}
   .base-unit-row .field-base{flex:1.2;}
   .base-unit-row .field-unit{flex:1;}
-  .nutrition-calc-box{
-    margin:10px 0 14px;padding:12px;border:1px dashed var(--carb);border-radius:var(--radius-sm);background:var(--carb-tint);
-  }
-  .nutrition-calc-box .hint{margin:0 0 10px;}
+
   .btn{
     font-family:var(--font-body);font-weight:700;font-size:13.5px;border:none;border-radius:999px;
     padding:10px 18px;cursor:pointer;transition:transform .08s, opacity .15s;
@@ -188,7 +189,6 @@
 
   /* ---- Food picker ---- */
   .search-wrap{position:relative;margin-bottom:10px;}
-  /* 方形格子：手機上不用一直下拉，一眼就能看到、點好幾樣 */
   .food-list{
     display:grid;grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
     gap:8px;max-height:360px;overflow:auto;align-content:start;
@@ -216,10 +216,9 @@
     .food-chip .fname{font-size:11.5px;}
   }
   .food-detail{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
-  .food-detail .preview{font-family:var(--font-num);font-size:13px;margin-top:8px;color:var(--protein-dark);}
   .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:18px 0;}
 
-  /* ---- Batch add (新增這一餐：一次選多樣) ---- */
+  /* ---- Batch add ---- */
   .batch-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);}
   .batch-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .batch-row .field{flex:1;min-width:0;}
@@ -238,7 +237,6 @@
   }
   .qty-mode-btn:hover{border-color:var(--protein);}
   .qty-mode-btn.active{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
-  .batch-row .qty-wrap input:disabled{background:var(--line);color:var(--ink-soft);cursor:not-allowed;}
 
   /* ---- Food library table ---- */
   .food-table-wrap{overflow-x:auto;}
@@ -263,7 +261,6 @@
   }
   .food-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap;}
 
-  /* ---- Food library table：手機版改成卡片式，跟網頁版共用同一套標記與互動邏輯 ---- */
   @media (max-width:640px){
     .food-table-wrap{overflow-x:visible;}
     .food-row.head{display:none;}
@@ -285,6 +282,9 @@
   }
 
   /* ---- Log list ---- */
+  .hero-logs-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;}
+  .hero-logs-title{font-family:var(--font-display);font-size:16px;font-weight:700;}
+  .hero-logs-count{font-size:11.5px;color:var(--ink-soft);font-family:var(--font-num);}
   .log-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);}
   .log-item:last-child{border-bottom:none;padding-bottom:0;}
   .log-dot{width:8px;height:8px;min-width:8px;border-radius:50%;flex:none;}
@@ -301,7 +301,7 @@
   .log-macros .s{color:var(--carb);}
   .log-macros .k{color:var(--cal);}
 
-  /* ---- Category chips (取代下拉選單，展開即點即切) ---- */
+  /* ---- Category chips ---- */
   .chip-scroll{display:flex;flex-wrap:wrap;gap:7px;}
   .chip{
     font-family:var(--font-body);font-size:12.5px;font-weight:700;padding:7px 13px;
@@ -315,7 +315,7 @@
   .chip-new-row{display:flex;gap:6px;margin-top:8px;}
   .chip-new-row input{flex:1;}
 
-  /* ---- List toolbar：把一堆散落的「編輯/刪除」按鈕收成兩顆總開關 ---- */
+  /* ---- List toolbar ---- */
   .list-toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;}
   .tool-btn{
     font-family:var(--font-body);font-weight:700;font-size:12.5px;padding:7px 14px;border-radius:999px;
@@ -378,7 +378,30 @@
   <div class="profile-tabs" id="profileTabs"></div>
   <p class="profile-hint">切換身份會需要再次確認，避免不小心紀錄到對方的餐點。</p>
 
-  <!-- 快速紀錄 -->
+  <!-- 1. 今日目標（最上方） -->
+  <div class="card-block" id="blockGoal">
+    <div class="goal-info">
+      <div class="label">今日目標 · <b id="profileDesc"></b></div>
+      <div class="progress-grid" id="remainGrid"></div>
+    </div>
+    <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
+    <div id="goalsBox" style="display:none;margin-top:12px;">
+      <div class="row">
+        <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
+        <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
+        <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
+      </div>
+      <div class="btn-row" style="justify-content:space-between;">
+        <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
+        <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 新增這一餐 -->
   <div class="section" id="secAdd">
     <div class="section-head" data-toggle="secAdd">
       <h2>新增這一餐</h2>
@@ -434,81 +457,62 @@
     </div>
   </div>
 
-
-  <div class="hero">
-    <div class="hero-info">
-      <div class="label">今日目標 · <b id="profileDesc"></b></div>
-      <div class="progress-grid" id="remainGrid"></div>
+  <!-- 3. 今日紀錄 -->
+  <div class="card-block" id="blockLogs">
+    <div class="hero-logs-head">
+      <span class="hero-logs-title">今日紀錄</span>
+      <span class="hero-logs-count" id="logCount"></span>
     </div>
-
-    <div class="hero-divider"></div>
-
-    <div class="hero-logs">
-      <div class="hero-logs-head">
-        <span class="hero-logs-title">今日紀錄</span>
-        <span class="hero-logs-count" id="logCount"></span>
-      </div>
-      <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選。</p>
-      <div class="list-toolbar">
-        <button type="button" class="tool-btn" id="logEditToggle">編輯</button>
-        <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
-      </div>
-      <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄（一次一筆）</p>
-      <div class="select-bar" id="logSelectBar" style="display:none;">
-        <span id="logSelectCount">已選 0 筆</span>
-        <span class="select-actions">
-          <button type="button" class="btn-mini cancel" id="logSelectCancel">取消</button>
-          <button type="button" class="btn-mini confirm" id="logSelectConfirm">刪除選取</button>
-        </span>
-      </div>
-      <div id="logList"></div>
-      <div class="log-edit-box" id="logEditBox" style="display:none;">
-        <div class="row">
-          <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
-        </div>
-        <div class="row" id="leGramsRow" style="margin-top:8px;display:none;align-items:flex-end;">
-          <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
-          <div class="field" style="flex:none;"><button type="button" class="btn btn-ghost" id="leRecalcBtn">依食材重新計算</button></div>
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
-          <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
-          <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
-          <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="leCancelBtn">取消</button>
-          <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
-        </div>
-      </div>
+    <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選。</p>
+    <div class="list-toolbar">
+      <button type="button" class="tool-btn" id="logEditToggle">編輯</button>
+      <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
     </div>
-
-    <div class="hero-divider"></div>
-
-    <div class="hero-trend">
-      <div class="hero-trend-head">
-        <span class="hero-trend-title">近 7 天攝取趨勢</span>
-        <span class="hero-trend-sub">7 天總量 vs 7 天目標</span>
-      </div>
-      <p class="week-chart-hint">把近 7 天（含今天）的攝取量加總，對比 7 天累積目標（每日目標 × 7）；顯示方式與上面的「今日目標」相同——蛋白質累積達標會顯示 ✓，脂肪／糖／熱量累積超標則會標示超標數字。</p>
-      <div class="progress-grid" id="weekGrid"></div>
+    <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄（一次一筆）</p>
+    <div class="select-bar" id="logSelectBar" style="display:none;">
+      <span id="logSelectCount">已選 0 筆</span>
+      <span class="select-actions">
+        <button type="button" class="btn-mini cancel" id="logSelectCancel">取消</button>
+        <button type="button" class="btn-mini confirm" id="logSelectConfirm">刪除選取</button>
+      </span>
     </div>
-
-    <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
-    <div id="goalsBox" style="display:none;margin-top:12px;">
+    <div id="logList"></div>
+    <div class="log-edit-box" id="logEditBox" style="display:none;">
       <div class="row">
-        <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
-        <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
+        <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
+      </div>
+      <div class="row" id="leGramsRow" style="margin-top:8px;display:none;align-items:flex-end;">
+        <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
+        <div class="field" style="flex:none;"><button type="button" class="btn btn-ghost" id="leRecalcBtn">依食材重新計算</button></div>
       </div>
       <div class="row" style="margin-top:8px;">
-        <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
-        <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
+        <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
+        <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
+        <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
+        <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
       </div>
-      <div class="btn-row" style="justify-content:space-between;">
-        <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
-        <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="leCancelBtn">取消</button>
+        <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
       </div>
     </div>
+  </div>
+
+  <!-- 4. 七天趨勢 -->
+  <div class="card-block" id="blockTrend">
+    <div class="hero-trend-head">
+      <span class="hero-trend-title">近 7 天攝取趨勢</span>
+      <span class="hero-trend-sub">每日狀態（小圓點）& 7天總量 vs 7天目標</span>
+    </div>
+    <p class="week-chart-hint" style="margin-top:6px;">
+      <b>每日達標狀態：</b>蛋白質達標標示綠點 <span class="dot-symbol green"></span>，其他（脂肪/糖/熱量）超標標示紅點 <span class="dot-symbol red"></span>。
+    </p>
+    <div class="week-dots-wrap" id="weekDotsWrap"></div>
+
+    <p class="week-chart-hint">
+      <b>7 天累積對比：</b>把近 7 天（含今天）的攝取量加總，對比 7 天累積目標（每日目標 × 7）。
+    </p>
+    <div class="progress-grid" id="weekGrid"></div>
   </div>
 
   <!-- 食材庫 -->
@@ -528,7 +532,6 @@
       </div>
       <p class="hint" id="fPackagePreview" style="margin:6px 0 0;"></p>
 
-
       <div class="field" style="margin-top:8px;">
         <label>類別（選填）</label>
         <div class="chip-scroll" id="fCategoryChips"></div>
@@ -541,7 +544,6 @@
 
       <div class="row" style="margin-top:8px;">
         <div class="field"><label>熱量 (kcal／每份)</label><input type="number" id="fCal" min="0" step="1"></div>
-
         <div class="field"><label>蛋白質 (g／每份)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
         <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="fFat" min="0" step="0.1"></div>
         <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
@@ -643,9 +645,6 @@
   };
   var PROFILE_ORDER = ['A', 'B'];
 
-  // 食材類別不預先產生任何選項——類別清單完全來自使用者實際新增過的食材，
-  // 有新增食材時填了什麼類別，之後篩選/切頁的清單裡才會出現對應的類別。
-
   // ---------- state ----------
   var state = {
     foods: [],
@@ -653,21 +652,18 @@
     settings: { sheetUrl: "", profile: 'A', goals: null },
     selectedFoodId: null,
     editingFoodId: null,
-    fCategorySelected: '', // 新增/編輯食材表單目前選取的類別
-    batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams, servings, mode:'g'|'serving'}]
+    fCategorySelected: '',
+    batch: [],
     currentDate: fmtDate(new Date()),
-    foodCategoryFilter: '', // 食材庫管理表格的類別篩選
-    pickerCategoryFilter: '', // 「新增這一餐」挑選食材時的類別篩選
+    foodCategoryFilter: '',
+    pickerCategoryFilter: '',
 
-    // 食材庫管理：一個「編輯」開關、一個「刪除」開關，取代每列各自的按鈕
-    foodMode: '', // '' | 'edit' | 'delete'
-    foodDeleteSelected: [], // 刪除模式下已勾選的食材 id
+    foodMode: '',
+    foodDeleteSelected: [],
 
-    // 今日紀錄：單一「刪除」開關（取代每列各自的刪除鈕）
     logDeleteMode: false,
-    logDeleteSelected: [], // 刪除模式下已勾選的紀錄 id
+    logDeleteSelected: [],
 
-    // 今日紀錄：單一「編輯」開關，點選某一筆即可載入下方編輯表單
     logEditMode: false,
     editingLogId: null
   };
@@ -744,7 +740,6 @@
       if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
       PROFILE_ORDER.forEach(function(k){
         if (!state.settings.goals[k]) state.settings.goals[k] = Object.assign({}, PROFILES[k].goals);
-        // 相容機制：若舊設定包含 carb，自動轉移至 sugar
         if (state.settings.goals[k].carb !== undefined && state.settings.goals[k].sugar === undefined) {
           state.settings.goals[k].sugar = state.settings.goals[k].carb;
           delete state.settings.goals[k].carb;
@@ -778,9 +773,6 @@
     return data;
   }
 
-  // 用「合併」取代「整包覆蓋」：試算表資料為主，但任何本機已經有、
-  // 試算表裡還查不到的項目（通常是剛新增、背景同步還沒送達的資料）會被保留下來，
-  // 不會被背景抓回來的舊資料蓋掉而看起來像「憑空消失」。
   function mergeById(remoteList, localList){
     var map = {};
     (remoteList||[]).forEach(function(x){ if (x && x.id) map[x.id] = x; });
@@ -835,7 +827,6 @@
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
   }
 
-  // 今日紀錄依時間排序（拖移排序功能已移除）。
   function logsForCurrentDate(){
     var p = activeProfile();
     var list = state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; });
@@ -871,13 +862,8 @@
     renderProgressGrid(totals, goals);
   }
 
-  // 圓環顏色（依營養素），統一在這裡對應，供圓環進度卡與合併趨勢圖共用。
-  var MACRO_COLOR = { protein:'#4F7A5C', fat:'#C9924B', sugar:'#5679A0', cal:'#8A6BA1' };
   var MACRO_ICON = { protein:'🥩', fat:'🧈', sugar:'🍬', cal:'🔥' };
 
-  // 畫一個圓環進度卡：外圈是背景軌道，內圈用 stroke-dasharray 畫出百分比，
-  // 中間放圖示，卡片右側放數值與提示文字 —— 顏色＋圖示＋圓環三重編碼，
-  // 讓「還需要多少」「還可以吃多少」不用讀數字也能一眼分辨。
   function progressRing(cls, pct, danger){
     var r = 22, c = 2 * Math.PI * r;
     var clamped = Math.max(0, Math.min(100, pct));
@@ -893,12 +879,6 @@
       '</div>';
   }
 
-  // 「今日目標」最直覺的視覺呈現：蛋白質是「要吃到多少」的目標（達標＝好事），
-  // 脂肪／糖／熱量則是「不要超過多少」的上限（超過才要留意），
-  // 所以兩種卡片文字與提示語刻意不同，一眼就能分辨方向。
-  // 把「某一天的攝取總量 vs 目標」畫成一組圓環進度卡（2x2）。
-  // 抽成獨立函式是因為「今日目標」跟「近 7 天趨勢」都要用同一套顯示方式，
-  // 讓使用者切換查看任何一天時，看到的呈現邏輯（達標／超標的顏色與文字）完全一致。
   function buildProgressGridHtml(totals, goals){
     var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
 
@@ -953,8 +933,6 @@
     document.getElementById('profileDesc').textContent = PROFILES[p].desc;
   }
 
-  // 依卡路里貢獻判斷這筆紀錄「主要吃了什麼」，回傳對應的圓點顏色 class，
-  // 讓使用者掃過清單就能直覺抓到每筆的營養素重心，不用逐筆看數字。
   function dominantMacroClass(protein, fat, sugar){
     var pCal = (Number(protein)||0) * 4;
     var fCal = (Number(fat)||0) * 9;
@@ -988,7 +966,7 @@
     var logs = logsForCurrentDate();
     if (countEl) countEl.textContent = logs.length ? (logs.length + ' 筆') : '';
     if (!logs.length){
-      el.innerHTML = '<div class="empty">這天還沒有紀錄，從下面「新增這一餐」開始吧。</div>';
+      el.innerHTML = '<div class="empty">這天還沒有紀錄，從「新增這一餐」開始吧。</div>';
       return;
     }
     el.innerHTML = logs.map(function(l){
@@ -1014,7 +992,7 @@
     }).join('');
   }
 
-  // ---- 近7天趨勢圖（以目前選擇的身份、今天往前推 7 天，含今天） ----
+  // ---- 近7天趨勢圖 ----
   function last7Dates(){
     var arr = [];
     var base = new Date(state.currentDate + 'T00:00:00');
@@ -1041,8 +1019,39 @@
     });
   }
 
-  // 近 7 天趨勢：把 7 天（含今天）的攝取量加總，對比 7 天累積目標（每日目標 × 7），
-  // 用跟「今日目標」完全相同的圓環進度卡呈現，讓「這一週」整體吃夠了沒／有沒有超標一眼看出來。
+  // 1. 7天小圓點趨勢：蛋白質達標綠色，其他超標紅色
+  function renderWeekDots(){
+    var el = document.getElementById('weekDotsWrap');
+    if (!el) return;
+    var data = weekTotals();
+    var goals = currentGoals();
+    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
+
+    el.innerHTML = data.map(function(d){
+      var pMet = d.protein >= goals.protein;
+      var fOver = d.fat > goals.fat;
+      var sOver = d.sugar > sugarGoal;
+      var cOver = d.cal > goals.cal;
+
+      var pDot = pMet ? '<span class="dot-item"><span class="dot-symbol green"></span>蛋達標</span>'
+                      : '<span class="dot-item"><span class="dot-symbol gray"></span>蛋未達</span>';
+      
+      var fDot = fOver ? '<span class="dot-item"><span class="dot-symbol red"></span>脂超標</span>'
+                       : '<span class="dot-item"><span class="dot-symbol gray"></span>脂正常</span>';
+
+      var sDot = sOver ? '<span class="dot-item"><span class="dot-symbol red"></span>糖超標</span>'
+                       : '<span class="dot-item"><span class="dot-symbol gray"></span>糖正常</span>';
+
+      var cDot = cOver ? '<span class="dot-item"><span class="dot-symbol red"></span>熱超標</span>'
+                       : '<span class="dot-item"><span class="dot-symbol gray"></span>熱正常</span>';
+
+      return '<div class="week-dot-row">' +
+        '<span class="week-dot-date">' + d.date + '</span>' +
+        '<div class="week-dot-indicators">' + pDot + fDot + sDot + cDot + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
   function weekAggregateTotals(){
     var data = weekTotals();
     return data.reduce(function(acc, d){
@@ -1075,13 +1084,10 @@
   }
 
   function renderWeekSection(){
+    renderWeekDots();
     renderWeekGrid();
   }
 
-  // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值。
-  // 注意：每項食材的營養數值是「以該食材一份的克數（base，例如 30g、50g、100g…）」
-  // 所填寫的原始輸入值，不做任何換算。
-  // 取得食材原始填寫的營養「原始值」（以「一份克數」為基準，不做任何換算），供顯示邏輯呼叫
   function foodRawNutrient(f, key){
     if (key === 'protein') return Number(f.protein100 !== undefined ? f.protein100 : f.protein) || 0;
     if (key === 'fat') return Number(f.fat100 !== undefined ? f.fat100 : f.fat) || 0;
@@ -1089,16 +1095,13 @@
     if (key === 'cal') return Number(f.cal100 !== undefined ? f.cal100 : f.cal) || 0;
     return 0;
   }
-  // 食材「一份克數」，單位固定為公克，缺值時預設 100g。
   function foodBaseGrams(f){
     return Number(f.base || f.baseGrams || 100) || 100;
   }
-  // 食材「總份數」（整包／整份含幾份），缺值時預設 1 份。
   function foodTotalServings(f){
     var s = Number(f.servings);
     return (s && s > 0) ? s : 1;
   }
-  // 表格顯示用：所有數值都直接顯示當初輸入的原始紀錄，不做 /10 或其他任何換算。
   function foodDisplayRow(f){
     var base = foodBaseGrams(f);
     return {
@@ -1112,7 +1115,6 @@
     };
   }
 
-  // 食材庫管理表格：已取消排序功能，只依目前的類別篩選回傳清單，維持原本的資料順序。
   function sortedFoods(){
     var list = state.foods.slice();
     if (state.foodCategoryFilter){
@@ -1121,21 +1123,16 @@
     return list;
   }
 
-  // 「每份100克」換算：把食材依「一份克數」比例換算成 100 克時對應的數值，方便比較營養密度。
   function per100Value(f, key){
     var base = foodBaseGrams(f);
     var raw = foodRawNutrient(f, key);
     return raw / base * 100;
   }
-  // 換算成 100 克為一份時，原本「一份克數」等於幾份 100 克
-  // （例如一份 37g，100 ÷ 37 ≈ 2.7，代表 100g 相當於 2.7 份原本的 37g）。
   function per100Servings(f){
     var base = foodBaseGrams(f);
     return 100 / base;
   }
 
-  // 每份100克檢視表：依目前的類別篩選，換算成每100克數值，並依蛋白質高到低排序，
-  // 蛋白質相同時再依熱量高到低排序。
   function per100Foods(){
     var list = state.foods.slice();
     if (state.foodCategoryFilter){
@@ -1155,7 +1152,7 @@
     var el = document.getElementById('per100Table');
     if (!el) return;
     var wrap = document.getElementById('per100Wrap');
-    if (wrap && wrap.style.display === 'none') return; // 收合時不需要重算
+    if (wrap && wrap.style.display === 'none') return;
     var list = per100Foods();
     if (!list.length){
       el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
@@ -1174,8 +1171,6 @@
     }).join('');
   }
 
-  // 目前食材庫裡實際被使用過的類別（唯一真實來源——沒有任何預先產生的清單，
-  // 有新增食材填了某個類別，這個類別才會出現在下面各處的篩選/切頁清單）。
   function usedCategories(){
     var cats = [];
     state.foods.forEach(function(f){
@@ -1185,7 +1180,6 @@
     return cats;
   }
 
-  // 「食材庫管理」的類別篩選：展開成一排可以直接點的類別 chip，取代下拉選單。
   function renderFoodCategoryChips(){
     var wrap = document.getElementById('foodCategoryChips');
     if (!wrap) return;
@@ -1197,7 +1191,6 @@
     wrap.innerHTML = html;
   }
 
-  // 「新增這一餐」挑選食材時的類別篩選：同樣是展開式 chip，點了立刻切頁篩選。
   function renderPickerCategoryChips(){
     var wrap = document.getElementById('pickerCategoryChips');
     if (!wrap) return;
@@ -1209,7 +1202,6 @@
     wrap.innerHTML = html;
   }
 
-  // 新增／編輯食材表單裡選類別：一樣是 chip，外加一顆「＋ 新增類別」讓輸入全新的類別。
   function renderFCategoryChips(){
     var wrap = document.getElementById('fCategoryChips');
     if (!wrap) return;
@@ -1256,7 +1248,6 @@
       el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
     } else {
       el.innerHTML = list.map(function(f){
-        // 顯示的數字直接用 foodDisplayRow 取出當初輸入的原始紀錄，不做任何換算。
         var d = foodDisplayRow(f);
         var catBadge = f.category ? '<em class="fcat">' + escapeHtml(f.category) + '</em>' : '';
         var rowCls = 'food-row';
@@ -1307,7 +1298,6 @@
     renderBatchList();
   }
 
-  // 「新增這一餐」批次清單：把已選的每樣食材列出來，各自可調克數，最後一次送出
   function renderBatchList(){
     var wrap = document.getElementById('pickerDetail');
     var el = document.getElementById('batchList');
@@ -1325,7 +1315,6 @@
       var totalServings = foodTotalServings(food);
       var mode = b.mode || 'serving';
       var id = escapeHtml(b.foodId);
-      // 份數：可以自行填寫任意數字，半份就填 0.5、三份就填 3；克數與份數雙向換算（份數 × 一份克數 = 克數）。
       var servingsVal = (b.servings !== undefined && b.servings !== null) ? b.servings : (base ? round1(b.grams / base) : 0);
       var qtyHtml = (mode === 'g')
         ? ('<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + id + '"><span class="qty-unit">g</span>')
@@ -1366,12 +1355,6 @@
     renderAll();
   }
 
-  // 以下的寫入操作都採「本機先行、背景同步」：
-  // 先把資料寫進本機狀態並立刻畫面更新，網路同步在背景做，不會卡住操作。
-  // 同步失敗也不會讓本機資料消失，只會顯示錯誤狀態；成功了才悄悄更新真正的 id。
-  // 這裡刻意不在每次寫入後整批重新抓取試算表——那個「整批重抓」正是先前紀錄
-  // 有時候會被較慢的背景回應蓋掉、看起來像消失的主因。
-
   async function addFood(food){
     food.id = food.id || uid('f');
     state.foods.push(food);
@@ -1390,10 +1373,6 @@
     }
   }
 
-  // 食材的營養數值若被修正，過去用這個食材登記過的「今日紀錄」項目
-  // （只要是靠食材＋克數算出來的，type:'selected'）也要一起用新數值重算，
-  // 不然食材庫改了、紀錄裡卻還是舊的營養數字，兩邊會對不起來。
-  // 手動輸入（type:'manual'）沒有 foodId，本來就跟食材庫無關，不受影響。
   async function syncLogsWithFood(food){
     var changed = [];
     state.logs.forEach(function(l){
@@ -1449,7 +1428,6 @@
     }
   }
 
-  // 刪除模式下一次刪除多項已勾選的食材
   async function deleteFoodsBatch(ids){
     if (!ids.length) return;
     var idSet = {};
@@ -1500,7 +1478,6 @@
     }
   }
 
-  // 刪除模式下一次刪除多筆已勾選的紀錄
   async function deleteLogsBatch(ids){
     if (!ids.length) return;
     var idSet = {};
@@ -1529,8 +1506,6 @@
     updateFoodPackagePreview();
   }
 
-  // 依目前表單填的「基礎一份克數」「總份數」與每份營養，即時算出整包（總重量／總營養）預覽，
-  // 純顯示用，不影響實際儲存的每份數值；讓使用者確認 基礎一份克數 × 總份數 有沒有算對。
   function updateFoodPackagePreview(){
     var el = document.getElementById('fPackagePreview');
     if (!el) return;
@@ -1605,12 +1580,14 @@
       if (!isNaN(nk) && nk >= 0) goals.cal = nk;
       await saveLocalSettings();
       renderHero();
+      renderWeekSection();
     });
     document.getElementById('gResetBtn').addEventListener('click', async function(){
       var p = activeProfile();
       state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
       await saveLocalSettings();
       renderHero();
+      renderWeekSection();
     });
   }
 
@@ -1623,7 +1600,6 @@
       renderPickerList();
     });
 
-    // 點食材：加入／移出批次清單（可以一次點多樣）
     document.getElementById('pickerList').addEventListener('click', function(e){
       var chip = e.target.closest('[data-pick]');
       if (!chip) return;
@@ -1639,7 +1615,6 @@
       renderPickerList();
     });
 
-    // 批次清單裡改克數或份數：兩者雙向換算，只更新該列的預覽數字,不整包重畫(避免輸入到一半失焦)
     document.getElementById('batchList').addEventListener('input', function(e){
       var gramsInput = e.target.closest('[data-batch-grams]');
       var servingsInput = e.target.closest('[data-batch-servings]');
@@ -1651,7 +1626,6 @@
       if (!food) return;
       var base = foodBaseGrams(food);
       if (servingsInput){
-        // 份數可以自由填寫，半份填 0.5、三份填 3；換算成克數＝份數 × 一份克數。
         b.servings = Number(servingsInput.value) || 0;
         b.grams = round1(base * b.servings);
       } else {
@@ -1663,7 +1637,6 @@
       if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
     });
 
-    // 批次清單裡移除某一項
     document.getElementById('batchList').addEventListener('click', function(e){
       var rm = e.target.closest('[data-batch-remove]');
       if (rm){
@@ -1673,7 +1646,6 @@
         return;
       }
 
-      // 切換這一項要「輸入份數」還是「輸入克數」，切換時把目前的值換算到另一邊，避免數字對不起來
       var modeBtn = e.target.closest('[data-batch-mode]');
       if (modeBtn){
         var modeId = modeBtn.getAttribute('data-batch-id');
@@ -1695,7 +1667,6 @@
       }
     });
 
-    // 一次把批次清單裡所有食材送出成紀錄
     document.getElementById('batchAddBtn').addEventListener('click', async function(){
       if (!state.batch.length) return;
       var items = state.batch.slice();
@@ -1738,7 +1709,6 @@
   function wireLogList(){
     var listEl = document.getElementById('logList');
 
-    // ---- 刪除模式：勾選 / 點列即可勾選；編輯模式：點列載入下方編輯表單 ----
     listEl.addEventListener('click', function(e){
       var row = e.target.closest('.log-item');
       if (!row) return;
@@ -1789,7 +1759,6 @@
     wireLogEditForm();
   }
 
-  // ---- 今日紀錄：編輯表單 ----
   function loadLogIntoForm(log){
     state.editingLogId = log.id;
     var sVal = log.sugar !== undefined ? log.sugar : (log.carb||0);
@@ -1799,55 +1768,30 @@
     document.getElementById('leSugar').value = round1(sVal);
     document.getElementById('leCal').value = Math.round(log.cal||0);
 
-    var gramsRow = document.getElementById('leGramsRow');
-    if (log.foodId){
-      gramsRow.style.display = 'flex';
-      document.getElementById('leGrams').value = log.grams || '';
+    var gRow = document.getElementById('leGramsRow');
+    if (log.foodId && log.grams){
+      gRow.style.display = 'flex';
+      document.getElementById('leGrams').value = log.grams;
     } else {
-      gramsRow.style.display = 'none';
+      gRow.style.display = 'none';
       document.getElementById('leGrams').value = '';
     }
     document.getElementById('logEditBox').style.display = 'block';
-    document.getElementById('logEditBox').scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 
   function clearLogEditForm(){
     state.editingLogId = null;
-    var box = document.getElementById('logEditBox');
-    if (box) box.style.display = 'none';
-    ['leName','leGrams','leProtein','leFat','leSugar','leCal'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-  }
-
-  async function updateLogEntry(id, patch){
-    var log = state.logs.find(function(l){ return l.id === id; });
-    if (!log) return;
-    Object.assign(log, patch);
-    delete log.carb;
-    await persistLogsAndRender();
-
-    if (hasSheet()){
-      sheetPost('updateLog', Object.assign({ id: id }, patch)).then(function(){
-        setSheetStatus('紀錄修改已同步到試算表。', 'ok');
-      }).catch(function(e){
-        setSheetStatus('更新紀錄同步失敗：' + e.message + '（已保留本機資料）', 'err');
-      });
-    }
+    document.getElementById('logEditBox').style.display = 'none';
   }
 
   function wireLogEditForm(){
-    document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
-
     document.getElementById('leRecalcBtn').addEventListener('click', function(){
       if (!state.editingLogId) return;
       var log = state.logs.find(function(l){ return l.id === state.editingLogId; });
       if (!log || !log.foodId) return;
       var food = state.foods.find(function(f){ return f.id === log.foodId; });
-      if (!food){ alert('找不到對應的食材，可能已經被刪除了'); return; }
-      var grams = Number(document.getElementById('leGrams').value);
-      if (!grams || grams <= 0){ alert('請輸入大於 0 的克數'); return; }
+      if (!food) return;
+      var grams = Number(document.getElementById('leGrams').value) || 0;
       var m = computeMacros(food, grams);
       document.getElementById('leProtein').value = m.protein;
       document.getElementById('leFat').value = m.fat;
@@ -1855,118 +1799,48 @@
       document.getElementById('leCal').value = m.cal;
     });
 
+    document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
+
     document.getElementById('leSaveBtn').addEventListener('click', async function(){
       if (!state.editingLogId) return;
-      var name = document.getElementById('leName').value.trim() || '未命名';
-      var protein = Number(document.getElementById('leProtein').value);
-      if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
-      var fat = Number(document.getElementById('leFat').value) || 0;
-      var sugar = Number(document.getElementById('leSugar').value) || 0;
-      var cal = Number(document.getElementById('leCal').value) || 0;
+      var log = state.logs.find(function(l){ return l.id === state.editingLogId; });
+      if (!log) return;
 
-      var patch = { foodName: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal) };
-      var gramsRow = document.getElementById('leGramsRow');
-      if (gramsRow.style.display !== 'none'){
-        var grams = Number(document.getElementById('leGrams').value);
-        if (grams && grams > 0) patch.grams = grams;
+      var name = document.getElementById('leName').value.trim();
+      var p = Number(document.getElementById('leProtein').value);
+      var f = Number(document.getElementById('leFat').value);
+      var s = Number(document.getElementById('leSugar').value);
+      var c = Number(document.getElementById('leCal').value);
+
+      if (!name){ alert('請輸入名稱'); return; }
+      if (isNaN(p) || p < 0){ alert('請輸入有效蛋白質'); return; }
+
+      log.foodName = name;
+      log.protein = round1(p);
+      log.fat = isNaN(f) ? 0 : round1(f);
+      log.sugar = isNaN(s) ? 0 : round1(s);
+      delete log.carb;
+      log.cal = isNaN(c) ? 0 : Math.round(c);
+
+      if (log.foodId && log.grams){
+        var g = Number(document.getElementById('leGrams').value);
+        if (!isNaN(g) && g > 0) log.grams = round1(g);
       }
-      var id = state.editingLogId;
+
       clearLogEditForm();
-      await updateLogEntry(id, patch);
+      await persistLogsAndRender();
+
+      if (hasSheet()){
+        sheetPost('updateLog', log).catch(function(e){
+          setSheetStatus('更新紀錄同步失敗：' + e.message, 'err');
+        });
+      }
     });
   }
 
-  function wireFoodForm(){
-    document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
+  function wireFoodTable(){
+    var foodTable = document.getElementById('foodTable');
 
-    // ---- 查看每份100克營養密度：展開/收合，展開時即時算好排序清單 ----
-    document.getElementById('per100ToggleBtn').addEventListener('click', function(){
-      var wrap = document.getElementById('per100Wrap');
-      var showing = wrap.style.display !== 'none';
-      wrap.style.display = showing ? 'none' : 'block';
-      this.textContent = showing ? '查看每份100克營養密度' : '收合每份100克營養密度';
-      if (!showing) renderPer100Table();
-    });
-
-    // 基礎一份克數／總份數／每份營養任何一個欄位變動，就即時重算整包預覽，
-    // 方便使用者確認「一份克數 × 總份數」算出來的整包總量／總營養對不對。
-    ['fBase','fServings','fProtein','fFat','fSugar','fCal'].forEach(function(id){
-      document.getElementById(id).addEventListener('input', updateFoodPackagePreview);
-    });
-    updateFoodPackagePreview();
-
-    document.getElementById('fAutoCal').addEventListener('click', function(){
-      var protein = Number(document.getElementById('fProtein').value) || 0;
-      var fat = Number(document.getElementById('fFat').value) || 0;
-      var sugar = Number(document.getElementById('fSugar').value) || 0;
-      document.getElementById('fCal').value = estimateCalories(protein, fat, sugar);
-      updateFoodPackagePreview();
-    });
-
-    document.getElementById('fSaveBtn').addEventListener('click', async function(){
-      var name = document.getElementById('fName').value.trim();
-      var base = Number(document.getElementById('fBase').value);
-      var servings = Number(document.getElementById('fServings').value);
-      var category = document.getElementById('fCategory').value.trim();
-      var protein = Number(document.getElementById('fProtein').value);
-      var fat = Number(document.getElementById('fFat').value) || 0;
-      var sugar = Number(document.getElementById('fSugar').value) || 0;
-      var calInput = document.getElementById('fCal').value;
-      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
-
-      if (!name){ alert('請輸入食材名稱'); return; }
-      if (!base || base <= 0){ alert('請輸入大於 0 的「基礎一份克數」'); return; }
-      if (!servings || servings <= 0){ alert('請輸入大於 0 的「總份數」'); return; }
-      if (isNaN(protein) || protein < 0){ alert('請輸入蛋白質克數'); return; }
-
-      // 單位一律是公克（g）；名稱、基礎一份克數、熱量、蛋白質、脂肪、糖、總份數
-      // 都會完整保存，之後才能靠「一份克數 × 總份數」正確算出整包的總重量與總營養。
-      var foodPayload = {
-        name: name,
-        base: base,
-        unit: 'g',
-        servings: servings,
-        category: category,
-        protein100: round1(protein),
-        fat100: round1(fat),
-        sugar100: round1(sugar),
-        cal100: Math.round(cal)
-      };
-
-
-      if (state.editingFoodId) {
-        foodPayload.id = state.editingFoodId;
-        await updateFood(foodPayload);
-      } else {
-        await addFood(foodPayload);
-      }
-
-      clearFoodForm();
-    });
-
-    // ---- 新增/編輯食材表單：選擇類別（chip）或輸入全新的類別 ----
-    document.getElementById('fCategoryChips').addEventListener('click', function(e){
-      var addChip = e.target.closest('#fCategoryAddChip');
-      if (addChip){
-        var row = document.getElementById('fCategoryNewRow');
-        row.style.display = (row.style.display === 'none') ? 'flex' : 'none';
-        if (row.style.display === 'flex') document.getElementById('fCategoryNewInput').focus();
-        return;
-      }
-      var chip = e.target.closest('[data-fcat]');
-      if (!chip) return;
-      var val = chip.getAttribute('data-fcat');
-      setFCategory(state.fCategorySelected === val ? '' : val); // 再點一次可以取消選取
-    });
-    document.getElementById('fCategoryNewConfirm').addEventListener('click', function(){
-      var val = document.getElementById('fCategoryNewInput').value.trim();
-      if (!val){ alert('請輸入類別名稱'); return; }
-      setFCategory(val);
-      document.getElementById('fCategoryNewRow').style.display = 'none';
-      document.getElementById('fCategoryNewInput').value = '';
-    });
-
-    // ---- 食材庫管理：類別篩選 chip（展開直接點，取代下拉選單）----
     document.getElementById('foodCategoryChips').addEventListener('click', function(e){
       var chip = e.target.closest('[data-cat-filter]');
       if (!chip) return;
@@ -1974,29 +1848,38 @@
       renderFoodTable();
     });
 
-    // ---- 一個「編輯」開關、一個「刪除」開關，取代每列各自的按鈕 ----
-    function loadFoodIntoForm(food){
-      state.editingFoodId = food.id;
-      var editBase = Number(food.base || food.baseGrams) || 100;
-      var editServings = foodTotalServings(food);
-      var editProtein = food.protein100 !== undefined ? food.protein100 : food.protein;
-      var editFat = food.fat100 !== undefined ? food.fat100 : food.fat;
-      var editSugar = food.sugar100 !== undefined ? food.sugar100 : (food.carb100 !== undefined ? food.carb100 : (food.sugar !== undefined ? food.sugar : food.carb||0));
-      var editCal = food.cal100 !== undefined ? food.cal100 : (food.cal || 0);
+    foodTable.addEventListener('click', function(e){
+      var row = e.target.closest('.food-row');
+      if (!row) return;
+      var id = row.getAttribute('data-food-id');
 
-      document.getElementById('fName').value = food.name || '';
-      document.getElementById('fBase').value = editBase;
-      document.getElementById('fServings').value = editServings;
-      setFCategory(food.category || '');
-      document.getElementById('fProtein').value = editProtein;
-      document.getElementById('fFat').value = editFat;
-      document.getElementById('fSugar').value = editSugar;
-      document.getElementById('fCal').value = editCal;
-      updateFoodPackagePreview();
-
-      document.getElementById('fSaveBtn').textContent = '儲存修改';
-      document.getElementById('secFoods').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+      if (state.foodMode === 'delete'){
+        var idx = state.foodDeleteSelected.indexOf(id);
+        if (idx === -1) state.foodDeleteSelected.push(id); else state.foodDeleteSelected.splice(idx, 1);
+        renderFoodTable();
+        return;
+      }
+      if (state.foodMode === 'edit'){
+        var food = state.foods.find(function(f){ return f.id === id; });
+        if (food){
+          state.editingFoodId = food.id;
+          document.getElementById('fName').value = food.name || '';
+          document.getElementById('fBase').value = foodBaseGrams(food);
+          document.getElementById('fServings').value = foodTotalServings(food);
+          document.getElementById('fProtein').value = foodRawNutrient(food, 'protein');
+          document.getElementById('fFat').value = foodRawNutrient(food, 'fat');
+          document.getElementById('fSugar').value = foodRawNutrient(food, 'sugar');
+          document.getElementById('fCal').value = foodRawNutrient(food, 'cal');
+          setFCategory(food.category || '');
+          document.getElementById('fSaveBtn').textContent = '儲存食材修改';
+          updateFoodPackagePreview();
+          state.foodMode = '';
+          renderFoodTable();
+          document.getElementById('secFoods').classList.remove('collapsed');
+          document.getElementById('fName').focus();
+        }
+      }
+    });
 
     document.getElementById('foodEditToggle').addEventListener('click', function(){
       state.foodMode = (state.foodMode === 'edit') ? '' : 'edit';
@@ -2015,32 +1898,87 @@
     });
     document.getElementById('foodSelectConfirm').addEventListener('click', async function(){
       if (!state.foodDeleteSelected.length){ alert('請先勾選要刪除的食材'); return; }
-      if (!confirm('刪除已選取的 ' + state.foodDeleteSelected.length + ' 項食材？（過去的紀錄不會被刪除）')) return;
+      if (!confirm('確定要刪除已選取的 ' + state.foodDeleteSelected.length + ' 項食材嗎？')) return;
       var ids = state.foodDeleteSelected.slice();
       state.foodMode = '';
       state.foodDeleteSelected = [];
       await deleteFoodsBatch(ids);
     });
 
-    document.getElementById('foodTable').addEventListener('click', function(e){
-      var row = e.target.closest('[data-food-id]');
-      if (!row) return;
-      var id = row.getAttribute('data-food-id');
+    document.getElementById('per100ToggleBtn').addEventListener('click', function(){
+      var wrap = document.getElementById('per100Wrap');
+      var hidden = wrap.style.display === 'none';
+      wrap.style.display = hidden ? 'block' : 'none';
+      this.textContent = hidden ? '隱藏每份100克營養密度' : '查看每份100克營養密度';
+      if (hidden) renderPer100Table();
+    });
 
-      if (state.foodMode === 'delete'){
-        var idx = state.foodDeleteSelected.indexOf(id);
-        if (idx === -1) state.foodDeleteSelected.push(id); else state.foodDeleteSelected.splice(idx, 1);
-        renderFoodTable();
-        return;
+    document.getElementById('fCategoryChips').addEventListener('click', function(e){
+      var chip = e.target.closest('[data-fcat]');
+      if (chip){ setFCategory(chip.getAttribute('data-fcat')); return; }
+      if (e.target.closest('#fCategoryAddChip')){
+        var row = document.getElementById('fCategoryNewRow');
+        row.style.display = (row.style.display === 'none' ? 'flex' : 'none');
       }
-      if (state.foodMode === 'edit'){
-        var food = state.foods.find(function(f){ return f.id === id; });
-        if (food){
-          loadFoodIntoForm(food);
-          state.foodMode = '';
-          renderFoodTable();
-        }
+    });
+    document.getElementById('fCategoryNewConfirm').addEventListener('click', function(){
+      var input = document.getElementById('fCategoryNewInput');
+      var v = input.value.trim();
+      if (v){
+        setFCategory(v);
+        input.value = '';
+        document.getElementById('fCategoryNewRow').style.display = 'none';
       }
+    });
+
+    ['fBase','fServings','fProtein','fFat','fSugar','fCal'].forEach(function(id){
+      document.getElementById(id).addEventListener('input', updateFoodPackagePreview);
+    });
+
+    document.getElementById('fAutoCal').addEventListener('click', function(){
+      var p = Number(document.getElementById('fProtein').value)||0;
+      var f = Number(document.getElementById('fFat').value)||0;
+      var s = Number(document.getElementById('fSugar').value)||0;
+      document.getElementById('fCal').value = estimateCalories(p, f, s);
+      updateFoodPackagePreview();
+    });
+
+    document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
+
+    document.getElementById('fSaveBtn').addEventListener('click', async function(){
+      var name = document.getElementById('fName').value.trim();
+      var base = Number(document.getElementById('fBase').value);
+      var servings = Number(document.getElementById('fServings').value);
+      var protein = Number(document.getElementById('fProtein').value);
+      var fat = Number(document.getElementById('fFat').value)||0;
+      var sugar = Number(document.getElementById('fSugar').value)||0;
+      var calInput = document.getElementById('fCal').value;
+
+      if (!name){ alert('請輸入食材名稱'); return; }
+      if (!base || base <= 0){ alert('基礎一份克數必須大於 0'); return; }
+      if (!servings || servings <= 0) servings = 1;
+      if (isNaN(protein) || protein < 0){ alert('請輸入有效的蛋白質克數'); return; }
+
+      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
+
+      var foodObj = {
+        id: state.editingFoodId || uid('f'),
+        name: name,
+        base: base,
+        servings: servings,
+        protein: round1(protein),
+        fat: round1(fat),
+        sugar: round1(sugar),
+        cal: Math.round(cal),
+        category: state.fCategorySelected || ''
+      };
+
+      if (state.editingFoodId){
+        await updateFood(foodObj);
+      } else {
+        await addFood(foodObj);
+      }
+      clearFoodForm();
     });
   }
 
@@ -2048,24 +1986,28 @@
     document.getElementById('sheetUrl').value = state.settings.sheetUrl || '';
     document.getElementById('syncDot').addEventListener('click', function(){
       document.getElementById('secSettings').classList.remove('collapsed');
-      document.getElementById('secSettings').scrollIntoView({behavior:'smooth', block:'start'});
+      document.getElementById('sheetUrl').focus();
     });
     document.getElementById('sheetSaveBtn').addEventListener('click', async function(){
       var url = document.getElementById('sheetUrl').value.trim();
-      if (!url){ setSheetStatus('請先貼上 Web App 網址，或按「清除連結」改用本機儲存。', 'err'); return; }
       state.settings.sheetUrl = url;
       await saveLocalSettings();
-      setSheetStatus('連線中…', '');
-      var ok = await refreshFromSheet(true);
-      if (ok) renderAll();
+      if (!url){
+        setSheetStatus('已清除試算表連結，切換為純本機模式。', 'ok');
+        document.getElementById('syncDot').className = 'sync-dot';
+        document.getElementById('syncLabel').textContent = '本機儲存';
+      } else {
+        setSheetStatus('正在測試連線…', '');
+        refreshFromSheet(true);
+      }
     });
     document.getElementById('sheetClearBtn').addEventListener('click', async function(){
-      state.settings.sheetUrl = '';
       document.getElementById('sheetUrl').value = '';
+      state.settings.sheetUrl = '';
       await saveLocalSettings();
+      setSheetStatus('已清除試算表連結，切換為純本機模式。', 'ok');
       document.getElementById('syncDot').className = 'sync-dot';
       document.getElementById('syncLabel').textContent = '本機儲存';
-      setSheetStatus('已改為僅使用本機儲存。', 'ok');
     });
   }
 
@@ -2079,21 +2021,21 @@
     wirePicker();
     wireManual();
     wireLogList();
-    wireFoodForm();
+    wireFoodTable();
     wireSettings();
 
-    // 先用本機資料立即顯示畫面，不用等試算表回應
     renderAll();
 
-    // 試算表同步在背景進行；抓到資料後才悄悄更新畫面，不會卡住開啟頁面的過程
     if (hasSheet()){
-      refreshFromSheet(false).then(function(ok){
-        if (ok) renderAll();
-      });
+      refreshFromSheet(false);
     }
   }
 
-  init();
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
 </script>
 </body>
