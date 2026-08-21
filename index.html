@@ -245,15 +245,25 @@
   .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:18px 0;}
 
   /* ---- Batch add (新增這一餐：一次選多樣) ---- */
-  .batch-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .batch-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);}
   .batch-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .batch-row .field{flex:1;min-width:0;}
   .batch-row .field label{font-weight:700;color:var(--ink);font-size:12.5px;}
   .batch-row .qty-wrap{display:flex;align-items:center;gap:6px;}
   .batch-row .qty-wrap input{width:100%;}
   .batch-row .qty-unit{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;flex:none;}
-  .batch-row .preview{margin:0;white-space:nowrap;font-size:12px;}
-  .batch-row .btn-danger{flex-shrink:0;}
+  .batch-row .preview{margin:0;white-space:nowrap;font-size:12px;padding-top:6px;}
+  .batch-row .btn-danger{flex-shrink:0;margin-top:6px;}
+  .batch-servings-info{display:block;font-size:10.5px;color:var(--ink-soft);font-weight:500;margin:1px 0 6px;}
+  .qty-mode-chips{display:flex;gap:6px;margin-bottom:6px;}
+  .qty-mode-btn{
+    font-family:var(--font-body);font-size:11.5px;font-weight:700;padding:5px 10px;
+    border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);
+    cursor:pointer;white-space:nowrap;
+  }
+  .qty-mode-btn:hover{border-color:var(--protein);}
+  .qty-mode-btn.active{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff;}
+  .batch-row .qty-wrap input:disabled{background:var(--line);color:var(--ink-soft);cursor:not-allowed;}
 
   /* ---- Food library table ---- */
   .food-table-wrap{overflow-x:auto;}
@@ -485,7 +495,7 @@
       <div class="chip-scroll" id="pickerCategoryChips" style="margin-bottom:10px;"></div>
       <div class="food-list" id="pickerList"></div>
       <div class="food-detail" id="pickerDetail" style="display:none;">
-        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，填好攝取的克數（g）後按下面按鈕一次送出。</p>
+        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，可以直接輸入攝取的克數（g），也可以直接點「一份」或「半份」快速帶入，填好後按下面按鈕一次送出。</p>
         <div id="batchList"></div>
         <div class="btn-row">
           <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
@@ -1377,16 +1387,26 @@
       var food = state.foods.find(function(f){ return f.id === b.foodId; });
       if (!food) return '';
       var m = computeMacros(food, b.grams);
-      return '<div class="batch-row" data-batch-row="' + escapeHtml(b.foodId) + '">' +
+      var base = foodBaseGrams(food);
+      var totalServings = foodTotalServings(food);
+      var mode = b.mode || 'g';
+      var id = escapeHtml(b.foodId);
+      return '<div class="batch-row" data-batch-row="' + id + '">' +
         '<div class="field">' +
           '<label>' + escapeHtml(food.name) + '</label>' +
+          '<span class="batch-servings-info">整包共 ' + round1(totalServings) + ' 份 · 一份 ' + base + 'g</span>' +
+          '<div class="qty-mode-chips" data-batch-modes="' + id + '">' +
+            '<button type="button" class="qty-mode-btn' + (mode==='g'?' active':'') + '" data-batch-id="' + id + '" data-batch-mode="g">輸入克數</button>' +
+            '<button type="button" class="qty-mode-btn' + (mode==='1'?' active':'') + '" data-batch-id="' + id + '" data-batch-mode="1">一份</button>' +
+            '<button type="button" class="qty-mode-btn' + (mode==='0.5'?' active':'') + '" data-batch-id="' + id + '" data-batch-mode="0.5">半份</button>' +
+          '</div>' +
           '<div class="qty-wrap">' +
-            '<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + escapeHtml(b.foodId) + '">' +
+            '<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + id + '"' + (mode!=='g'?' disabled':'') + '>' +
             '<span class="qty-unit">g</span>' +
           '</div>' +
         '</div>' +
-        '<div class="preview" data-batch-preview="' + escapeHtml(b.foodId) + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
-        '<button type="button" class="btn-danger" data-batch-remove="' + escapeHtml(b.foodId) + '">移除</button>' +
+        '<div class="preview" data-batch-preview="' + id + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
+        '<button type="button" class="btn-danger" data-batch-remove="' + id + '">移除</button>' +
         '</div>';
     }).join('');
     document.getElementById('batchAddBtn').textContent = '全部加入紀錄（' + state.batch.length + ' 項）';
@@ -1676,7 +1696,8 @@
       var idx = state.batch.findIndex(function(b){ return b.foodId === id; });
       if (idx === -1){
         var food = state.foods.find(function(f){ return f.id === id; });
-        state.batch.push({ foodId: id, grams: (food && (food.base || food.baseGrams)) || 100 });
+        var baseGrams = (food && (food.base || food.baseGrams)) || 100;
+        state.batch.push({ foodId: id, grams: baseGrams, mode: '1' });
       } else {
         state.batch.splice(idx, 1);
       }
@@ -1701,10 +1722,30 @@
     // 批次清單裡移除某一項
     document.getElementById('batchList').addEventListener('click', function(e){
       var rm = e.target.closest('[data-batch-remove]');
-      if (!rm) return;
-      var id = rm.getAttribute('data-batch-remove');
-      state.batch = state.batch.filter(function(b){ return b.foodId !== id; });
-      renderPickerList();
+      if (rm){
+        var rmId = rm.getAttribute('data-batch-remove');
+        state.batch = state.batch.filter(function(b){ return b.foodId !== rmId; });
+        renderPickerList();
+        return;
+      }
+
+      // 切換這一項要「輸入克數」還是快速選「一份／半份」
+      var modeBtn = e.target.closest('[data-batch-mode]');
+      if (modeBtn){
+        var modeId = modeBtn.getAttribute('data-batch-id');
+        var mode = modeBtn.getAttribute('data-batch-mode');
+        var b = state.batch.find(function(x){ return x.foodId === modeId; });
+        if (!b) return;
+        b.mode = mode;
+        if (mode !== 'g'){
+          var food = state.foods.find(function(f){ return f.id === modeId; });
+          if (food){
+            var base = foodBaseGrams(food);
+            b.grams = round1(base * Number(mode));
+          }
+        }
+        renderBatchList();
+      }
     });
 
     // 一次把批次清單裡所有食材送出成紀錄
