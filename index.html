@@ -199,6 +199,10 @@
   .dot-symbol.green { background: var(--protein); }
   .dot-symbol.red { background: var(--danger); }
   .dot-symbol.gray { background: var(--line); }
+  .dot-symbol.no-data {
+    background: linear-gradient(135deg, var(--line) 0 45%, transparent 45% 55%, var(--line) 55% 100%);
+    opacity: 0.55;
+  }
   .week-dots-legend {
     display: flex;
     flex-wrap: wrap;
@@ -466,6 +470,7 @@
         <span><i class="dot-symbol green"></i>蛋白質已達標</span>
         <span><i class="dot-symbol red"></i>超標（脂肪／糖／熱量）</span>
         <span><i class="dot-symbol gray"></i>尚未達標／在範圍內</span>
+        <span><i class="dot-symbol no-data"></i>當天無紀錄</span>
       </div>
     </div>
 
@@ -570,15 +575,14 @@
         <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
         <div class="field" style="flex:none;"><button type="button" class="btn btn-ghost" id="leRecalcBtn">依食材重新計算</button></div>
       </div>
+      <p class="hint" id="leGramsHint" style="display:none;margin:6px 0 0;">修改克數會自動依食材重新計算下面的蛋白質／脂肪／糖／熱量。</p>
       <div class="row" style="margin-top:8px;">
         <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
         <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
         <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
         <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
       </div>
-      <p class="hint" style="margin:8px 0 0;">改了蛋白質／脂肪／糖之後，熱量不會自動換算，請按「依營養素換算熱量」或自行輸入。</p>
       <div class="btn-row">
-        <button type="button" class="btn btn-ghost" id="leAutoCalBtn">依營養素換算熱量</button>
         <button class="btn btn-ghost" id="leCancelBtn">取消</button>
         <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
       </div>
@@ -1086,7 +1090,7 @@
         acc.cal += Number(l.cal)||0;
         return acc;
       }, {protein:0, fat:0, sugar:0, cal:0});
-      return { date: dt, protein: round1(t.protein), fat: round1(t.fat), sugar: round1(t.sugar), cal: Math.round(t.cal) };
+      return { date: dt, protein: round1(t.protein), fat: round1(t.fat), sugar: round1(t.sugar), cal: Math.round(t.cal), hasData: list.length > 0 };
     });
   }
 
@@ -1106,15 +1110,20 @@
       '</div>';
 
     var dayCols = data.map(function(d){
+      var noData = !d.hasData;
       var pMet = d.protein >= goals.protein;
       var fOver = d.fat > goals.fat;
       var sOver = d.sugar > sugarGoal;
       var cOver = d.cal > goals.cal;
 
-      var pDot = pMet ? '<span class="dot-symbol green" title="蛋白質達標"></span>' : '<span class="dot-symbol gray" title="蛋白質未達標"></span>';
-      var fDot = fOver ? '<span class="dot-symbol red" title="脂肪超標"></span>' : '<span class="dot-symbol gray" title="脂肪正常"></span>';
-      var sDot = sOver ? '<span class="dot-symbol red" title="糖超標"></span>' : '<span class="dot-symbol gray" title="糖正常"></span>';
-      var cDot = cOver ? '<span class="dot-symbol red" title="熱量超標"></span>' : '<span class="dot-symbol gray" title="熱量正常"></span>';
+      var pDot = noData ? '<span class="dot-symbol no-data" title="當天無紀錄"></span>'
+        : (pMet ? '<span class="dot-symbol green" title="蛋白質達標"></span>' : '<span class="dot-symbol gray" title="蛋白質未達標"></span>');
+      var fDot = noData ? '<span class="dot-symbol no-data" title="當天無紀錄"></span>'
+        : (fOver ? '<span class="dot-symbol red" title="脂肪超標"></span>' : '<span class="dot-symbol gray" title="脂肪正常"></span>');
+      var sDot = noData ? '<span class="dot-symbol no-data" title="當天無紀錄"></span>'
+        : (sOver ? '<span class="dot-symbol red" title="糖超標"></span>' : '<span class="dot-symbol gray" title="糖正常"></span>');
+      var cDot = noData ? '<span class="dot-symbol no-data" title="當天無紀錄"></span>'
+        : (cOver ? '<span class="dot-symbol red" title="熱量超標"></span>' : '<span class="dot-symbol gray" title="熱量正常"></span>');
 
       var dt = new Date(d.date + 'T00:00:00');
       var wd = WEEKDAY_SHORT[dt.getDay()];
@@ -1808,11 +1817,14 @@
     document.getElementById('leCal').value = Math.round(log.cal||0);
 
     var gRow = document.getElementById('leGramsRow');
+    var gHint = document.getElementById('leGramsHint');
     if (log.foodId && log.grams){
       gRow.style.display = 'flex';
+      gHint.style.display = 'block';
       document.getElementById('leGrams').value = log.grams;
     } else {
       gRow.style.display = 'none';
+      gHint.style.display = 'none';
       document.getElementById('leGrams').value = '';
     }
     document.getElementById('logEditBox').style.display = 'block';
@@ -1824,7 +1836,7 @@
   }
 
   function wireLogEditForm(){
-    document.getElementById('leRecalcBtn').addEventListener('click', function(){
+    function recalcFromGrams(){
       if (!state.editingLogId) return;
       var log = state.logs.find(function(l){ return l.id === state.editingLogId; });
       if (!log || !log.foodId) return;
@@ -1836,14 +1848,9 @@
       document.getElementById('leFat').value = m.fat;
       document.getElementById('leSugar').value = m.sugar;
       document.getElementById('leCal').value = m.cal;
-    });
-
-    document.getElementById('leAutoCalBtn').addEventListener('click', function(){
-      var p = Number(document.getElementById('leProtein').value)||0;
-      var f = Number(document.getElementById('leFat').value)||0;
-      var s = Number(document.getElementById('leSugar').value)||0;
-      document.getElementById('leCal').value = estimateCalories(p, f, s);
-    });
+    }
+    document.getElementById('leGrams').addEventListener('input', recalcFromGrams);
+    document.getElementById('leRecalcBtn').addEventListener('click', recalcFromGrams);
 
     document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
 
