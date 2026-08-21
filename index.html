@@ -1445,23 +1445,9 @@
     }
 
     listEl.innerHTML = foods.map(function(f){
-      var maxG = Math.floor(maxGramsForFood(f, budget));
-      var canEat = maxG >= 1;
-      var base = foodBaseGrams(f);
-      var servings = base ? round1(maxG / base) : 0;
-      var m = computeMacros(f, maxG);
-      var catBadge = categoryBadges(f);
-
-      return '<div class="snack-item' + (canEat ? '' : ' unavailable') + '">' +
+      return '<div class="snack-item">' +
         '<div class="snack-main">' +
-          '<div class="name">' + escapeHtml(f.name) + catBadge + '</div>' +
-          '<div class="sub">每100g：P' + round1(per100Value(f, 'protein')) + ' F' + round1(per100Value(f, 'fat')) +
-            ' S' + round1(per100Value(f, 'sugar')) + ' · ' + Math.round(per100Value(f, 'cal')) + 'kcal</div>' +
-        '</div>' +
-        '<div class="snack-amount">' +
-          (canEat
-            ? ('<div class="grams">' + maxG + 'g</div><div class="kcal">約 ' + servings + ' 份 · ' + m.cal + 'kcal</div>')
-            : '<div class="grams zero">目前不建議</div>') +
+          '<div class="name">' + escapeHtml(f.name) + '</div>' +
         '</div>' +
       '</div>';
     }).join('');
