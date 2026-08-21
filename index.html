@@ -133,36 +133,10 @@
   .log-edit-box{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
   .log-edit-box .btn-row{margin-top:10px;}
 
-  /* ---- 近7天趨勢：4（營養素）× 7（天）色塊熱力圖 ---- */
+  /* ---- 近7天趨勢：日期 chip + 跟「今日目標」共用的圓環進度卡 ---- */
   .hero-trend-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;}
   .hero-trend-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
-  .hero-trend-sub{font-size:10.5px;color:var(--ink-soft);}
   .week-chart-hint{font-size:11px;color:var(--ink-soft);margin:0 0 12px;}
-
-  .week-heatmap{display:flex;flex-direction:column;gap:5px;}
-  .whm-row{display:grid;grid-template-columns:58px repeat(7,1fr);gap:5px;align-items:center;}
-  .whm-header{margin-bottom:1px;}
-  .whm-rowlabel{font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .whm-daylabel{font-size:10px;color:var(--ink-soft);text-align:center;font-family:var(--font-num);}
-  .whm-daylabel.today{color:var(--ink);font-weight:700;}
-  .whm-cell{
-    height:30px;border-radius:7px;cursor:default;
-    box-shadow:inset 0 0 0 1px rgba(43,38,33,0.05);
-    transition:transform .15s ease;
-  }
-  .whm-cell.today{box-shadow:inset 0 0 0 2px var(--ink);}
-  .whm-cell:hover{transform:scale(1.08);}
-  @media (max-width:420px){
-    .whm-row{grid-template-columns:46px repeat(7,1fr);gap:4px;}
-    .whm-rowlabel{font-size:10px;}
-    .whm-cell{height:26px;border-radius:6px;}
-    .whm-daylabel{font-size:9px;}
-  }
-
-  .whm-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;justify-content:center;}
-  .whm-legend span{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-soft);}
-  .whm-swatch{width:11px;height:11px;border-radius:3px;flex:none;}
-
 
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
@@ -403,82 +377,6 @@
   <div class="profile-tabs" id="profileTabs"></div>
   <p class="profile-hint">切換身份會需要再次確認，避免不小心紀錄到對方的餐點。</p>
 
-  <div class="hero">
-    <div class="hero-info">
-      <div class="label">今日目標 · <b id="profileDesc"></b></div>
-      <div class="progress-grid" id="remainGrid"></div>
-    </div>
-
-    <div class="hero-divider"></div>
-
-    <div class="hero-trend">
-      <div class="hero-trend-head">
-        <span class="hero-trend-title">近 7 天攝取趨勢</span>
-        <span class="hero-trend-sub">達成率 ％</span>
-      </div>
-      <p class="week-chart-hint">每列一項營養素、每欄一天：蛋白質顏色越深代表越接近或達標（綠色）；脂肪／糖／熱量一旦超標會轉為紅色，超標越多越紅。點按格子可看當天實際數值。</p>
-      <div id="weekCharts"></div>
-    </div>
-
-    <div class="hero-divider"></div>
-
-    <div class="hero-logs">
-      <div class="hero-logs-head">
-        <span class="hero-logs-title">今日紀錄</span>
-        <span class="hero-logs-count" id="logCount"></span>
-      </div>
-      <p class="hint" style="margin:0 0 8px;">想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選。</p>
-      <div class="list-toolbar">
-        <button type="button" class="tool-btn" id="logEditToggle">編輯</button>
-        <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
-      </div>
-      <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄（一次一筆）</p>
-      <div class="select-bar" id="logSelectBar" style="display:none;">
-        <span id="logSelectCount">已選 0 筆</span>
-        <span class="select-actions">
-          <button type="button" class="btn-mini cancel" id="logSelectCancel">取消</button>
-          <button type="button" class="btn-mini confirm" id="logSelectConfirm">刪除選取</button>
-        </span>
-      </div>
-      <div id="logList"></div>
-      <div class="log-edit-box" id="logEditBox" style="display:none;">
-        <div class="row">
-          <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
-        </div>
-        <div class="row" id="leGramsRow" style="margin-top:8px;display:none;align-items:flex-end;">
-          <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
-          <div class="field" style="flex:none;"><button type="button" class="btn btn-ghost" id="leRecalcBtn">依食材重新計算</button></div>
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
-          <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
-          <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
-          <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="leCancelBtn">取消</button>
-          <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
-    <div id="goalsBox" style="display:none;margin-top:12px;">
-      <div class="row">
-        <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
-        <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
-        <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
-      </div>
-      <div class="btn-row" style="justify-content:space-between;">
-        <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
-        <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
-      </div>
-    </div>
-  </div>
-
   <!-- 快速紀錄 -->
   <div class="section" id="secAdd">
     <div class="section-head" data-toggle="secAdd">
@@ -486,7 +384,7 @@
       <span class="chev">▾</span>
     </div>
     <div class="section-body">
-      <p class="hint">從食材庫挑選並輸入攝取的克數（g），或手動輸入蛋白質、脂肪與糖（Sugar）。</p>
+      <p class="hint">從食材庫挑選，輸入攝取的份數或克數（g）皆可；也可以手動輸入蛋白質、脂肪與糖（Sugar）。</p>
 
       <div class="search-wrap">
         <input type="text" id="foodSearch" placeholder="搜尋食材，例如：雞胸肉">
@@ -495,7 +393,7 @@
       <div class="chip-scroll" id="pickerCategoryChips" style="margin-bottom:10px;"></div>
       <div class="food-list" id="pickerList"></div>
       <div class="food-detail" id="pickerDetail" style="display:none;">
-        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣，可以直接輸入攝取的克數（g），也可以直接點「一份」或「半份」快速帶入，填好後按下面按鈕一次送出。</p>
+        <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣；每一項都可以自由切換「輸入份數」或「輸入克數」，兩邊會自動互相換算——例如半份就填 0.5、三份就填 3，填好後按下面按鈕一次送出。</p>
         <div id="batchList"></div>
         <div class="btn-row">
           <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
@@ -531,6 +429,83 @@
         <div class="btn-row">
           <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="hero">
+    <div class="hero-info">
+      <div class="label">今日目標 · <b id="profileDesc"></b></div>
+      <div class="progress-grid" id="remainGrid"></div>
+    </div>
+
+    <div class="hero-divider"></div>
+
+    <div class="hero-logs">
+      <div class="hero-logs-head">
+        <span class="hero-logs-title">今日紀錄</span>
+        <span class="hero-logs-count" id="logCount"></span>
+      </div>
+      <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選。</p>
+      <div class="list-toolbar">
+        <button type="button" class="tool-btn" id="logEditToggle">編輯</button>
+        <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
+      </div>
+      <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄（一次一筆）</p>
+      <div class="select-bar" id="logSelectBar" style="display:none;">
+        <span id="logSelectCount">已選 0 筆</span>
+        <span class="select-actions">
+          <button type="button" class="btn-mini cancel" id="logSelectCancel">取消</button>
+          <button type="button" class="btn-mini confirm" id="logSelectConfirm">刪除選取</button>
+        </span>
+      </div>
+      <div id="logList"></div>
+      <div class="log-edit-box" id="logEditBox" style="display:none;">
+        <div class="row">
+          <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
+        </div>
+        <div class="row" id="leGramsRow" style="margin-top:8px;display:none;align-items:flex-end;">
+          <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
+          <div class="field" style="flex:none;"><button type="button" class="btn btn-ghost" id="leRecalcBtn">依食材重新計算</button></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
+          <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
+          <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
+          <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="leCancelBtn">取消</button>
+          <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-divider"></div>
+
+    <div class="hero-trend">
+      <div class="hero-trend-head">
+        <span class="hero-trend-title">近 7 天攝取趨勢</span>
+      </div>
+      <p class="week-chart-hint">點選下方日期，切換查看那一天的攝取進度；顯示方式與上面的「今日目標」完全相同——蛋白質達標會顯示 ✓，脂肪／糖／熱量超標則會標示超標數字。</p>
+      <div class="chip-scroll" id="weekTabs" style="margin-bottom:12px;"></div>
+      <div class="progress-grid" id="weekGrid"></div>
+    </div>
+
+    <div class="toggle-manual" id="toggleGoals">依身材與運動量調整目標 ＋</div>
+    <div id="goalsBox" style="display:none;margin-top:12px;">
+      <div class="row">
+        <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
+        <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
+        <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
+      </div>
+      <div class="btn-row" style="justify-content:space-between;">
+        <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
+        <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
       </div>
     </div>
   </div>
@@ -678,8 +653,9 @@
     selectedFoodId: null,
     editingFoodId: null,
     fCategorySelected: '', // 新增/編輯食材表單目前選取的類別
-    batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams}]
+    batch: [], // 「新增這一餐」目前已選、還沒送出的食材：[{foodId, grams, servings, mode:'g'|'serving'}]
     currentDate: fmtDate(new Date()),
+    weekSelectedDate: null, // 「近 7 天趨勢」目前選取要查看的日期，預設為 currentDate
     foodCategoryFilter: '', // 食材庫管理表格的類別篩選
     pickerCategoryFilter: '', // 「新增這一餐」挑選食材時的類別篩選
 
@@ -920,9 +896,10 @@
   // 「今日目標」最直覺的視覺呈現：蛋白質是「要吃到多少」的目標（達標＝好事），
   // 脂肪／糖／熱量則是「不要超過多少」的上限（超過才要留意），
   // 所以兩種卡片文字與提示語刻意不同，一眼就能分辨方向。
-  function renderProgressGrid(totals, goals){
-    var el = document.getElementById('remainGrid');
-    if (!el) return;
+  // 把「某一天的攝取總量 vs 目標」畫成一組圓環進度卡（2x2）。
+  // 抽成獨立函式是因為「今日目標」跟「近 7 天趨勢」都要用同一套顯示方式，
+  // 讓使用者切換查看任何一天時，看到的呈現邏輯（達標／超標的顏色與文字）完全一致。
+  function buildProgressGridHtml(totals, goals){
     var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
 
     var proteinLeft = round1(goals.protein - totals.protein);
@@ -938,7 +915,7 @@
         '<div class="pt-body">' +
           '<div class="pt-label">' + label + '</div>' +
           '<div class="pt-value">' + (reached ? '已達標 ✓' : (left + '<small> ' + unit + ' 還需要</small>')) + '</div>' +
-          '<div class="pt-sub">' + (reached ? '今天辛苦了，吃夠囉！' : (round1(amt) + ' / ' + goal + unit)) + '</div>' +
+          '<div class="pt-sub">' + (reached ? '辛苦了，吃夠囉！' : (round1(amt) + ' / ' + goal + unit)) + '</div>' +
         '</div></div>';
     }
     function limitTile(cls, label, amt, left, goal, unit){
@@ -949,15 +926,20 @@
         '<div class="pt-body">' +
           '<div class="pt-label">' + label + '</div>' +
           '<div class="pt-value">' + (over ? ('超標 ' + Math.abs(left)) : left) + '<small> ' + unit + '</small></div>' +
-          '<div class="pt-sub">' + (over ? '已超過今日上限' : ('還可以吃 · ' + round1(amt) + '/' + goal + unit)) + '</div>' +
+          '<div class="pt-sub">' + (over ? '已超過當日上限' : ('還可以吃 · ' + round1(amt) + '/' + goal + unit)) + '</div>' +
         '</div></div>';
     }
 
-    el.innerHTML =
-      targetTile('蛋白質', totals.protein, proteinLeft, goals.protein, 'g') +
+    return targetTile('蛋白質', totals.protein, proteinLeft, goals.protein, 'g') +
       limitTile('fat', '脂肪', totals.fat, fatLeft, goals.fat, 'g') +
       limitTile('sugar', '糖', totals.sugar, sugarLeft, sugarGoal, 'g') +
       limitTile('cal', '熱量', totals.cal, calLeft, goals.cal, 'kcal');
+  }
+
+  function renderProgressGrid(totals, goals){
+    var el = document.getElementById('remainGrid');
+    if (!el) return;
+    el.innerHTML = buildProgressGridHtml(totals, goals);
   }
 
   function renderProfileTabs(){
@@ -1061,87 +1043,40 @@
 
   var WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
 
-  // 顏色設定：tint 是「0%」的淺色，full 是「達標／貼近上限」的飽和色。
-  // mode:'target' 蛋白質，越接近/超過目標顏色越深（不轉紅，因為吃夠蛋白質是好事）；
-  // mode:'limit' 脂肪／糖／熱量，未超標時淺色→主色漸層，一旦超標則主色→警示紅漸層，超越越多越紅。
-  var HEATMAP_MACROS = [
-    { key:'protein', label:'蛋白質', icon:'🥩', mode:'target', tint:'#E4EEE3', full:'#4F7A5C' },
-    { key:'fat',     label:'脂肪',   icon:'🧈', mode:'limit',  tint:'#F6ECDA', full:'#C9924B' },
-    { key:'sugar',   label:'糖',     icon:'🍬', mode:'limit',  tint:'#E5EDF4', full:'#5679A0' },
-    { key:'cal',     label:'熱量',   icon:'🔥', mode:'limit',  tint:'#EFE8F3', full:'#8A6BA1' }
-  ];
-  var HEATMAP_DANGER = '#B8543D';
-
-  function hexToRgb(hex){
-    hex = hex.replace('#','');
-    var num = parseInt(hex, 16);
-    return [(num>>16)&255, (num>>8)&255, num&255];
-  }
-  function mixHex(hexA, hexB, t){
-    var a = hexToRgb(hexA), b = hexToRgb(hexB);
-    var r = Math.round(a[0] + (b[0]-a[0])*t);
-    var g = Math.round(a[1] + (b[1]-a[1])*t);
-    var bl = Math.round(a[2] + (b[2]-a[2])*t);
-    return 'rgb(' + r + ',' + g + ',' + bl + ')';
-  }
-  function heatmapColor(macro, pct){
-    if (macro.mode === 'target'){
-      var t = Math.max(0, Math.min(1, pct/100));
-      return mixHex(macro.tint, macro.full, t);
-    }
-    if (pct <= 100){
-      var t2 = Math.max(0, Math.min(1, pct/100));
-      return mixHex(macro.tint, macro.full, t2);
-    }
-    var over = Math.min(1, (pct-100)/50); // 超標 50% 就到頂：最深的紅
-    return mixHex(macro.full, HEATMAP_DANGER, over);
-  }
-
-  // 4（營養素）× 7（天）的色塊熱力圖：顏色深淺＝接近或超過目標的程度，
-  // 掃一眼整週的顏色分布，比看數字或折線更快抓到「哪幾天常態超標」。
-  function buildWeekHeatmap(data, dates, goals){
-    var goalMap = {
-      protein: goals.protein, fat: goals.fat,
-      sugar: goals.sugar !== undefined ? goals.sugar : (goals.carb||0),
-      cal: goals.cal
-    };
+  // 近 7 天趨勢：用跟「今日目標」完全相同的圓環進度卡呈現，
+  // 差別只在多了一排日期 chip，點哪天就顯示哪天的進度卡（預設是目前查看的日期）。
+  function renderWeekTabs(){
+    var el = document.getElementById('weekTabs');
+    if (!el) return;
+    var dates = last7Dates();
     var todayIdx = dates.length - 1;
-
-    var header = '<div class="whm-row whm-header"><span class="whm-rowlabel"></span>' +
-      dates.map(function(dt, i){
-        var wd = WEEKDAY_LABELS[new Date(dt + 'T00:00:00').getDay()];
-        return '<span class="whm-daylabel' + (i===todayIdx?' today':'') + '">' + wd + '</span>';
-      }).join('') + '</div>';
-
-    var rows = HEATMAP_MACROS.map(function(m){
-      var g = goalMap[m.key];
-      var unit = m.key === 'cal' ? 'kcal' : 'g';
-      var cells = data.map(function(d, i){
-        var amt = d[m.key];
-        var pct = g > 0 ? (amt/g)*100 : 0;
-        var color = heatmapColor(m, pct);
-        var over = m.mode === 'limit' && pct > 100;
-        var title = m.label + '：' + amt + '/' + g + unit + '（' + Math.round(pct) + '%）';
-        return '<span class="whm-cell' + (over?' over':'') + (i===todayIdx?' today':'') + '" style="background:' + color + '" title="' + title + '"></span>';
-      }).join('');
-      return '<div class="whm-row"><span class="whm-rowlabel">' + m.icon + ' ' + m.label + '</span>' + cells + '</div>';
+    if (!state.weekSelectedDate || dates.indexOf(state.weekSelectedDate) === -1){
+      state.weekSelectedDate = state.currentDate;
+    }
+    el.innerHTML = dates.map(function(dt, i){
+      var wd = WEEKDAY_LABELS[new Date(dt + 'T00:00:00').getDay()];
+      var isToday = i === todayIdx;
+      var isSel = dt === state.weekSelectedDate;
+      var label = wd + ' ' + dt.slice(5).replace('-', '/') + (isToday ? '（今天）' : '');
+      return '<button type="button" class="chip' + (isSel?' active':'') + '" data-week-date="' + dt + '">' + label + '</button>';
     }).join('');
+  }
 
-    var legend = '<div class="whm-legend">' +
-      '<span><i class="whm-swatch" style="background:' + HEATMAP_MACROS[0].full + '"></i>蛋白質達標</span>' +
-      '<span><i class="whm-swatch" style="background:' + HEATMAP_DANGER + '"></i>脂肪／糖／熱量超標</span>' +
-      '</div>';
-
-    return '<div class="week-heatmap">' + header + rows + '</div>' + legend;
+  function renderWeekGrid(){
+    var el = document.getElementById('weekGrid');
+    if (!el) return;
+    var data = weekTotals();
+    if (!state.weekSelectedDate || !data.some(function(d){ return d.date === state.weekSelectedDate; })){
+      state.weekSelectedDate = state.currentDate;
+    }
+    var picked = data.filter(function(d){ return d.date === state.weekSelectedDate; })[0] || data[data.length - 1];
+    var goals = currentGoals();
+    el.innerHTML = buildProgressGridHtml(picked, goals);
   }
 
   function renderWeekSection(){
-    var el = document.getElementById('weekCharts');
-    if (!el) return;
-    var data = weekTotals();
-    var dates = data.map(function(d){ return d.date; });
-    var goals = currentGoals();
-    el.innerHTML = buildWeekHeatmap(data, dates, goals);
+    renderWeekTabs();
+    renderWeekGrid();
   }
 
   // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值。
@@ -1389,21 +1324,22 @@
       var m = computeMacros(food, b.grams);
       var base = foodBaseGrams(food);
       var totalServings = foodTotalServings(food);
-      var mode = b.mode || 'g';
+      var mode = b.mode || 'serving';
       var id = escapeHtml(b.foodId);
+      // 份數：可以自行填寫任意數字，半份就填 0.5、三份就填 3；克數與份數雙向換算（份數 × 一份克數 = 克數）。
+      var servingsVal = (b.servings !== undefined && b.servings !== null) ? b.servings : (base ? round1(b.grams / base) : 0);
+      var qtyHtml = (mode === 'g')
+        ? ('<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + id + '"><span class="qty-unit">g</span>')
+        : ('<input type="number" min="0" step="any" value="' + servingsVal + '" data-batch-servings="' + id + '"><span class="qty-unit">份（1 份 = ' + base + 'g）</span>');
       return '<div class="batch-row" data-batch-row="' + id + '">' +
         '<div class="field">' +
           '<label>' + escapeHtml(food.name) + '</label>' +
           '<span class="batch-servings-info">整包共 ' + round1(totalServings) + ' 份 · 一份 ' + base + 'g</span>' +
           '<div class="qty-mode-chips" data-batch-modes="' + id + '">' +
+            '<button type="button" class="qty-mode-btn' + (mode==='serving'?' active':'') + '" data-batch-id="' + id + '" data-batch-mode="serving">輸入份數</button>' +
             '<button type="button" class="qty-mode-btn' + (mode==='g'?' active':'') + '" data-batch-id="' + id + '" data-batch-mode="g">輸入克數</button>' +
-            '<button type="button" class="qty-mode-btn' + (mode==='1'?' active':'') + '" data-batch-id="' + id + '" data-batch-mode="1">一份</button>' +
-            '<button type="button" class="qty-mode-btn' + (mode==='0.5'?' active':'') + '" data-batch-id="' + id + '" data-batch-mode="0.5">半份</button>' +
           '</div>' +
-          '<div class="qty-wrap">' +
-            '<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + id + '"' + (mode!=='g'?' disabled':'') + '>' +
-            '<span class="qty-unit">g</span>' +
-          '</div>' +
+          '<div class="qty-wrap">' + qtyHtml + '</div>' +
         '</div>' +
         '<div class="preview" data-batch-preview="' + id + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
         '<button type="button" class="btn-danger" data-batch-remove="' + id + '">移除</button>' +
@@ -1639,6 +1575,16 @@
     });
   }
 
+  // 「近 7 天趨勢」的日期 chip：點哪天，下面的圓環進度卡就切換顯示哪天（跟今日目標同一套元件）。
+  function wireWeekTabs(){
+    document.getElementById('weekTabs').addEventListener('click', function(e){
+      var btn = e.target.closest('[data-week-date]');
+      if (!btn) return;
+      state.weekSelectedDate = btn.getAttribute('data-week-date');
+      renderWeekSection();
+    });
+  }
+
   function wireProfileTabs(){
     document.getElementById('profileTabs').addEventListener('click', async function(e){
       var btn = e.target.closest('[data-profile]');
@@ -1697,23 +1643,32 @@
       if (idx === -1){
         var food = state.foods.find(function(f){ return f.id === id; });
         var baseGrams = (food && (food.base || food.baseGrams)) || 100;
-        state.batch.push({ foodId: id, grams: baseGrams, mode: '1' });
+        state.batch.push({ foodId: id, grams: baseGrams, servings: 1, mode: 'serving' });
       } else {
         state.batch.splice(idx, 1);
       }
       renderPickerList();
     });
 
-    // 批次清單裡改克數：只更新該列的預覽數字,不整包重畫(避免輸入到一半失焦)
+    // 批次清單裡改克數或份數：兩者雙向換算，只更新該列的預覽數字,不整包重畫(避免輸入到一半失焦)
     document.getElementById('batchList').addEventListener('input', function(e){
-      var input = e.target.closest('[data-batch-grams]');
-      if (!input) return;
-      var id = input.getAttribute('data-batch-grams');
+      var gramsInput = e.target.closest('[data-batch-grams]');
+      var servingsInput = e.target.closest('[data-batch-servings]');
+      if (!gramsInput && !servingsInput) return;
+      var id = gramsInput ? gramsInput.getAttribute('data-batch-grams') : servingsInput.getAttribute('data-batch-servings');
       var b = state.batch.find(function(x){ return x.foodId === id; });
       if (!b) return;
-      b.grams = Number(input.value) || 0;
       var food = state.foods.find(function(f){ return f.id === id; });
       if (!food) return;
+      var base = foodBaseGrams(food);
+      if (servingsInput){
+        // 份數可以自由填寫，半份填 0.5、三份填 3；換算成克數＝份數 × 一份克數。
+        b.servings = Number(servingsInput.value) || 0;
+        b.grams = round1(base * b.servings);
+      } else {
+        b.grams = Number(gramsInput.value) || 0;
+        b.servings = base ? round1(b.grams / base) : 0;
+      }
       var m = computeMacros(food, b.grams);
       var prev = document.querySelector('[data-batch-preview="' + id + '"]');
       if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
@@ -1729,7 +1684,7 @@
         return;
       }
 
-      // 切換這一項要「輸入克數」還是快速選「一份／半份」
+      // 切換這一項要「輸入份數」還是「輸入克數」，切換時把目前的值換算到另一邊，避免數字對不起來
       var modeBtn = e.target.closest('[data-batch-mode]');
       if (modeBtn){
         var modeId = modeBtn.getAttribute('data-batch-id');
@@ -1737,11 +1692,14 @@
         var b = state.batch.find(function(x){ return x.foodId === modeId; });
         if (!b) return;
         b.mode = mode;
-        if (mode !== 'g'){
-          var food = state.foods.find(function(f){ return f.id === modeId; });
-          if (food){
-            var base = foodBaseGrams(food);
-            b.grams = round1(base * Number(mode));
+        var food = state.foods.find(function(f){ return f.id === modeId; });
+        if (food){
+          var base = foodBaseGrams(food);
+          if (mode === 'serving'){
+            if (!b.servings) b.servings = base ? round1((b.grams||base) / base) : 1;
+            b.grams = round1(base * b.servings);
+          } else {
+            b.servings = base ? round1((b.grams||0) / base) : 0;
           }
         }
         renderBatchList();
@@ -2127,6 +2085,7 @@
     await loadLocal();
     wireCollapsibles();
     wireDateNav();
+    wireWeekTabs();
     wireProfileTabs();
     wireGoalsBox();
     wirePicker();
