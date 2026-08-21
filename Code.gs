@@ -20,7 +20,7 @@
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'protein100', 'fat100', 'sugar100', 'cal100'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order'];
 // 【v9 新增】Logs 新增了 order 欄位，用來記錄「今日紀錄」使用者手動拖移排序後的順序
 // （單純一個數字，同一天、同一身份的紀錄依這個數字由小到大顯示）。舊試算表沒有這欄時
@@ -259,6 +259,7 @@ function readFoods() {
       servings: (map.hasOwnProperty('servings') && Number(r[map['servings']]) > 0) ? Number(r[map['servings']]) : 1,
       category: (map.hasOwnProperty('category') && r[map['category']]) ? String(r[map['category']]) : '',
       categories: parseFoodCategories(map.hasOwnProperty('categories') ? r[map['categories']] : '', map.hasOwnProperty('category') ? r[map['category']] : ''),
+      outOfStock: map.hasOwnProperty('outOfStock') ? (r[map['outOfStock']] === true || String(r[map['outOfStock']]).toLowerCase() === 'true') : false,
       protein100: Number(r[map['protein100']]) || 0,
       fat100: Number(r[map['fat100']]) || 0,
       sugar100: Number(r[map['sugar100']]) || 0,
@@ -333,6 +334,7 @@ function addFood(payload) {
     servings: Number(payload.servings) > 0 ? Number(payload.servings) : 1,
     category: serializeFoodCategories((payload.categories && parseFoodCategories(payload.categories, '')).length ? payload.categories : payload.category).split('、')[0] || '',
     categories: serializeFoodCategories((payload.categories && parseFoodCategories(payload.categories, '')).length ? payload.categories : payload.category),
+    outOfStock: payload.outOfStock === true || String(payload.outOfStock).toLowerCase() === 'true',
     protein100: Number(payload.protein100) || 0,
     fat100: Number(payload.fat100) || 0,
     sugar100: Number(sugarVal) || 0,
@@ -378,6 +380,12 @@ function updateFood(payload) {
         map['categories'] = newCategoriesCol - 1;
       }
       sheet.getRange(rowNum, map['categories'] + 1).setValue(categoryText);
+      if (!map.hasOwnProperty('outOfStock')) {
+        var newStockCol = sheet.getLastColumn() + 1;
+        sheet.getRange(1, newStockCol).setValue('outOfStock');
+        map['outOfStock'] = newStockCol - 1;
+      }
+      sheet.getRange(rowNum, map['outOfStock'] + 1).setValue(payload.outOfStock === true || String(payload.outOfStock).toLowerCase() === 'true');
       sheet.getRange(rowNum, map['protein100'] + 1).setValue(Number(payload.protein100) || 0);
       sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
       sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);
