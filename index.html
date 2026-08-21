@@ -207,7 +207,10 @@
     border-radius: 2px;
     display: inline-block;
   }
-  .legend-chip.green { background: var(--protein); }
+  .legend-chip.protein { background: var(--protein); }
+  .legend-chip.fat { background: var(--fat); }
+  .legend-chip.sugar { background: var(--carb); }
+  .legend-chip.cal { background: var(--cal); }
   .legend-chip.red { background: var(--danger); }
   .legend-chip.nodata {
     background: linear-gradient(135deg, var(--line) 0 45%, transparent 45% 55%, var(--line) 55% 100%);
@@ -461,13 +464,15 @@
     <div class="week-dots-inline">
       <div class="week-dots-header">
         <span>近 7 天攝取趨勢</span>
-        <span style="font-weight:500;">由上到下：蛋白質・脂肪・糖・熱量</span>
       </div>
       <div class="week-dots-grid" id="weekDotsGrid"></div>
       <div class="week-dots-legend">
-        <span><i class="legend-chip green"></i>達標／在額度內</span>
+        <span><i class="legend-chip protein"></i>蛋白質</span>
+        <span><i class="legend-chip fat"></i>脂肪</span>
+        <span><i class="legend-chip sugar"></i>糖</span>
+        <span><i class="legend-chip cal"></i>熱量</span>
         <span><i class="legend-chip red"></i>超標</span>
-        <span><i class="legend-chip nodata"></i>當天無紀錄</span>
+        <span><i class="legend-chip nodata"></i>無紀錄</span>
       </div>
     </div>
 
@@ -1101,24 +1106,24 @@
     var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
     var today = todayStr();
 
-    function bar(value, goal, isLimitType, noData, titleBase){
+    function bar(value, goal, isLimitType, noData, titleBase, baseColor){
       if (noData){
         return '<div class="wk-bar no-data" title="' + titleBase + '：當天無紀錄"></div>';
       }
       var pct = goal > 0 ? (value / goal) * 100 : 0;
       var over = value > goal;
       var fillPct = Math.max(0, Math.min(100, pct));
-      var color = (isLimitType && over) ? 'var(--danger)' : 'var(--protein)';
+      var color = (isLimitType && over) ? 'var(--danger)' : baseColor;
       var title = titleBase + '：' + round1(value) + ' / ' + round1(goal) + ((isLimitType && over) ? '（超標）' : '');
       return '<div class="wk-bar" title="' + title + '"><div class="wk-bar-fill" style="width:' + fillPct.toFixed(0) + '%;background:' + color + ';"></div></div>';
     }
 
     var dayCols = data.map(function(d){
       var noData = !d.hasData;
-      var pBar = bar(d.protein, goals.protein, false, noData, '蛋白質');
-      var fBar = bar(d.fat, goals.fat, true, noData, '脂肪');
-      var sBar = bar(d.sugar, sugarGoal, true, noData, '糖');
-      var cBar = bar(d.cal, goals.cal, true, noData, '熱量');
+      var pBar = bar(d.protein, goals.protein, false, noData, '蛋白質', 'var(--protein)');
+      var fBar = bar(d.fat, goals.fat, true, noData, '脂肪', 'var(--fat)');
+      var sBar = bar(d.sugar, sugarGoal, true, noData, '糖', 'var(--carb)');
+      var cBar = bar(d.cal, goals.cal, true, noData, '熱量', 'var(--cal)');
 
       var dt = new Date(d.date + 'T00:00:00');
       var wd = WEEKDAY_SHORT[dt.getDay()];
