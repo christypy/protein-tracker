@@ -143,6 +143,16 @@
   .week-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-soft);font-family:var(--font-num);}
   .week-legend-item .dot{width:8px;height:8px;border-radius:50%;flex:none;}
   .week-legend-item b{color:var(--ink);font-weight:700;}
+  .week-legend-item small{font-family:var(--font-body);color:var(--ink-soft);}
+
+  /* 脂肪／糖：次要狀態列，每天一顆小圓點，超標才變紅，不喧賓奪主 */
+  .week-secondary{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:8px;}
+  .week-secondary-row{display:flex;align-items:center;gap:10px;}
+  .ws-label{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-soft);font-weight:700;flex:none;width:44px;}
+  .ws-label .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .ws-dots{display:flex;gap:8px;flex:1;justify-content:space-between;}
+  .ws-dot{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none;}
+  .ws-dot.over{background:var(--danger);}
 
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
@@ -386,7 +396,7 @@
         <span class="hero-trend-title">近 7 天攝取趨勢</span>
         <span class="hero-trend-sub">達成率 ％</span>
       </div>
-      <p class="week-chart-hint">四項營養素合併於同一張圖，以「占每日目標的百分比」比較；虛線為 100% 目標線。</p>
+      <p class="week-chart-hint">主線聚焦「蛋白質是否吃夠」與「熱量有沒有超標」；脂肪、糖以下方每日小圓點呈現，紅點代表當天超標。</p>
       <div id="weekCharts"></div>
     </div>
 
@@ -1030,18 +1040,23 @@
   }
 
   var WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
-  var WEEK_SERIES = [
-    { key:'protein', label:'蛋白質', colorVar:'--protein' },
+  // 主圖只畫使用者最在意的兩項：蛋白質（夠不夠）、熱量（有沒有超標）。
+  var WEEK_PRIMARY = [
+    { key:'protein', label:'蛋白質', colorVar:'--protein', mode:'target' },
+    { key:'cal', label:'熱量', colorVar:'--cal', mode:'limit' }
+  ];
+  // 脂肪、糖是次要參考，不畫線，改成每天一顆小圓點的「狀態列」，
+  // 超標才變紅、其餘維持淡色，掃一眼就能抓到異常日，不會搶走主線的視覺焦點。
+  var WEEK_SECONDARY = [
     { key:'fat', label:'脂肪', colorVar:'--fat' },
-    { key:'sugar', label:'糖', colorVar:'--carb' },
-    { key:'cal', label:'熱量', colorVar:'--cal' }
+    { key:'sugar', label:'糖', colorVar:'--carb' }
   ];
 
-  // 四項營養素單位不同（g／kcal），沒辦法直接疊在同一張圖上比大小，
-  // 所以統一換算成「占當天目標的百分比」，就能用同一個 y 軸把 4 條線畫在同一張圖裡，
-  // 100% 虛線代表當日目標，一眼就能看出哪幾天常態超標／吃不夠。
+  // 蛋白質、熱量單位不同（g／kcal），沒辦法直接疊在同一張圖上比大小，
+  // 所以統一換算成「占當天目標的百分比」，用同一個 y 軸畫兩條主線，
+  // 100% 虛線代表當日目標：蛋白質線要碰到／超過才算夠，熱量線超過就是超標。
   function buildCombinedWeekChart(data, dates, goals){
-    var w = 320, h = 168, padL = 26, padR = 10, padT = 14, padB = 22;
+    var w = 320, h = 158, padL = 26, padR = 10, padT = 14, padB = 22;
     var innerW = w - padL - padR, innerH = h - padT - padB;
 
     var goalMap = {
@@ -1050,12 +1065,12 @@
       cal: goals.cal
     };
 
-    var series = WEEK_SERIES.map(function(s){
+    var series = WEEK_PRIMARY.map(function(s){
       var pct = data.map(function(d){
         var g = goalMap[s.key];
         return g > 0 ? (d[s.key] / g) * 100 : 0;
       });
-      return { key:s.key, label:s.label, colorVar:s.colorVar, pct:pct, todayPct: Math.round(pct[pct.length-1]) };
+      return { key:s.key, label:s.label, colorVar:s.colorVar, mode:s.mode, pct:pct, todayPct: Math.round(pct[pct.length-1]) };
     });
 
     var maxPct = 100;
@@ -1081,9 +1096,12 @@
     var lines = series.map(function(s){
       var points = s.pct.map(function(v,i){ return x(i) + ',' + y(v); }).join(' ');
       var dots = s.pct.map(function(v,i){
-        return '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="2.6" fill="var(' + s.colorVar + ')" />';
+        // 熱量線若當天超標，圓點改成警示紅，蛋白質線碰到/超過目標則維持該色不強調異常。
+        var over = s.mode === 'limit' && s.pct[i] > 100;
+        var dotColor = over ? 'var(--danger)' : ('var(' + s.colorVar + ')');
+        return '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="3" fill="' + dotColor + '" stroke="var(--card)" stroke-width="1"/>';
       }).join('');
-      return '<polyline points="' + points + '" fill="none" stroke="var(' + s.colorVar + ')" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.92" />' + dots;
+      return '<polyline points="' + points + '" fill="none" stroke="var(' + s.colorVar + ')" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />' + dots;
     }).join('');
 
     var dayLabels = dates.map(function(dt,i){
@@ -1096,11 +1114,28 @@
       grid + goalLine + lines + dayLabels + '</svg>';
 
     var legend = '<div class="week-legend">' + series.map(function(s){
+      var tag = s.mode === 'limit'
+        ? (s.todayPct > 100 ? '超標' : '未超標')
+        : (s.todayPct >= 100 ? '已達標' : '未達標');
       return '<span class="week-legend-item"><i class="dot" style="background:var(' + s.colorVar + ')"></i>' +
-        s.label + ' <b>' + s.todayPct + '%</b></span>';
+        s.label + ' <b>' + s.todayPct + '%</b><small>' + tag + '</small></span>';
     }).join('') + '</div>';
 
-    return svg + legend;
+    // 脂肪／糖：每天一顆小圓點的次要狀態列，超標才標紅，不畫成折線以免搶走主線焦點。
+    var secondary = '<div class="week-secondary">' + WEEK_SECONDARY.map(function(s){
+      var g = goalMap[s.key];
+      var dotsHtml = data.map(function(d){
+        var v = d[s.key];
+        var over = g > 0 && v > g;
+        return '<span class="ws-dot' + (over?' over':'') + '" title="' + v + (s.key==='cal'?'kcal':'g') + '"></span>';
+      }).join('');
+      return '<div class="week-secondary-row">' +
+        '<span class="ws-label"><i class="dot" style="background:var(' + s.colorVar + ')"></i>' + s.label + '</span>' +
+        '<span class="ws-dots">' + dotsHtml + '</span>' +
+        '</div>';
+    }).join('') + '</div>';
+
+    return svg + legend + secondary;
   }
 
   function renderWeekSection(){
