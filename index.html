@@ -506,14 +506,14 @@
     </div>
   </div>
 
-  <!-- 2. 現在可以吃什麼（零食／早餐類別，扣掉晚餐預留熱量後還能吃多少） -->
+  <!-- 2. 現在可以吃什麼（零食類別，扣掉晚餐預留熱量後還能吃多少） -->
   <div class="section collapsed" id="secSnackNow">
     <div class="section-head" data-toggle="secSnackNow">
       <h2>🍪 現在可以吃什麼</h2>
       <span class="chev">▾</span>
     </div>
     <div class="section-body">
-      <p class="select-hint">從「零食」「早餐」類別的食材裡，扣掉晚餐可能吃掉的熱量之後，抓出現在最多還能吃多少份量。</p>
+      <p class="select-hint">從「零食」類別的食材裡，扣掉晚餐可能吃掉的熱量之後，抓出現在最多還能吃多少份量。</p>
       <div class="row">
         <div class="field"><label>晚餐預留熱量下限 (kcal)</label><input type="number" id="snackDinnerMin" min="0" step="10" value="500"></div>
         <div class="field"><label>晚餐預留熱量上限 (kcal)</label><input type="number" id="snackDinnerMax" min="0" step="10" value="700"></div>
@@ -932,10 +932,10 @@
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
   }
 
-  // ---------- 現在可以吃什麼（零食／早餐，扣掉晚餐預留熱量） ----------
+  // ---------- 現在可以吃什麼（零食／，扣掉晚餐預留熱量） ----------
   // 只針對「上限型」的巨量營養素（脂肪／糖／熱量）做扣除，蛋白質是「目標下限」，
   // 吃更多蛋白質不會超標，所以不拿蛋白質剩餘量去限制份量。
-  var SNACK_CATEGORIES = ['零食', '早餐'];
+  var SNACK_CATEGORIES = ['零食'];
 
   function snackCategoryFoods(foods){
     return (foods || state.foods).filter(function(f){
@@ -1378,7 +1378,7 @@
 
     var summaryText = '今天已攝取熱量 ' + Math.round(totals.cal) + ' kcal（目標 ' + goals.cal + ' kcal）。';
     if (budget.calAvailableNow <= 0){
-      summaryText += '扣掉晚餐預留的 ' + budget.dinnerMax + ' kcal 之後，目前熱量額度已經用完了，建議先不要加零食／早餐類，把額度留給晚餐。';
+      summaryText += '扣掉晚餐預留的 ' + budget.dinnerMax + ' kcal 之後，目前熱量額度已經用完了，建議先不要加零食類，把額度留給晚餐。';
       summaryEl.className = 'status-msg err';
     } else {
       summaryText += '扣掉晚餐預留 ' + budget.dinnerMin + '–' + budget.dinnerMax + ' kcal（保守用上限計算）後，現在最多還能吃約 ' + Math.round(budget.calAvailableNow) + ' kcal。';
