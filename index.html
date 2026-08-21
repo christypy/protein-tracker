@@ -895,6 +895,18 @@
       color: #fff;
     }
 
+    .recommend-badge {
+      display:inline-block;
+      margin-right:6px;
+      padding:2px 7px;
+      border-radius:999px;
+      background:var(--protein-tint);
+      color:var(--protein-dark);
+      font-size:10px;
+      font-weight:700;
+      vertical-align:middle;
+    }
+
     /* ---- Food library table ---- */
     .food-table-wrap {
       overflow-x: auto;
@@ -902,10 +914,10 @@
 
     .food-row {
       display: grid;
-      grid-template-columns: minmax(120px, 1.6fr) 68px 74px 62px 62px 56px 46px 58px 112px;
+      grid-template-columns: minmax(180px, 2.2fr) 82px 74px 74px 68px 68px 58px 112px;
       gap: 7px;
       align-items: center;
-      min-width: 600px;
+      min-width: 760px;
       padding: 9px 0;
       border-bottom: 1px solid var(--line);
       font-size: 13px;
@@ -928,9 +940,16 @@
 
     .food-row>span {
       min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
+      text-overflow: clip;
       white-space: nowrap;
+    }
+
+    .food-row>span.fname {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      line-height: 1.35;
     }
 
     .food-row>span.num {
@@ -1194,48 +1213,6 @@
 
     .snack-item.no-budget .grams {
       color: var(--danger);
-    }
-
-    .inventory-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: var(--paper);
-      cursor: pointer;
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--ink);
-    }
-
-    .inventory-toggle input {
-      width: 17px;
-      height: 17px;
-      margin: 0;
-      accent-color: var(--danger);
-      cursor: pointer;
-      flex: none;
-    }
-
-    .inventory-toggle small {
-      color: var(--ink-soft);
-      font-weight: 400;
-      margin-left: auto;
-      font-size: 10.5px;
-    }
-
-    @media (max-width:520px) {
-      .inventory-toggle {
-        align-items: flex-start;
-        flex-wrap: wrap;
-      }
-      .inventory-toggle small {
-        flex-basis: 100%;
-        margin-left: 25px;
-      }
     }
 
     /* ---- Category chips ---- */
@@ -1661,11 +1638,6 @@
           <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="fFat" min="0" step="0.1"></div>
           <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
         </div>
-        <label class="inventory-toggle" title="勾選後代表目前沒有這項食材，會從「新增這一餐」與「現在可以吃什麼」隱藏，但仍保留在食材庫管理。">
-          <input type="checkbox" id="fOutOfStock">
-          <span>目前沒有庫存</span>
-          <small>勾選後隱藏於可選食材與「現在可以吃什麼」</small>
-        </label>
         <div class="btn-row" style="justify-content:space-between;">
           <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/糖（Sugar）估算熱量</span>
           <span>
@@ -1693,7 +1665,7 @@
         <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。</p>
         <div class="food-table-wrap" style="margin-top:10px;">
           <div class="food-row head" id="foodTableHead">
-            <span>名稱</span><span>一份克數</span><span>熱量</span><span>蛋白質</span><span>脂肪</span><span>糖</span><span>份數</span><span>庫存</span><span></span>
+            <span>名稱</span><span>一份克數</span><span>熱量</span><span>蛋白質</span><span>脂肪</span><span>糖</span><span>份數</span><span></span>
           </div>
           <div id="foodTable"></div>
         </div>
@@ -1842,9 +1814,6 @@
         try {
           var f = await storeGetRaw('foods');
           state.foods = f ? JSON.parse(f) : [];
-          state.foods.forEach(function (food) {
-            food.outOfStock = food.outOfStock === true || food.outOfStock === 'true';
-          });
           migrateFoodCategories();
         } catch (e) { state.foods = []; }
         try {
@@ -1910,9 +1879,6 @@
         try {
           var data = await sheetGet();
           state.foods = mergeById(data.foods, state.foods);
-          state.foods.forEach(function (food) {
-            food.outOfStock = food.outOfStock === true || food.outOfStock === 'true';
-          });
           migrateFoodCategories();
           state.logs = mergeById(data.logs, state.logs);
           await saveLocalFoods();
@@ -2098,9 +2064,7 @@
             sugar100: round1(sugar),
             cal100: Math.round(cal),
             categories: normalizeCategories(categories),
-            category: normalizeCategories(categories)[0] || '',
-            outOfStock: !!input.outOfStock
-          }
+            category: normalizeCategories(categories)[0] || '',}
         };
       }
 
@@ -2460,28 +2424,44 @@
         }
         summaryEl.textContent = summaryText;
 
-        var foods = snackCategoryFoods().filter(function (f) { return !f.outOfStock; });
+        var foods = snackCategoryFoods();
         if (!foods.length) {
-          listEl.innerHTML = '<div class="empty">目前沒有可用的「零食」庫存。請到下方「食材庫管理」新增食材，或取消「目前沒有庫存」的勾選。</div>';
+          listEl.innerHTML = '<div class="empty">目前沒有符合條件的「零食」食材。請到下方「食材庫管理」新增食材。</div>';
           return;
         }
 
-        listEl.innerHTML = foods.map(function (f) {
+        // 推薦排序：優先「蛋白質／熱量」高的食材，再偏好蛋白質高、脂肪低、糖低、熱量低。
+        var ranked = foods.map(function (f) {
           var maxG = maxGramsForFood(f, budget);
           var grams = Math.round(maxG * 10) / 10;
           var m = grams > 0 ? computeMacros(f, grams) : { cal: 0, fat: 0, sugar: 0, protein: 0 };
-          var noBudget = grams <= 0;
+          var proteinPer100Cal = m.cal > 0 ? (m.protein / m.cal * 100) : 0;
+          var base = foodBaseGrams(f);
+          var totalServings = foodTotalServings(f);
+          var suggestedServings = base > 0 ? grams / base : 0;
+          return { food: f, grams: grams, macros: m, proteinPer100Cal: proteinPer100Cal,
+            suggestedServings: suggestedServings, totalServings: totalServings };
+        });
+        ranked.sort(function (a, b) {
+          if (b.proteinPer100Cal !== a.proteinPer100Cal) return b.proteinPer100Cal - a.proteinPer100Cal;
+          if (b.macros.protein !== a.macros.protein) return b.macros.protein - a.macros.protein;
+          if (a.macros.fat !== b.macros.fat) return a.macros.fat - b.macros.fat;
+          if (a.macros.sugar !== b.macros.sugar) return a.macros.sugar - b.macros.sugar;
+          return a.macros.cal - b.macros.cal;
+        });
+
+        listEl.innerHTML = ranked.map(function (r, index) {
+          var f = r.food, m = r.macros, noBudget = r.grams <= 0;
+          var servingText = noBudget ? '0 份' : round1(r.suggestedServings) + ' 份 / 共 ' + round1(r.totalServings) + ' 份';
           return '<div class="snack-item' + (noBudget ? ' no-budget' : '') + '">' +
             '<div class="snack-main">' +
-            '<div class="name">' + escapeHtml(f.name) + '</div>' +
-            '<div class="sub">' +
-            '蛋白質 ' + round1(m.protein) + 'g · 脂肪 ' + round1(m.fat) + 'g · 糖 ' + round1(m.sugar) + 'g · ' + Math.round(m.cal) + ' kcal' +
-            '</div>' +
+            '<div class="name">' + (index === 0 ? '<span class="recommend-badge">優先推薦</span>' : '') + escapeHtml(f.name) + '</div>' +
+            '<div class="sub">蛋白質 ' + round1(m.protein) + 'g · 脂肪 ' + round1(m.fat) + 'g · 糖 ' + round1(m.sugar) + 'g · ' + Math.round(m.cal) + ' kcal</div>' +
             '</div>' +
             '<div class="snack-amount">' +
-            '<div class="grams">' + (noBudget ? '目前 0g' : '最多 ' + grams + 'g') + '</div>' +
+            '<div class="grams">' + (noBudget ? '目前 0g' : '最多 ' + r.grams + 'g') + '</div>' +
             '<div class="kcal">' + (noBudget ? '目前額度不足' : '約 ' + Math.round(m.cal) + ' kcal') + '</div>' +
-            '<div class="limit">受熱量／脂肪／糖與庫存限制</div>' +
+            '<div class="limit">' + servingText + ' · 蛋白質/熱量 ' + round1(r.proteinPer100Cal) + 'g/100kcal</div>' +
             '</div>' +
             '</div>';
         }).join('');
@@ -2599,7 +2579,6 @@
               '<span class="num" data-label="脂肪">' + d.fat + '</span>' +
               '<span class="num" data-label="糖">' + d.sugar + '</span>' +
               '<span class="num" data-label="份數">' + d.servings + '</span>' +
-              '<span class="num" data-label="庫存">' + (f.outOfStock ? '無庫存' : '有') + '</span>' +
               tail +
               '</div>';
           }).join('');
@@ -2612,14 +2591,12 @@
         var q = (document.getElementById('foodSearch').value || '').trim().toLowerCase();
         var cat = state.pickerCategoryFilter;
         var list = state.foods.filter(function (f) {
-          return !f.outOfStock &&
-            (!q || f.name.toLowerCase().indexOf(q) > -1) &&
+          return (!q || f.name.toLowerCase().indexOf(q) > -1) &&
             (!cat || hasFoodCategory(f, cat));
         });
         renderPickerCategoryChips();
         if (!list.length) {
-          var hasInStock = state.foods.some(function (f) { return !f.outOfStock; });
-          el.innerHTML = '<div class="empty">' + (state.foods.length && hasInStock ? '找不到符合的食材。' : state.foods.length ? '目前所有食材都標記為「沒有庫存」。' : '食材庫是空的，先到下方新增食材。') + '</div>';
+          el.innerHTML = '<div class="empty">' + (state.foods.length ? '找不到符合的食材。' : '食材庫是空的，先到下方新增食材。') + '</div>';
           renderBatchList();
           return;
         }
@@ -2834,7 +2811,6 @@
       function clearFoodForm() {
         state.editingFoodId = null;
         ['fName', 'fProtein', 'fFat', 'fSugar', 'fCal'].forEach(function (id) { document.getElementById(id).value = ''; });
-        document.getElementById('fOutOfStock').checked = false;
         document.getElementById('fBase').value = 100;
         document.getElementById('fServings').value = 1;
         setFCategory('');
@@ -3227,7 +3203,6 @@
               document.getElementById('fFat').value = foodRawNutrient(food, 'fat');
               document.getElementById('fSugar').value = foodRawNutrient(food, 'sugar');
               document.getElementById('fCal').value = foodRawNutrient(food, 'cal');
-              document.getElementById('fOutOfStock').checked = !!food.outOfStock;
               setFCategory(foodCategories(food));
               document.getElementById('fSaveBtn').textContent = '儲存食材修改';
               updateFoodPackagePreview();
@@ -3316,7 +3291,6 @@
             fat: document.getElementById('fFat').value,
             sugar: document.getElementById('fSugar').value,
             cal: document.getElementById('fCal').value,
-            outOfStock: document.getElementById('fOutOfStock').checked
           }, state.editingFoodId, state.fCategorySelected);
 
           if (result.error) { alert(result.error); return; }
