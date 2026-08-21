@@ -99,55 +99,50 @@
     border-radius:8px;padding:3px 8px;width:64px;
   }
 
-  /* 四項營養素整合成一個長條圖 */
-  .chart-bars{display:flex;flex-direction:column;gap:10px;}
-  .cbar-row{display:grid;grid-template-columns:40px 1fr 84px;align-items:center;gap:8px;}
-  .cbar-label{font-size:12px;color:var(--ink-soft);font-weight:700;}
-  .cbar-track{height:9px;border-radius:999px;background:var(--paper);border:1px solid var(--line);overflow:hidden;}
-  .cbar-fill{height:100%;border-radius:999px;transition:width .3s ease;}
-  .cbar-fill.protein{background:var(--protein);}
-  .cbar-fill.fat{background:var(--fat);}
-  .cbar-fill.sugar{background:var(--carb);}
-  .cbar-fill.cal{background:var(--cal);}
-  .cbar-val{font-family:var(--font-num);font-size:11.5px;color:var(--ink);text-align:right;white-space:nowrap;}
-  .cbar-val small{color:var(--ink-soft);font-family:var(--font-body);}
-  @media (max-width:420px){
-    .cbar-row{grid-template-columns:34px 1fr 70px;gap:6px;}
-    .cbar-label{font-size:11px;}
-    .cbar-val{font-size:10.5px;}
+  /* ---- 今日目標：圓環進度卡（一眼看出「還需要」／「還可以吃」） ---- */
+  .progress-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:4px;}
+  .progress-tile{
+    display:flex;align-items:center;gap:12px;padding:12px 12px;border-radius:var(--radius-sm);
+    background:var(--paper);border:1px solid var(--line);transition:border-color .2s, background .2s;
   }
-
-  /* ---- 今日目標：剩餘量卡片（最直覺的視覺呈現） ---- */
-  .remain-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}
-  .remain-tile{border-radius:var(--radius-sm);padding:10px 12px;display:flex;flex-direction:column;gap:2px;}
-  .remain-tile.protein{background:var(--protein-tint);}
-  .remain-tile.fat{background:var(--fat-tint);}
-  .remain-tile.sugar{background:var(--carb-tint);}
-  .remain-tile.cal{background:var(--cal-tint);}
-  .remain-tile .rt-label{font-size:11px;color:var(--ink-soft);font-weight:700;}
-  .remain-tile .rt-value{font-family:var(--font-num);font-size:19px;font-weight:700;line-height:1.25;}
-  .remain-tile.protein .rt-value{color:var(--protein-dark);}
-  .remain-tile.fat .rt-value{color:var(--fat);}
-  .remain-tile.sugar .rt-value{color:var(--carb);}
-  .remain-tile.cal .rt-value{color:var(--cal);}
-  .remain-tile .rt-value small{font-size:11px;font-weight:500;color:var(--ink-soft);font-family:var(--font-body);}
-  .remain-tile.over .rt-value{color:var(--danger);}
-  .remain-tile .rt-sub{font-size:10.5px;color:var(--ink-soft);}
-  .remain-tile.over .rt-sub{color:var(--danger);font-weight:700;}
+  .progress-tile.done{background:var(--protein-tint);border-color:rgba(79,122,92,0.35);}
+  .progress-tile.over{background:#FBEAE4;border-color:rgba(184,84,61,0.4);}
+  .progress-ring{position:relative;flex:none;width:56px;height:56px;}
+  .progress-ring svg{width:56px;height:56px;display:block;}
+  .progress-ring .ring-track{fill:none;stroke:var(--line);stroke-width:6;}
+  .progress-ring .ring-fill{fill:none;stroke-width:6;stroke-linecap:round;transform:rotate(-90deg);transform-origin:28px 28px;transition:stroke-dashoffset .4s ease;}
+  .progress-ring .ring-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .pt-body{flex:1;min-width:0;}
+  .pt-label{font-size:11px;color:var(--ink-soft);font-weight:700;letter-spacing:.02em;}
+  .pt-value{font-family:var(--font-num);font-size:17px;font-weight:700;line-height:1.25;color:var(--ink);white-space:nowrap;}
+  .pt-value small{font-size:11px;font-weight:500;color:var(--ink-soft);font-family:var(--font-body);}
+  .pt-sub{font-size:10.5px;color:var(--ink-soft);margin-top:1px;}
+  .progress-tile.done .pt-sub{color:var(--protein-dark);font-weight:700;}
+  .progress-tile.over .pt-sub{color:var(--danger);font-weight:700;}
+  .progress-tile.done .pt-value{color:var(--protein-dark);}
+  .progress-tile.over .pt-value{color:var(--danger);}
   @media (max-width:420px){
-    .remain-tile .rt-value{font-size:16px;}
+    .progress-grid{gap:8px;}
+    .progress-tile{padding:10px;gap:9px;}
+    .progress-ring, .progress-ring svg{width:48px;height:48px;}
+    .progress-ring .ring-fill{transform-origin:24px 24px;}
+    .pt-value{font-size:15px;}
   }
 
   /* ---- 今日紀錄：編輯表單 ---- */
   .log-edit-box{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
   .log-edit-box .btn-row{margin-top:10px;}
 
-  /* ---- 近7天趨勢圖 ---- */
-  .week-chart-item{margin-bottom:16px;}
-  .week-chart-item:last-child{margin-bottom:0;}
-  .week-chart-title{font-size:12.5px;font-weight:700;margin-bottom:4px;}
-  .week-chart-title small{font-weight:500;color:var(--ink-soft);}
+  /* ---- 近7天趨勢圖（合併成一張圖，統一以「達成率 %」比較） ---- */
+  .hero-trend-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;}
+  .hero-trend-title{font-family:var(--font-display);font-size:14.5px;font-weight:700;}
+  .hero-trend-sub{font-size:10.5px;color:var(--ink-soft);}
+  .week-chart-hint{font-size:11px;color:var(--ink-soft);margin:0 0 10px;}
   .week-chart-svg{width:100%;height:auto;display:block;}
+  .week-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;justify-content:center;}
+  .week-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-soft);font-family:var(--font-num);}
+  .week-legend-item .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .week-legend-item b{color:var(--ink);font-weight:700;}
 
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
@@ -381,8 +376,18 @@
   <div class="hero">
     <div class="hero-info">
       <div class="label">今日目標 · <b id="profileDesc"></b></div>
-      <div class="remain-grid" id="remainGrid"></div>
-      <div class="chart-bars" id="chartBars"></div>
+      <div class="progress-grid" id="remainGrid"></div>
+    </div>
+
+    <div class="hero-divider"></div>
+
+    <div class="hero-trend">
+      <div class="hero-trend-head">
+        <span class="hero-trend-title">近 7 天攝取趨勢</span>
+        <span class="hero-trend-sub">達成率 ％</span>
+      </div>
+      <p class="week-chart-hint">四項營養素合併於同一張圖，以「占每日目標的百分比」比較；虛線為 100% 目標線。</p>
+      <div id="weekCharts"></div>
     </div>
 
     <div class="hero-divider"></div>
@@ -441,18 +446,6 @@
         <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
         <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
       </div>
-    </div>
-  </div>
-
-  <!-- 近7天趨勢 -->
-  <div class="section" id="secWeek">
-    <div class="section-head" data-toggle="secWeek">
-      <h2>近 7 天攝取趨勢</h2>
-      <span class="chev">▾</span>
-    </div>
-    <div class="section-body">
-      <p class="hint">依目前選擇的身份，統計最近 7 天（含今天）每日總攝取量；虛線代表目前設定的每日目標。</p>
-      <div id="weekCharts"></div>
     </div>
   </div>
 
@@ -869,14 +862,35 @@
     if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
 
     renderProfileTabs();
-    renderRemainGrid(totals, goals);
-    renderChartBars(totals, goals);
+    renderProgressGrid(totals, goals);
+  }
+
+  // 圓環顏色（依營養素），統一在這裡對應，供圓環進度卡與合併趨勢圖共用。
+  var MACRO_COLOR = { protein:'#4F7A5C', fat:'#C9924B', sugar:'#5679A0', cal:'#8A6BA1' };
+  var MACRO_ICON = { protein:'🥩', fat:'🧈', sugar:'🍬', cal:'🔥' };
+
+  // 畫一個圓環進度卡：外圈是背景軌道，內圈用 stroke-dasharray 畫出百分比，
+  // 中間放圖示，卡片右側放數值與提示文字 —— 顏色＋圖示＋圓環三重編碼，
+  // 讓「還需要多少」「還可以吃多少」不用讀數字也能一眼分辨。
+  function progressRing(cls, pct, danger){
+    var r = 22, c = 2 * Math.PI * r;
+    var clamped = Math.max(0, Math.min(100, pct));
+    var offset = c * (1 - clamped / 100);
+    var color = danger ? 'var(--danger)' : ('var(' + '--' + (cls==='sugar'?'carb':cls) + ')');
+    return '<div class="progress-ring">' +
+      '<svg viewBox="0 0 56 56">' +
+        '<circle class="ring-track" cx="28" cy="28" r="' + r + '"/>' +
+        '<circle class="ring-fill" cx="28" cy="28" r="' + r + '" stroke="' + color + '" ' +
+          'stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/>' +
+      '</svg>' +
+      '<div class="ring-icon">' + MACRO_ICON[cls] + '</div>' +
+      '</div>';
   }
 
   // 「今日目標」最直覺的視覺呈現：蛋白質是「要吃到多少」的目標（達標＝好事），
   // 脂肪／糖／熱量則是「不要超過多少」的上限（超過才要留意），
   // 所以兩種卡片文字與提示語刻意不同，一眼就能分辨方向。
-  function renderRemainGrid(totals, goals){
+  function renderProgressGrid(totals, goals){
     var el = document.getElementById('remainGrid');
     if (!el) return;
     var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
@@ -886,28 +900,34 @@
     var sugarLeft = round1(sugarGoal - totals.sugar);
     var calLeft = Math.round(goals.cal - totals.cal);
 
-    function targetTile(label, left, unit){
+    function targetTile(label, amt, left, goal, unit){
       var reached = left <= 0;
-      return '<div class="remain-tile protein">' +
-        '<div class="rt-label">' + label + '</div>' +
-        '<div class="rt-value">' + (reached ? '已達標 ✓' : (left + '<small> ' + unit + '</small>')) + '</div>' +
-        '<div class="rt-sub">' + (reached ? '今天辛苦了，蛋白質吃夠了！' : '還需要攝取') + '</div>' +
-        '</div>';
+      var pct = goal > 0 ? (amt / goal) * 100 : 0;
+      return '<div class="progress-tile' + (reached?' done':'') + '">' +
+        progressRing('protein', reached ? 100 : pct, false) +
+        '<div class="pt-body">' +
+          '<div class="pt-label">' + label + '</div>' +
+          '<div class="pt-value">' + (reached ? '已達標 ✓' : (left + '<small> ' + unit + ' 還需要</small>')) + '</div>' +
+          '<div class="pt-sub">' + (reached ? '今天辛苦了，吃夠囉！' : (round1(amt) + ' / ' + goal + unit)) + '</div>' +
+        '</div></div>';
     }
-    function limitTile(cls, label, left, unit){
+    function limitTile(cls, label, amt, left, goal, unit){
       var over = left < 0;
-      return '<div class="remain-tile ' + cls + (over?' over':'') + '">' +
-        '<div class="rt-label">' + label + '</div>' +
-        '<div class="rt-value">' + (over ? ('超標 ' + Math.abs(left)) : left) + '<small> ' + unit + '</small></div>' +
-        '<div class="rt-sub">' + (over ? '已超過今日上限' : '還可以攝取') + '</div>' +
-        '</div>';
+      var pct = goal > 0 ? (amt / goal) * 100 : 0;
+      return '<div class="progress-tile' + (over?' over':'') + '">' +
+        progressRing(cls, over ? 100 : pct, over) +
+        '<div class="pt-body">' +
+          '<div class="pt-label">' + label + '</div>' +
+          '<div class="pt-value">' + (over ? ('超標 ' + Math.abs(left)) : left) + '<small> ' + unit + '</small></div>' +
+          '<div class="pt-sub">' + (over ? '已超過今日上限' : ('還可以吃 · ' + round1(amt) + '/' + goal + unit)) + '</div>' +
+        '</div></div>';
     }
 
     el.innerHTML =
-      targetTile('蛋白質', proteinLeft, 'g') +
-      limitTile('fat', '脂肪', fatLeft, 'g') +
-      limitTile('sugar', '糖', sugarLeft, 'g') +
-      limitTile('cal', '熱量', calLeft, 'kcal');
+      targetTile('蛋白質', totals.protein, proteinLeft, goals.protein, 'g') +
+      limitTile('fat', '脂肪', totals.fat, fatLeft, goals.fat, 'g') +
+      limitTile('sugar', '糖', totals.sugar, sugarLeft, sugarGoal, 'g') +
+      limitTile('cal', '熱量', totals.cal, calLeft, goals.cal, 'kcal');
   }
 
   function renderProfileTabs(){
@@ -919,25 +939,6 @@
         escapeHtml(prof.name) + '<em>' + escapeHtml(prof.desc) + '</em></button>';
     }).join('');
     document.getElementById('profileDesc').textContent = PROFILES[p].desc;
-  }
-
-  function renderChartBars(totals, goals){
-    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
-    var items = [
-      { cls:'protein', label:'蛋白質', amt: round1(totals.protein), goal: goals.protein, unit:'g' },
-      { cls:'fat', label:'脂肪', amt: round1(totals.fat), goal: goals.fat, unit:'g' },
-      { cls:'sugar', label:'糖', amt: round1(totals.sugar), goal: sugarGoal, unit:'g' },
-      { cls:'cal', label:'熱量', amt: Math.round(totals.cal), goal: goals.cal, unit:'kcal' }
-    ];
-    var el = document.getElementById('chartBars');
-    el.innerHTML = items.map(function(it){
-      var pct = it.goal > 0 ? Math.min(100, Math.round((it.amt/it.goal)*100)) : 0;
-      return '<div class="cbar-row">' +
-        '<div class="cbar-label">' + it.label + '</div>' +
-        '<div class="cbar-track"><div class="cbar-fill ' + it.cls + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="cbar-val">' + it.amt + '/' + it.goal + it.unit + ' <small>' + pct + '%</small></div>' +
-        '</div>';
-    }).join('');
   }
 
   // 依卡路里貢獻判斷這筆紀錄「主要吃了什麼」，回傳對應的圓點顏色 class，
@@ -1029,39 +1030,77 @@
   }
 
   var WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
+  var WEEK_SERIES = [
+    { key:'protein', label:'蛋白質', colorVar:'--protein' },
+    { key:'fat', label:'脂肪', colorVar:'--fat' },
+    { key:'sugar', label:'糖', colorVar:'--carb' },
+    { key:'cal', label:'熱量', colorVar:'--cal' }
+  ];
 
-  // 畫一條簡單的 SVG 折線圖：x 軸是日期（顯示星期），y 軸依數值自動縮放，
-  // 虛線代表目前的每日目標，方便一眼比較「這幾天有沒有常常超標／達標」。
-  function buildLineChart(label, colorVar, unit, values, dates, goal){
-    var w = 300, h = 118, padL = 8, padR = 8, padT = 16, padB = 20;
-    var maxVal = Math.max.apply(null, values.concat([goal||0, 1]));
-    var scaleMax = maxVal * 1.2;
+  // 四項營養素單位不同（g／kcal），沒辦法直接疊在同一張圖上比大小，
+  // 所以統一換算成「占當天目標的百分比」，就能用同一個 y 軸把 4 條線畫在同一張圖裡，
+  // 100% 虛線代表當日目標，一眼就能看出哪幾天常態超標／吃不夠。
+  function buildCombinedWeekChart(data, dates, goals){
+    var w = 320, h = 168, padL = 26, padR = 10, padT = 14, padB = 22;
     var innerW = w - padL - padR, innerH = h - padT - padB;
-    function x(i){ return padL + (values.length > 1 ? (i * innerW / (values.length - 1)) : innerW/2); }
-    function y(v){ return padT + innerH - (v / scaleMax) * innerH; }
 
-    var points = values.map(function(v,i){ return x(i) + ',' + y(v); }).join(' ');
-    var dots = values.map(function(v,i){
-      return '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="3" fill="var(' + colorVar + ')" />';
+    var goalMap = {
+      protein: goals.protein, fat: goals.fat,
+      sugar: goals.sugar !== undefined ? goals.sugar : (goals.carb||0),
+      cal: goals.cal
+    };
+
+    var series = WEEK_SERIES.map(function(s){
+      var pct = data.map(function(d){
+        var g = goalMap[s.key];
+        return g > 0 ? (d[s.key] / g) * 100 : 0;
+      });
+      return { key:s.key, label:s.label, colorVar:s.colorVar, pct:pct, todayPct: Math.round(pct[pct.length-1]) };
+    });
+
+    var maxPct = 100;
+    series.forEach(function(s){ s.pct.forEach(function(v){ if (v > maxPct) maxPct = v; }); });
+    var scaleMax = Math.ceil((maxPct * 1.15) / 25) * 25;
+    if (scaleMax < 100) scaleMax = 100;
+
+    function x(i){ return padL + (data.length > 1 ? (i * innerW / (data.length - 1)) : innerW/2); }
+    function y(v){ return padT + innerH - (Math.min(v, scaleMax) / scaleMax) * innerH; }
+
+    // 背景格線（0 / 50 / 100 / ...），標出百分比刻度
+    var gridSteps = [0, 50, 100];
+    if (scaleMax > 100) gridSteps.push(scaleMax);
+    var grid = gridSteps.map(function(v){
+      return '<line x1="' + padL + '" y1="' + y(v) + '" x2="' + (w-padR) + '" y2="' + y(v) + '" stroke="var(--line)" stroke-width="1" />' +
+        '<text x="2" y="' + (y(v) + 3) + '" font-size="8.5" fill="var(--ink-soft)" font-family="var(--font-num)">' + v + '</text>';
     }).join('');
-    var valueTags = values.map(function(v,i){
-      return '<text x="' + x(i) + '" y="' + Math.max(10, y(v) - 7) + '" font-size="9" text-anchor="middle" fill="var(--ink)" font-family="var(--font-num)">' + v + '</text>';
+
+    // 100% 目標線加粗＋虛線，跟格線區分開來
+    var goalLine = '<line x1="' + padL + '" y1="' + y(100) + '" x2="' + (w-padR) + '" y2="' + y(100) + '" stroke="var(--ink-soft)" stroke-width="1.3" stroke-dasharray="4,3" />' +
+      '<text x="' + (w-padR) + '" y="' + (y(100) - 4) + '" font-size="8.5" text-anchor="end" fill="var(--ink-soft)">目標 100%</text>';
+
+    var lines = series.map(function(s){
+      var points = s.pct.map(function(v,i){ return x(i) + ',' + y(v); }).join(' ');
+      var dots = s.pct.map(function(v,i){
+        return '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="2.6" fill="var(' + s.colorVar + ')" />';
+      }).join('');
+      return '<polyline points="' + points + '" fill="none" stroke="var(' + s.colorVar + ')" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.92" />' + dots;
     }).join('');
+
     var dayLabels = dates.map(function(dt,i){
       var wd = WEEKDAY_LABELS[new Date(dt + 'T00:00:00').getDay()];
-      return '<text x="' + x(i) + '" y="' + (h - 4) + '" font-size="9.5" text-anchor="middle" fill="var(--ink-soft)">' + wd + '</text>';
+      var isToday = i === dates.length - 1;
+      return '<text x="' + x(i) + '" y="' + (h - 4) + '" font-size="9.5" text-anchor="middle" fill="' + (isToday ? 'var(--ink)' : 'var(--ink-soft)') + '" font-weight="' + (isToday?'700':'400') + '">' + wd + '</text>';
     }).join('');
-    var goalLine = (goal && goal > 0) ?
-      '<line x1="' + padL + '" y1="' + y(goal) + '" x2="' + (w-padR) + '" y2="' + y(goal) + '" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" />' +
-      '<text x="' + (w-padR) + '" y="' + (y(goal) - 3) + '" font-size="8.5" text-anchor="end" fill="var(--ink-soft)">目標 ' + goal + '</text>'
-      : '';
 
-    return '<div class="week-chart-item"><div class="week-chart-title">' + label + ' <small>(' + unit + ')</small></div>' +
-      '<svg viewBox="0 0 ' + w + ' ' + h + '" class="week-chart-svg" preserveAspectRatio="xMidYMid meet">' +
-        goalLine +
-        '<polyline points="' + points + '" fill="none" stroke="var(' + colorVar + ')" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />' +
-        dots + valueTags + dayLabels +
-      '</svg></div>';
+    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" class="week-chart-svg" preserveAspectRatio="xMidYMid meet">' +
+      grid + goalLine + lines + dayLabels + '</svg>';
+
+    var legend = '<div class="week-legend">' + series.map(function(s){
+      return '<span class="week-legend-item"><i class="dot" style="background:var(' + s.colorVar + ')"></i>' +
+        s.label + ' <b>' + s.todayPct + '%</b></span>';
+    }).join('') + '</div>';
+
+    return svg + legend;
   }
 
   function renderWeekSection(){
@@ -1070,12 +1109,7 @@
     var data = weekTotals();
     var dates = data.map(function(d){ return d.date; });
     var goals = currentGoals();
-    var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb||0);
-    el.innerHTML =
-      buildLineChart('蛋白質', '--protein', 'g', data.map(function(d){ return d.protein; }), dates, goals.protein) +
-      buildLineChart('脂肪', '--fat', 'g', data.map(function(d){ return d.fat; }), dates, goals.fat) +
-      buildLineChart('糖', '--carb', 'g', data.map(function(d){ return d.sugar; }), dates, sugarGoal) +
-      buildLineChart('熱量', '--cal', 'kcal', data.map(function(d){ return d.cal; }), dates, goals.cal);
+    el.innerHTML = buildCombinedWeekChart(data, dates, goals);
   }
 
   // 食材的蛋白/脂肪/糖/熱量欄位在不同版本資料裡可能叫不同名字，統一取值。
