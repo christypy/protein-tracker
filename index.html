@@ -126,22 +126,46 @@
   .log-edit-box{margin-top:10px;padding:12px;border:1px dashed var(--protein);border-radius:var(--radius-sm);background:var(--protein-tint);}
   .log-edit-box .btn-row{margin-top:10px;}
 
-  /* ---- 近7天趨勢 ---- */
-  .hero-trend-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;}
-  .hero-trend-title{font-family:var(--font-display);font-size:16px;font-weight:700;}
-  .hero-trend-sub{font-size:10.5px;color:var(--ink-soft);}
-  .week-chart-hint{font-size:11px;color:var(--ink-soft);margin:0 0 12px;}
-
-  /* 7天小圓點 trend-dots */
-  .week-dots-wrap{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
-  .week-dot-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);}
-  .week-dot-date{font-family:var(--font-num);font-size:13px;font-weight:500;min-width:80px;}
-  .week-dot-indicators{display:flex;gap:12px;align-items:center;}
-  .dot-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-soft);}
-  .dot-symbol{width:10px;height:10px;border-radius:50%;display:inline-block;}
-  .dot-symbol.green{background:var(--protein);}
-  .dot-symbol.red{background:var(--danger);}
-  .dot-symbol.gray{background:var(--line);}
+  /* ---- 近 7 天 4*7 趨勢點陣圖 ---- */
+  .week-dots-inline {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .week-dots-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .week-dots-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    background: var(--paper);
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+  }
+  .week-day-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+  .dot-symbol {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-symbol.green { background: var(--protein); }
+  .dot-symbol.red { background: var(--danger); }
+  .dot-symbol.gray { background: var(--line); }
 
   /* ---- Section ---- */
   .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;}
@@ -328,7 +352,7 @@
   .select-bar{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     background:var(--protein-tint);border:1px solid var(--protein);border-radius:var(--radius-sm);
-    padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--protein-dark);font-weight:700;
+    padding:99px 12px;padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--protein-dark);font-weight:700;
   }
   .select-bar .select-actions{display:flex;gap:8px;}
   .select-bar .btn-mini{
@@ -384,6 +408,15 @@
       <div class="label">今日目標 · <b id="profileDesc"></b></div>
       <div class="progress-grid" id="remainGrid"></div>
     </div>
+
+    <!-- 近7天4*7點陣圖（直接整合於今日目標底下） -->
+    <div class="week-dots-inline">
+      <div class="week-dots-header">
+        <span>近 7 天攝取趨勢 (4×7)</span>
+      </div>
+      <div class="week-dots-grid" id="weekDotsGrid"></div>
+    </div>
+
     <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
     <div id="goalsBox" style="display:none;margin-top:12px;">
       <div class="row">
@@ -496,23 +529,6 @@
         <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
       </div>
     </div>
-  </div>
-
-  <!-- 4. 七天趨勢 -->
-  <div class="card-block" id="blockTrend">
-    <div class="hero-trend-head">
-      <span class="hero-trend-title">近 7 天攝取趨勢</span>
-      <span class="hero-trend-sub">每日狀態（小圓點）& 7天總量 vs 7天目標</span>
-    </div>
-    <p class="week-chart-hint" style="margin-top:6px;">
-      <b>每日達標狀態：</b>蛋白質達標標示綠點 <span class="dot-symbol green"></span>，其他（脂肪/糖/熱量）超標標示紅點 <span class="dot-symbol red"></span>。
-    </p>
-    <div class="week-dots-wrap" id="weekDotsWrap"></div>
-
-    <p class="week-chart-hint">
-      <b>7 天累積對比：</b>把近 7 天（含今天）的攝取量加總，對比 7 天累積目標（每日目標 × 7）。
-    </p>
-    <div class="progress-grid" id="weekGrid"></div>
   </div>
 
   <!-- 食材庫 -->
@@ -860,6 +876,7 @@
 
     renderProfileTabs();
     renderProgressGrid(totals, goals);
+    renderWeekDotsGrid();
   }
 
   var MACRO_ICON = { protein:'🥩', fat:'🧈', sugar:'🍬', cal:'🔥' };
@@ -992,7 +1009,7 @@
     }).join('');
   }
 
-  // ---- 近7天趨勢圖 ----
+  // ---- 近7天數據 ----
   function last7Dates(){
     var arr = [];
     var base = new Date(state.currentDate + 'T00:00:00');
@@ -1019,9 +1036,9 @@
     });
   }
 
-  // 1. 7天小圓點趨勢：蛋白質達標綠色，其他超標紅色
-  function renderWeekDots(){
-    var el = document.getElementById('weekDotsWrap');
+  // 4*7 趨勢點陣圖：直接橫向排開 7 天，每天包含 4 個點（蛋白質、脂肪、糖、熱量）
+  function renderWeekDotsGrid(){
+    var el = document.getElementById('weekDotsGrid');
     if (!el) return;
     var data = weekTotals();
     var goals = currentGoals();
@@ -1033,59 +1050,13 @@
       var sOver = d.sugar > sugarGoal;
       var cOver = d.cal > goals.cal;
 
-      var pDot = pMet ? '<span class="dot-item"><span class="dot-symbol green"></span>蛋達標</span>'
-                      : '<span class="dot-item"><span class="dot-symbol gray"></span>蛋未達</span>';
-      
-      var fDot = fOver ? '<span class="dot-item"><span class="dot-symbol red"></span>脂超標</span>'
-                       : '<span class="dot-item"><span class="dot-symbol gray"></span>脂正常</span>';
+      var pDot = pMet ? '<span class="dot-symbol green" title="蛋白質達標"></span>' : '<span class="dot-symbol gray" title="蛋白質未達標"></span>';
+      var fDot = fOver ? '<span class="dot-symbol red" title="脂肪超標"></span>' : '<span class="dot-symbol gray" title="脂肪正常"></span>';
+      var sDot = sOver ? '<span class="dot-symbol red" title="糖超標"></span>' : '<span class="dot-symbol gray" title="糖正常"></span>';
+      var cDot = cOver ? '<span class="dot-symbol red" title="熱量超標"></span>' : '<span class="dot-symbol gray" title="熱量正常"></span>';
 
-      var sDot = sOver ? '<span class="dot-item"><span class="dot-symbol red"></span>糖超標</span>'
-                       : '<span class="dot-item"><span class="dot-symbol gray"></span>糖正常</span>';
-
-      var cDot = cOver ? '<span class="dot-item"><span class="dot-symbol red"></span>熱超標</span>'
-                       : '<span class="dot-item"><span class="dot-symbol gray"></span>熱正常</span>';
-
-      return '<div class="week-dot-row">' +
-        '<span class="week-dot-date">' + d.date + '</span>' +
-        '<div class="week-dot-indicators">' + pDot + fDot + sDot + cDot + '</div>' +
-        '</div>';
+      return '<div class="week-day-col">' + pDot + fDot + sDot + cDot + '</div>';
     }).join('');
-  }
-
-  function weekAggregateTotals(){
-    var data = weekTotals();
-    return data.reduce(function(acc, d){
-      acc.protein += d.protein;
-      acc.fat += d.fat;
-      acc.sugar += d.sugar;
-      acc.cal += d.cal;
-      return acc;
-    }, { protein: 0, fat: 0, sugar: 0, cal: 0, days: data.length });
-  }
-
-  function weekAggregateGoals(){
-    var g = currentGoals();
-    var days = last7Dates().length;
-    var sugarGoal = g.sugar !== undefined ? g.sugar : (g.carb || 0);
-    return {
-      protein: round1(g.protein * days),
-      fat: round1(g.fat * days),
-      sugar: round1(sugarGoal * days),
-      cal: Math.round(g.cal * days)
-    };
-  }
-
-  function renderWeekGrid(){
-    var el = document.getElementById('weekGrid');
-    if (!el) return;
-    var totals = weekAggregateTotals();
-    var goals = weekAggregateGoals();
-    el.innerHTML = buildProgressGridHtml(totals, goals);
-  }
-
-  function renderWeekSection(){
-    renderWeekDots();
-    renderWeekGrid();
   }
 
   function foodRawNutrient(f, key){
@@ -1342,7 +1313,6 @@
     renderLogList();
     renderFoodTable();
     renderPickerList();
-    renderWeekSection();
   }
 
   // ---------- mutations ----------
@@ -1580,14 +1550,12 @@
       if (!isNaN(nk) && nk >= 0) goals.cal = nk;
       await saveLocalSettings();
       renderHero();
-      renderWeekSection();
     });
     document.getElementById('gResetBtn').addEventListener('click', async function(){
       var p = activeProfile();
       state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
       await saveLocalSettings();
       renderHero();
-      renderWeekSection();
     });
   }
 
