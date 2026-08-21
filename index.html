@@ -902,6 +902,44 @@
     return Math.round((Number(protein)||0)*4 + (Number(fat)||0)*9 + (Number(sugar)||0)*4);
   }
 
+  // 從「食材表單」的原始輸入值組出要送進 state.foods / 試算表的食材物件。
+  // 刻意抽成一個不碰 DOM 的純函式，這樣既能被 fSaveBtn 的 click handler呼叫，
+  // 也能被單元測試直接呼叫，避免欄位名稱（例如 protein100 打成 protein）
+  // 這種 bug 又在未來悄悄回歸。
+  // 欄位名稱必須跟 FOODS_HEADERS（Code.gs）以及 computeMacros/foodRawNutrient
+  // 讀取時用的 key 一致：protein100 / fat100 / sugar100 / cal100。
+  function buildFoodPayload(input, existingId, category){
+    var name = (input.name || '').trim();
+    var base = Number(input.base);
+    var servings = Number(input.servings);
+    var protein = Number(input.protein);
+    var fat = Number(input.fat) || 0;
+    var sugar = Number(input.sugar) || 0;
+
+    if (!name) return { error: '請輸入食材名稱' };
+    if (!base || base <= 0) return { error: '基礎一份克數必須大於 0' };
+    if (!servings || servings <= 0) servings = 1;
+    if (isNaN(protein) || protein < 0) return { error: '請輸入有效的蛋白質克數' };
+
+    var cal = (input.cal !== '' && input.cal !== undefined && input.cal !== null)
+      ? Number(input.cal)
+      : estimateCalories(protein, fat, sugar);
+
+    return {
+      food: {
+        id: existingId || uid('f'),
+        name: name,
+        base: base,
+        servings: servings,
+        protein100: round1(protein),
+        fat100: round1(fat),
+        sugar100: round1(sugar),
+        cal100: Math.round(cal),
+        category: category || ''
+      }
+    };
+  }
+
   function logsForCurrentDate(){
     var p = activeProfile();
     var list = state.logs.filter(function(l){ return l.date === state.currentDate && (l.person || 'A') === p; });
@@ -2014,32 +2052,18 @@
     document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
 
     document.getElementById('fSaveBtn').addEventListener('click', async function(){
-      var name = document.getElementById('fName').value.trim();
-      var base = Number(document.getElementById('fBase').value);
-      var servings = Number(document.getElementById('fServings').value);
-      var protein = Number(document.getElementById('fProtein').value);
-      var fat = Number(document.getElementById('fFat').value)||0;
-      var sugar = Number(document.getElementById('fSugar').value)||0;
-      var calInput = document.getElementById('fCal').value;
+      var result = buildFoodPayload({
+        name: document.getElementById('fName').value,
+        base: document.getElementById('fBase').value,
+        servings: document.getElementById('fServings').value,
+        protein: document.getElementById('fProtein').value,
+        fat: document.getElementById('fFat').value,
+        sugar: document.getElementById('fSugar').value,
+        cal: document.getElementById('fCal').value
+      }, state.editingFoodId, state.fCategorySelected);
 
-      if (!name){ alert('請輸入食材名稱'); return; }
-      if (!base || base <= 0){ alert('基礎一份克數必須大於 0'); return; }
-      if (!servings || servings <= 0) servings = 1;
-      if (isNaN(protein) || protein < 0){ alert('請輸入有效的蛋白質克數'); return; }
-
-      var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
-
-      var foodObj = {
-        id: state.editingFoodId || uid('f'),
-        name: name,
-        base: base,
-        servings: servings,
-        protein: round1(protein),
-        fat: round1(fat),
-        sugar: round1(sugar),
-        cal: Math.round(cal),
-        category: state.fCategorySelected || ''
-      };
+      if (result.error){ alert(result.error); return; }
+      var foodObj = result.food;
 
       if (state.editingFoodId){
         await updateFood(foodObj);
@@ -2103,6 +2127,26 @@
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
+  }
+
+  // 測試用掛鉤：只有在外部明確設定 window.__EXPOSE_TEST_HOOKS__ = true 時才會
+  // 把內部的純邏輯函式暴露出來，方便單元測試直接呼叫、驗證計算/同步邏輯是否正確。
+  // 一般使用者在瀏覽器打開這個頁面時不會設定這個旗標，行為完全不受影響。
+  if (typeof window !== 'undefined' && window.__EXPOSE_TEST_HOOKS__) {
+    window.__test__ = {
+      round1: round1,
+      estimateCalories: estimateCalories,
+      buildFoodPayload: buildFoodPayload,
+      computeMacros: computeMacros,
+      foodRawNutrient: foodRawNutrient,
+      foodBaseGrams: foodBaseGrams,
+      foodTotalServings: foodTotalServings,
+      per100Value: per100Value,
+      mergeById: mergeById,
+      fmtDate: fmtDate,
+      uid: uid,
+      state: state
+    };
   }
 })();
 </script>
