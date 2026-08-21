@@ -20,14 +20,14 @@
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'protein100', 'fat100', 'sugar100', 'cal100'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'protein100', 'fat100', 'sugar100', 'cal100'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order'];
 // 【v9 新增】Logs 新增了 order 欄位，用來記錄「今日紀錄」使用者手動拖移排序後的順序
 // （單純一個數字，同一天、同一身份的紀錄依這個數字由小到大顯示）。舊試算表沒有這欄時
 // ensureHeaders() 會自動補上；讀取舊資料時 order 欄位若是空的，前端會用時間排序當作預設值。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v10-servings';
+var APP_BACKEND_VERSION = 'v11-multi-category';
 // 【v7 新增】Foods / Logs 都新增了 unit 欄位（例如 g、顆、盒、碗）。
 // 舊試算表沒有這欄時，ensureHeaders() 會自動補上，不需要手動搬移；
 // 讀取舊資料時 unit 欄位若是空的，一律視為 'g'。
@@ -35,9 +35,10 @@ var APP_BACKEND_VERSION = 'v10-servings';
 // 的資料模型：Foods 新增了 servings 欄位（這個食材整包/整份含幾份），跟 base（一份幾克）
 // 搭配起來就能算出「整包總重量、總營養」= base × servings。舊試算表沒有這欄時 ensureHeaders()
 // 會自動補上；讀取舊資料時 servings 欄位若是空的或不是有效數字，一律視為 1 份，行為與升級前一致。
-// 【v8 新增】Foods 新增了 category 欄位（食材類別，例如肉類、蔬菜、乳製品…），
-// 用來讓「新增這一餐」時可以用類別快速篩選食材。舊試算表沒有這欄時 ensureHeaders()
-// 會自動補上；讀取舊資料時 category 欄位若是空的，一律視為「未分類」。
+// 【v8 新增】Foods 新增了 category 欄位；【v11】改為 categories 多選。
+// 舊試算表仍保留 category 作為相容欄位，新增 categories 欄位後可讓同一食材同時屬於多個類別。
+// categories 在試算表中以「、」分隔，例如「肉類、低脂、高蛋白」；讀取舊資料時會把 category
+// 自動轉成單一元素的 categories 陣列。
 
 function doGet(e) {
   var action = e.parameter.action;
@@ -215,6 +216,33 @@ function getData() {
   return { foods: readFoods(), logs: readLogs() };
 }
 
+function parseFoodCategories(value, legacyCategory) {
+  if (Array.isArray(value)) {
+    return value.map(function(v) { return String(v).trim(); }).filter(Boolean);
+  }
+  var s = value === null || value === undefined ? '' : String(value).trim();
+  if (!s) s = legacyCategory === null || legacyCategory === undefined ? '' : String(legacyCategory).trim();
+  if (!s) return [];
+  // 兼容 JSON 陣列、中文頓號、逗號等既有資料格式。
+  try {
+    var parsed = JSON.parse(s);
+    if (Array.isArray(parsed)) {
+      return parsed.map(function(v) { return String(v).trim(); }).filter(Boolean);
+    }
+  } catch (err) {}
+  return s.split(/[、,，]/).map(function(v) { return v.trim(); }).filter(Boolean);
+}
+
+function serializeFoodCategories(categories) {
+  var list = parseFoodCategories(categories, '');
+  var seen = {};
+  return list.filter(function(c) {
+    if (seen[c]) return false;
+    seen[c] = true;
+    return true;
+  }).join('、');
+}
+
 function readFoods() {
   var sheet = getFoodsSheet();
   var map = headerIndexMap(sheet);
@@ -230,6 +258,7 @@ function readFoods() {
       unit: (map.hasOwnProperty('unit') && r[map['unit']]) ? String(r[map['unit']]) : 'g',
       servings: (map.hasOwnProperty('servings') && Number(r[map['servings']]) > 0) ? Number(r[map['servings']]) : 1,
       category: (map.hasOwnProperty('category') && r[map['category']]) ? String(r[map['category']]) : '',
+      categories: parseFoodCategories(map.hasOwnProperty('categories') ? r[map['categories']] : '', map.hasOwnProperty('category') ? r[map['category']] : ''),
       protein100: Number(r[map['protein100']]) || 0,
       fat100: Number(r[map['fat100']]) || 0,
       sugar100: Number(r[map['sugar100']]) || 0,
@@ -302,7 +331,8 @@ function addFood(payload) {
     base: Number(payload.base) || 100,
     unit: payload.unit ? String(payload.unit) : 'g',
     servings: Number(payload.servings) > 0 ? Number(payload.servings) : 1,
-    category: payload.category ? String(payload.category) : '',
+    category: serializeFoodCategories((payload.categories && parseFoodCategories(payload.categories, '')).length ? payload.categories : payload.category).split('、')[0] || '',
+    categories: serializeFoodCategories((payload.categories && parseFoodCategories(payload.categories, '')).length ? payload.categories : payload.category),
     protein100: Number(payload.protein100) || 0,
     fat100: Number(payload.fat100) || 0,
     sugar100: Number(sugarVal) || 0,
@@ -335,12 +365,19 @@ function updateFood(payload) {
         map['servings'] = newServingsCol - 1;
       }
       sheet.getRange(rowNum, map['servings'] + 1).setValue(Number(payload.servings) > 0 ? Number(payload.servings) : 1);
+      var categoryText = serializeFoodCategories((payload.categories && parseFoodCategories(payload.categories, '')).length ? payload.categories : payload.category);
       if (!map.hasOwnProperty('category')) {
         var newCatCol = sheet.getLastColumn() + 1;
         sheet.getRange(1, newCatCol).setValue('category');
         map['category'] = newCatCol - 1;
       }
-      sheet.getRange(rowNum, map['category'] + 1).setValue(payload.category ? String(payload.category) : '');
+      sheet.getRange(rowNum, map['category'] + 1).setValue(categoryText ? categoryText.split('、')[0] : '');
+      if (!map.hasOwnProperty('categories')) {
+        var newCategoriesCol = sheet.getLastColumn() + 1;
+        sheet.getRange(1, newCategoriesCol).setValue('categories');
+        map['categories'] = newCategoriesCol - 1;
+      }
+      sheet.getRange(rowNum, map['categories'] + 1).setValue(categoryText);
       sheet.getRange(rowNum, map['protein100'] + 1).setValue(Number(payload.protein100) || 0);
       sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
       sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);
