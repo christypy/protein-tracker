@@ -287,10 +287,22 @@
 
     .goal-compact-item .gc-value {
       font-family: var(--font-num);
-      font-size: 12.5px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .goal-compact-item .gc-value .gc-line {
+      font-size: 11.5px;
       font-weight: 700;
       color: var(--ink);
       white-space: nowrap;
+    }
+
+    .goal-compact-item .gc-value .gc-line.gc-sub {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ink-soft);
     }
 
     .goal-compact-item .gc-value small {
@@ -314,12 +326,12 @@
     }
 
     .goal-compact-item.done .gc-label,
-    .goal-compact-item.done .gc-value {
+    .goal-compact-item.done .gc-value .gc-line {
       color: var(--protein-dark);
     }
 
     .goal-compact-item.over .gc-label,
-    .goal-compact-item.over .gc-value {
+    .goal-compact-item.over .gc-value .gc-line {
       color: var(--danger);
     }
 
@@ -1809,7 +1821,8 @@
       </div>
     </div>
 
-    <!-- 食材庫 -->
+    <!-- 食材庫：管理（新增食材）跟列表拆成兩張卡片，新增／編輯都固定貼在畫面下方
+         操作，不用在頁面裡展開再往下捲動填寫。 -->
     <div class="section collapsed" id="secFoods">
       <div class="section-head" data-toggle="secFoods">
         <h2>食材庫管理</h2>
@@ -1819,69 +1832,55 @@
         <p class="hint">
           單位一律以公克（g）計算。輸入這個食材「一份」的克數，以及這一份對應的蛋白質／脂肪／糖（Sugar）／熱量；再填「總份數」（整包／整份含幾份），系統會自動算出整包的總重量與總營養，之後也能依實際攝取的克數自動換算。
         </p>
-        <div class="row">
-          <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉 / 水煮蛋 / 嫩豆腐"></div>
+        <div class="btn-row" style="justify-content:flex-start;">
+          <button type="button" class="btn btn-primary" id="foodAddOpenBtn">＋ 新增食材</button>
         </div>
-        <div class="base-unit-row" style="margin-top:8px;">
-          <div class="field field-base"><label>基礎一份克數 (g)</label><input type="number" id="fBase" value="100" min="0.01"
-              step="any" placeholder="例如 100"></div>
-          <div class="field field-unit"><label>總份數（整包含幾份）</label><input type="number" id="fServings" value="1"
-              min="0.01" step="any" placeholder="例如 4"></div>
-        </div>
-        <p class="hint" id="fPackagePreview" style="margin:6px 0 0;"></p>
+      </div>
 
-        <div class="field" style="margin-top:8px;">
-          <label>類別（可複選）</label>
-          <div class="chip-scroll" id="fCategoryChips"></div>
-          <div class="chip-new-row" id="fCategoryNewRow" style="display:none;">
-            <input type="text" id="fCategoryNewInput" placeholder="輸入新類別名稱，例如：肉類">
-            <button type="button" class="btn btn-ghost" id="fCategoryNewConfirm">加入</button>
+      <!-- 新增食材：固定貼在畫面下方，跟編輯食材共用同一套操作方式，
+           不用在頁面內展開往下捲動填寫。 -->
+      <div class="food-detail" id="foodAddBox" style="display:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">新增食材</span>
+          <button type="button" class="sheet-toggle" id="faCloseBtn">✕ 關閉</button>
+        </div>
+        <div class="sheet-body">
+          <div class="row">
+            <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉 / 水煮蛋 / 嫩豆腐"></div>
           </div>
-          <input type="hidden" id="fCategory" value="">
-        </div>
+          <div class="base-unit-row" style="margin-top:8px;">
+            <div class="field field-base"><label>基礎一份克數 (g)</label><input type="number" id="fBase" value="100" min="0.01"
+                step="any" placeholder="例如 100"></div>
+            <div class="field field-unit"><label>總份數（整包含幾份）</label><input type="number" id="fServings" value="1"
+                min="0.01" step="any" placeholder="例如 4"></div>
+          </div>
+          <p class="hint" id="fPackagePreview" style="margin:6px 0 0;"></p>
 
-        <div class="row" style="margin-top:8px;">
-          <div class="field"><label>熱量 (kcal／每份)</label><input type="number" id="fCal" min="0" step="1"></div>
-          <div class="field"><label>蛋白質 (g／每份)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
-          <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="fFat" min="0" step="0.1"></div>
-          <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
+          <div class="field" style="margin-top:8px;">
+            <label>類別（可複選）</label>
+            <div class="chip-scroll" id="fCategoryChips"></div>
+            <div class="chip-new-row" id="fCategoryNewRow" style="display:none;">
+              <input type="text" id="fCategoryNewInput" placeholder="輸入新類別名稱，例如：肉類">
+              <button type="button" class="btn btn-ghost" id="fCategoryNewConfirm">加入</button>
+            </div>
+            <input type="hidden" id="fCategory" value="">
+          </div>
+
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>熱量 (kcal／每份)</label><input type="number" id="fCal" min="0" step="1"></div>
+            <div class="field"><label>蛋白質 (g／每份)</label><input type="number" id="fProtein" min="0" step="0.1"></div>
+            <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="fFat" min="0" step="0.1"></div>
+            <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
+          </div>
+          <div class="btn-row" style="justify-content:flex-start;">
+            <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/糖（Sugar）估算熱量</span>
+          </div>
         </div>
-        <div class="btn-row" style="justify-content:space-between;">
-          <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/糖（Sugar）估算熱量</span>
-          <span>
-            <button class="btn btn-ghost" id="fClearBtn" style="margin-right:8px;">清空表單</button>
+        <div class="sheet-footer">
+          <div class="btn-row" style="justify-content:space-between;">
+            <button class="btn btn-ghost" id="fClearBtn">清空表單</button>
             <button class="btn btn-primary" id="fSaveBtn">新增食材</button>
-          </span>
-        </div>
-
-        <p class="chip-field-label" style="margin-top:18px;">依類別篩選</p>
-        <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
-
-        <div class="list-toolbar" style="margin-top:14px;">
-          <button type="button" class="tool-btn" id="foodDeleteToggle">批次刪除</button>
-        </div>
-        <div class="select-bar" id="foodSelectBar" style="display:none;">
-          <span id="foodSelectCount">已選 0 項</span>
-          <span class="select-actions">
-            <button type="button" class="btn-mini cancel" id="foodSelectCancel">取消</button>
-            <button type="button" class="btn-mini confirm" id="foodSelectConfirm">刪除選取</button>
-          </span>
-        </div>
-
-        <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。單筆食材點兩下可以直接編輯、向左滑會出現「刪除」；要一次刪除多項，按上方「批次刪除」勾選後再確認。</p>
-        <div class="food-table-wrap" style="margin-top:10px;">
-          <div id="foodTable"></div>
-        </div>
-
-        <div class="btn-row" style="justify-content:flex-start;margin-top:14px;">
-          <button type="button" class="btn btn-ghost" id="per100ToggleBtn">查看每份100克營養密度</button>
-        </div>
-        <div id="per100Wrap" style="display:none;margin-top:10px;">
-          <p class="hint" style="margin:0 0 8px;">
-            下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
-            克，100 克就約等於 2.7 份）。</p>
-          <div class="food-table-wrap">
-            <div id="per100Table"></div>
           </div>
         </div>
       </div>
@@ -1930,6 +1929,47 @@
           <div class="btn-row">
             <button class="btn btn-ghost" id="feCancelBtn">取消</button>
             <button class="btn btn-primary" id="feSaveBtn">儲存修改</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 食材列表：從「食材庫管理」拆出來的獨立卡片，只負責篩選／瀏覽／刪除，
+         新增與編輯都在上面「食材庫管理」卡片的固定面板操作。 -->
+    <div class="section collapsed" id="secFoodList">
+      <div class="section-head" data-toggle="secFoodList">
+        <h2>食材列表</h2>
+        <span class="chev">▾</span>
+      </div>
+      <div class="section-body">
+        <p class="chip-field-label">依類別篩選</p>
+        <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
+
+        <div class="list-toolbar" style="margin-top:14px;">
+          <button type="button" class="tool-btn" id="foodDeleteToggle">批次刪除</button>
+        </div>
+        <div class="select-bar" id="foodSelectBar" style="display:none;">
+          <span id="foodSelectCount">已選 0 項</span>
+          <span class="select-actions">
+            <button type="button" class="btn-mini cancel" id="foodSelectCancel">取消</button>
+            <button type="button" class="btn-mini confirm" id="foodSelectConfirm">刪除選取</button>
+          </span>
+        </div>
+
+        <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。單筆食材點兩下可以直接編輯、向左滑會出現「刪除」；要一次刪除多項，按上方「批次刪除」勾選後再確認。</p>
+        <div class="food-table-wrap" style="margin-top:10px;">
+          <div id="foodTable"></div>
+        </div>
+
+        <div class="btn-row" style="justify-content:flex-start;margin-top:14px;">
+          <button type="button" class="btn btn-ghost" id="per100ToggleBtn">查看每份100克營養密度</button>
+        </div>
+        <div id="per100Wrap" style="display:none;margin-top:10px;">
+          <p class="hint" style="margin:0 0 8px;">
+            下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
+            克，100 克就約等於 2.7 份）。</p>
+          <div class="food-table-wrap">
+            <div id="per100Table"></div>
           </div>
         </div>
       </div>
@@ -2373,12 +2413,18 @@
           return '<div class="goal-compact-bar"><span style="width:' + clamped.toFixed(0) + '%;background:' + color + ';"></span></div>';
         }
 
+        // 每個指標一律同時顯示「攝取」與「剩餘」兩個數值，不用再切換或用推算的，
+        // 一眼就能看到目前吃了多少、還能吃（或還差）多少。
         function targetItem(label, amt, left, goal, unit) {
           var reached = left <= 0 && goal > 0;
           var pct = goal > 0 ? (amt / goal) * 100 : 0;
+          var remainLine = reached ? '已達標 ✓' : ('剩餘 ' + left + '<small>' + unit + '</small>');
           return '<div class="goal-compact-item' + (reached ? ' done' : '') + '">' +
             '<div class="gc-label">' + label + '</div>' +
-            '<div class="gc-value">' + (reached ? '已達標 ✓' : (left + '<small>' + unit + '</small>')) + '</div>' +
+            '<div class="gc-value">' +
+            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small></span>' +
+            '<span class="gc-line gc-sub">' + remainLine + '</span>' +
+            '</div>' +
             bar(reached ? 100 : pct, 'var(--protein)') +
             '</div>';
         }
@@ -2386,17 +2432,21 @@
           var over = left < 0;
           var pct = goal > 0 ? (amt / goal) * 100 : 0;
           var color = over ? 'var(--danger)' : ('var(' + '--' + (cls === 'sugar' ? 'carb' : cls) + ')');
+          var remainLine = over ? ('超標 ' + Math.abs(left) + '<small>' + unit + '</small>') : ('剩餘 ' + left + '<small>' + unit + '</small>');
           return '<div class="goal-compact-item' + (over ? ' over' : '') + '">' +
             '<div class="gc-label">' + label + '</div>' +
-            '<div class="gc-value">' + (over ? ('超標' + Math.abs(left)) : left) + '<small>' + unit + '</small></div>' +
+            '<div class="gc-value">' +
+            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small></span>' +
+            '<span class="gc-line gc-sub">' + remainLine + '</span>' +
+            '</div>' +
             bar(over ? 100 : pct, color) +
             '</div>';
         }
 
-        return targetItem('蛋白質', totals.protein, proteinLeft, goals.protein, 'g') +
-          limitItem('fat', '脂肪', totals.fat, fatLeft, goals.fat, 'g') +
-          limitItem('sugar', '糖', totals.sugar, sugarLeft, sugarGoal, 'g') +
-          limitItem('cal', '熱量', totals.cal, calLeft, goals.cal, 'kcal');
+        return targetItem('蛋白質', round1(totals.protein), proteinLeft, goals.protein, 'g') +
+          limitItem('fat', '脂肪', round1(totals.fat), fatLeft, goals.fat, 'g') +
+          limitItem('sugar', '糖', round1(totals.sugar), sugarLeft, sugarGoal, 'g') +
+          limitItem('cal', '熱量', Math.round(totals.cal), calLeft, goals.cal, 'kcal');
       }
 
       function renderProgressGrid(totals, goals) {
@@ -3210,6 +3260,18 @@
         updateFoodPackagePreview();
       }
 
+      // 新增食材：跟編輯食材一樣固定貼在畫面下方操作，不用在頁面裡展開再往下捲動填寫。
+      // 開啟新增面板前先關掉編輯面板，避免兩個固定面板同時疊在畫面下方。
+      function openFoodAddSheet() {
+        clearFoodEditForm();
+        clearFoodForm();
+        document.getElementById('foodAddBox').style.display = 'flex';
+      }
+
+      function closeFoodAddSheet() {
+        document.getElementById('foodAddBox').style.display = 'none';
+      }
+
       function updateFoodPackagePreview() {
         var el = document.getElementById('fPackagePreview');
         if (!el) return;
@@ -3809,6 +3871,7 @@
       // 把一項食材載入固定貼在畫面下方的編輯面板，不用捲動頁面、也不會跳回
       // 上方的新增表單；跟今日紀錄的 loadLogIntoForm 是同一套邏輯。
       function loadFoodIntoEditSheet(food) {
+        closeFoodAddSheet();
         state.editingFoodId = food.id;
         document.getElementById('feName').value = food.name || '';
         document.getElementById('feBase').value = foodBaseGrams(food);
@@ -4077,7 +4140,11 @@
 
         document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
 
-        // 這個表單現在只負責「新增食材」，編輯一律走下方固定的 foodEditBox 面板。
+        // 新增食材：跟編輯食材一樣固定貼在畫面下方，按「＋ 新增食材」才打開面板，
+        // 送出成功後收起面板；編輯一律走下方固定的 foodEditBox 面板。
+        document.getElementById('foodAddOpenBtn').addEventListener('click', openFoodAddSheet);
+        document.getElementById('faCloseBtn').addEventListener('click', closeFoodAddSheet);
+
         document.getElementById('fSaveBtn').addEventListener('click', async function () {
           var result = buildFoodPayload({
             name: document.getElementById('fName').value,
@@ -4092,6 +4159,7 @@
           if (result.error) { alert(result.error); return; }
           await addFood(result.food);
           clearFoodForm();
+          closeFoodAddSheet();
         });
 
         wireFoodEditForm();
