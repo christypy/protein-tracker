@@ -492,6 +492,14 @@
       font-size: 12px;
     }
 
+    .section-head .head-btn {
+      padding: 6px 14px;
+      font-size: 12.5px;
+      margin-left: auto;
+      margin-right: 10px;
+      flex: none;
+    }
+
     .section.collapsed .chev {
       transform: rotate(-90deg);
     }
@@ -1290,7 +1298,8 @@
       font-weight: 500;
     }
 
-    /* ---- 現在可以吃什麼 ---- */
+    /* ---- 現在可以吃什麼：精簡版面，減少每一項佔用的高度，
+       预設只顯示前幾項，避免整份清單太長要一直往下滑。 ---- */
     .snack-list {
       display: flex;
       flex-direction: column;
@@ -1300,7 +1309,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 0;
+      padding: 8px 0;
       border-bottom: 1px solid var(--line);
     }
 
@@ -1319,15 +1328,18 @@
     }
 
     .snack-main .name {
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 700;
     }
 
     .snack-main .sub {
-      font-size: 11px;
+      font-size: 10.5px;
       color: var(--ink-soft);
       margin-top: 2px;
       font-family: var(--font-num);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .snack-amount {
@@ -1335,36 +1347,43 @@
       flex: none;
     }
 
-    .snack-amount .grams {
+    .snack-amount .grams-line {
       font-family: var(--font-num);
-      font-size: 16px;
+      font-size: 13px;
       font-weight: 700;
       color: var(--protein-dark);
       white-space: nowrap;
     }
 
-    .snack-amount .grams.zero {
+    .snack-amount .grams-line .kcal {
+      font-family: var(--font-body);
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--ink-soft);
+      margin-left: 3px;
+    }
+
+    .snack-amount .grams-line.zero {
       font-family: var(--font-body);
       font-size: 12px;
       font-weight: 700;
       color: var(--danger);
     }
 
-    .snack-amount .kcal {
-      font-size: 10.5px;
-      color: var(--ink-soft);
-      margin-top: 1px;
-    }
-
     .snack-amount .limit {
       font-size: 10px;
       color: var(--ink-soft);
-      margin-top: 2px;
+      margin-top: 1px;
       white-space: nowrap;
     }
 
-    .snack-item.no-budget .grams {
+    .snack-item.no-budget .grams-line {
       color: var(--danger);
+    }
+
+    .snack-more-row {
+      margin-top: 10px;
+      text-align: center;
     }
 
     /* ---- Category chips ---- */
@@ -1826,15 +1845,13 @@
     <div class="section collapsed" id="secFoods">
       <div class="section-head" data-toggle="secFoods">
         <h2>食材庫管理</h2>
+        <button type="button" class="btn btn-primary head-btn" id="foodAddOpenBtn">＋ 新增食材</button>
         <span class="chev">▾</span>
       </div>
       <div class="section-body">
         <p class="hint">
           單位一律以公克（g）計算。輸入這個食材「一份」的克數，以及這一份對應的蛋白質／脂肪／糖（Sugar）／熱量；再填「總份數」（整包／整份含幾份），系統會自動算出整包的總重量與總營養，之後也能依實際攝取的克數自動換算。
         </p>
-        <div class="btn-row" style="justify-content:flex-start;">
-          <button type="button" class="btn btn-primary" id="foodAddOpenBtn">＋ 新增食材</button>
-        </div>
       </div>
 
       <!-- 新增食材：固定貼在畫面下方，跟編輯食材共用同一套操作方式，
@@ -2040,6 +2057,7 @@
         foodCategoryFilter: '',
         pickerCategoryFilter: '',
         expandedGroups: {},
+        snackShowAll: false,
 
         foodMode: '',
         foodDeleteSelected: [],
@@ -2551,7 +2569,12 @@
       }
 
       // 一整餐（同一個 groupId 的多筆紀錄）：顯示加總的 P/F/S/熱量，
-      // 點一下可以展開看這餐實際吃了哪些子項目。
+      // 預設直接展開顯示子項目，不用預設收起來再點一下才看得到；
+      // 使用者若手動收合過，狀態才會記在 state.expandedGroups 裡（值為 false）。
+      function isGroupExpanded(groupId) {
+        return state.expandedGroups[groupId] !== false;
+      }
+
       function renderMealGroup(groupId, items) {
         var totals = items.reduce(function (acc, l) {
           acc.protein += Number(l.protein) || 0;
@@ -2561,7 +2584,7 @@
           return acc;
         }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
         var dotCls = dominantMacroClass(totals.protein, totals.fat, totals.sugar);
-        var expanded = !!state.expandedGroups[groupId];
+        var expanded = isGroupExpanded(groupId);
         var itemNames = items.map(function (l) { return l.foodName || '未命名'; });
         var namesPreview = itemNames.length > 3
           ? itemNames.slice(0, 3).join('、') + ' 等 ' + itemNames.length + ' 項'
@@ -2850,21 +2873,37 @@
           return a.macros.cal - b.macros.cal;
         });
 
-        listEl.innerHTML = ranked.map(function (r, index) {
+        // 預設只顯示前 SNACK_PREVIEW_COUNT 項推薦，避免項目一多整張卡片要一直往下滑；
+        // 想看完整清單可以按「顯示全部」展開，收合狀態記在 state.snackShowAll。
+        var SNACK_PREVIEW_COUNT = 4;
+        var showAll = !!state.snackShowAll || ranked.length <= SNACK_PREVIEW_COUNT;
+        var visible = showAll ? ranked : ranked.slice(0, SNACK_PREVIEW_COUNT);
+
+        var itemsHtml = visible.map(function (r, index) {
           var f = r.food, m = r.macros, noBudget = r.grams <= 0;
-          var servingText = noBudget ? '0 份' : round1(r.suggestedServings) + ' 份 / 共 ' + round1(r.totalServings) + ' 份';
+          var servingText = noBudget ? '0 份' : round1(r.suggestedServings) + ' 份/共 ' + round1(r.totalServings) + ' 份';
           return '<div class="snack-item' + (noBudget ? ' no-budget' : '') + '">' +
             '<div class="snack-main">' +
             '<div class="name">' + (index === 0 ? '<span class="recommend-badge">優先推薦</span>' : '') + escapeHtml(f.name) + '</div>' +
-            '<div class="sub">蛋白質 ' + round1(m.protein) + 'g · 脂肪 ' + round1(m.fat) + 'g · 糖 ' + round1(m.sugar) + 'g · ' + Math.round(m.cal) + ' kcal</div>' +
+            '<div class="sub">P ' + round1(m.protein) + 'g · F ' + round1(m.fat) + 'g · 糖 ' + round1(m.sugar) + 'g</div>' +
             '</div>' +
             '<div class="snack-amount">' +
-            '<div class="grams">' + (noBudget ? '目前 0g' : '最多 ' + r.grams + 'g') + '</div>' +
-            '<div class="kcal">' + (noBudget ? '目前額度不足' : '約 ' + Math.round(m.cal) + ' kcal') + '</div>' +
-            '<div class="limit">' + servingText + ' · 蛋白質/熱量 ' + round1(r.proteinPer100Cal) + 'g/100kcal</div>' +
+            '<div class="grams-line' + (noBudget ? ' zero' : '') + '">' + (noBudget ? '目前 0g' : ('最多 ' + r.grams + 'g')) +
+            (noBudget ? '' : '<span class="kcal">約' + Math.round(m.cal) + 'kcal</span>') + '</div>' +
+            '<div class="limit">' + servingText + '</div>' +
             '</div>' +
             '</div>';
         }).join('');
+
+        var moreHtml = '';
+        if (ranked.length > SNACK_PREVIEW_COUNT) {
+          moreHtml = '<div class="snack-more-row">' +
+            '<span class="toggle-manual" id="snackShowMoreBtn" style="margin:0;">' +
+            (showAll ? '收合，只看推薦前 ' + SNACK_PREVIEW_COUNT + ' 項 ▴' : '顯示全部 ' + ranked.length + ' 項 ▾') +
+            '</span></div>';
+        }
+
+        listEl.innerHTML = itemsHtml + moreHtml;
       }
 
       function usedCategories() {
@@ -3692,7 +3731,7 @@
                 subIds.forEach(function (sid) { if (selection.indexOf(sid) === -1) selection.push(sid); });
               }
             } else {
-              state.expandedGroups[groupId] = !state.expandedGroups[groupId];
+              state.expandedGroups[groupId] = !isGroupExpanded(groupId);
             }
             renderLogList();
             return;
@@ -4142,7 +4181,12 @@
 
         // 新增食材：跟編輯食材一樣固定貼在畫面下方，按「＋ 新增食材」才打開面板，
         // 送出成功後收起面板；編輯一律走下方固定的 foodEditBox 面板。
-        document.getElementById('foodAddOpenBtn').addEventListener('click', openFoodAddSheet);
+        // 按鈕現在放在卡片標題列，不管「食材庫管理」目前是收合還是展開都能直接按，
+        // 要阻止事件冒泡到 section-head，不然會連同觸發整張卡片收合/展開。
+        document.getElementById('foodAddOpenBtn').addEventListener('click', function (e) {
+          e.stopPropagation();
+          openFoodAddSheet();
+        });
         document.getElementById('faCloseBtn').addEventListener('click', closeFoodAddSheet);
 
         document.getElementById('fSaveBtn').addEventListener('click', async function () {
@@ -4170,6 +4214,16 @@
           var el = document.getElementById(id);
           if (el) el.addEventListener('input', renderSnackNow);
         });
+        // 「顯示全部／收合」按鈕是每次 renderSnackNow 重畫時才產生的，
+        // 用事件委派掛在外層清單容器上，才不會每次重畫後失效。
+        var listEl = document.getElementById('snackFoodList');
+        if (listEl) {
+          listEl.addEventListener('click', function (e) {
+            if (!e.target.closest('#snackShowMoreBtn')) return;
+            state.snackShowAll = !state.snackShowAll;
+            renderSnackNow();
+          });
+        }
       }
 
       function wireSettings() {
