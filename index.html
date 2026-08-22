@@ -82,7 +82,6 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 8px;
     }
 
     .topbar-title {
@@ -169,48 +168,46 @@
       margin-top: 0;
     }
 
-    /* ---- Profile tabs（併入 topbar 第二列，A／B 隨時看得到） ---- */
+    /* ---- Profile tabs（A／B 身份切換）：改成不佔版面的懸浮按鈕，固定貼在畫面
+       右側，捲動、開啟任何底部面板時都還在，但完全不擠壓 topbar 或內容高度。 ---- */
     .profile-tabs {
+      position: fixed;
+      top: 58px;
+      right: 10px;
+      z-index: 55;
       display: flex;
+      flex-direction: column;
       gap: 6px;
     }
 
+    @media (min-width: 680px) {
+      .profile-tabs {
+        right: calc(50vw - 320px + 10px);
+      }
+    }
+
     .profile-tab {
-      flex: 1;
-      min-width: 0;
+      width: 38px;
+      height: 38px;
+      flex: none;
       font-family: var(--font-body);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
-      padding: 7px 6px;
-      border-radius: var(--radius-sm);
+      padding: 0;
+      border-radius: 50%;
       border: 1px solid var(--line);
       background: var(--card);
       color: var(--ink);
       cursor: pointer;
       text-align: center;
-      line-height: 1.3;
-    }
-
-    .profile-tab em {
-      display: block;
-      font-style: normal;
-      font-weight: 500;
-      font-size: 10px;
-      color: var(--ink-soft);
-      margin-top: 1px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      line-height: 1;
+      box-shadow: var(--shadow);
     }
 
     .profile-tab.active {
       background: var(--protein-dark);
       border-color: var(--protein-dark);
       color: #fff;
-    }
-
-    .profile-tab.active em {
-      color: rgba(255, 255, 255, 0.82);
     }
 
     .app-top-spacer {
@@ -241,10 +238,11 @@
       margin-bottom: 20px;
     }
 
-    /* ---- 今日目標：預設收合成一行摘要，點一下才展開完整進度卡／趨勢，
-       避免整張卡片一直佔掉「新增這一餐」上方的空間。 ---- */
+    /* ---- 今日目標：一律展開顯示，不能收合；視覺化部份改成精簡的長條圖，
+       整體高度盡量貼近下方「近 7 天攝取趨勢」，不再佔掉太多版面。 ---- */
     .goal-head {
-      align-items: flex-start;
+      align-items: center;
+      cursor: default;
     }
 
     .goal-head-text {
@@ -258,176 +256,76 @@
       font-size: 14.5px;
     }
 
-    .goal-mini {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px 10px;
-      margin-top: 4px;
+    .goal-section-body {
+      padding-top: 12px;
     }
 
-    .goal-mini-item {
-      font-family: var(--font-num);
-      font-size: 11px;
+    /* ---- 今日進度：精簡長條圖版面，跟近 7 天趨勢用同一種視覺語言 ---- */
+    .goal-compact {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px 10px;
+      background: var(--paper);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+    }
+
+    .goal-compact-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .goal-compact-item .gc-label {
+      font-size: 10px;
+      font-weight: 700;
       color: var(--ink-soft);
       white-space: nowrap;
     }
 
-    .goal-mini-item.p.done {
-      color: var(--protein-dark);
-      font-weight: 700;
-    }
-
-    .goal-mini-item.f.over,
-    .goal-mini-item.s.over,
-    .goal-mini-item.k.over {
-      color: var(--danger);
-      font-weight: 700;
-    }
-
-    .goal-section-body {
-      padding-top: 14px;
-    }
-
-    /* ---- 進度卡 ---- */
-    .progress-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin-bottom: 4px;
-    }
-
-    .progress-tile {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 12px;
-      border-radius: var(--radius-sm);
-      background: var(--paper);
-      border: 1px solid var(--line);
-      transition: border-color .2s, background .2s;
-    }
-
-    .progress-tile.done {
-      background: var(--protein-tint);
-      border-color: rgba(79, 122, 92, 0.35);
-    }
-
-    .progress-tile.over {
-      background: #FBEAE4;
-      border-color: rgba(184, 84, 61, 0.4);
-    }
-
-    .progress-ring {
-      position: relative;
-      flex: none;
-      width: 56px;
-      height: 56px;
-    }
-
-    .progress-ring svg {
-      width: 56px;
-      height: 56px;
-      display: block;
-    }
-
-    .progress-ring .ring-track {
-      fill: none;
-      stroke: var(--line);
-      stroke-width: 6;
-    }
-
-    .progress-ring .ring-fill {
-      fill: none;
-      stroke-width: 6;
-      stroke-linecap: round;
-      transform: rotate(-90deg);
-      transform-origin: 28px 28px;
-      transition: stroke-dashoffset .4s ease;
-    }
-
-    .progress-ring .ring-icon {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-    }
-
-    .pt-body {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .pt-label {
-      font-size: 11px;
-      color: var(--ink-soft);
-      font-weight: 700;
-      letter-spacing: .02em;
-    }
-
-    .pt-value {
+    .goal-compact-item .gc-value {
       font-family: var(--font-num);
-      font-size: 17px;
+      font-size: 12.5px;
       font-weight: 700;
-      line-height: 1.25;
       color: var(--ink);
       white-space: nowrap;
     }
 
-    .pt-value small {
-      font-size: 11px;
+    .goal-compact-item .gc-value small {
+      font-size: 9.5px;
       font-weight: 500;
       color: var(--ink-soft);
       font-family: var(--font-body);
     }
 
-    .pt-sub {
-      font-size: 10.5px;
-      color: var(--ink-soft);
-      margin-top: 1px;
+    .goal-compact-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--line);
+      overflow: hidden;
     }
 
-    .progress-tile.done .pt-sub {
-      color: var(--protein-dark);
-      font-weight: 700;
+    .goal-compact-bar>span {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
     }
 
-    .progress-tile.over .pt-sub {
-      color: var(--danger);
-      font-weight: 700;
-    }
-
-    .progress-tile.done .pt-value {
+    .goal-compact-item.done .gc-label,
+    .goal-compact-item.done .gc-value {
       color: var(--protein-dark);
     }
 
-    .progress-tile.over .pt-value {
+    .goal-compact-item.over .gc-label,
+    .goal-compact-item.over .gc-value {
       color: var(--danger);
     }
 
     @media (max-width:420px) {
-      .progress-grid {
-        gap: 8px;
-      }
-
-      .progress-tile {
-        padding: 10px;
-        gap: 9px;
-      }
-
-      .progress-ring,
-      .progress-ring svg {
-        width: 48px;
-        height: 48px;
-      }
-
-      .progress-ring .ring-fill {
-        transform-origin: 24px 24px;
-      }
-
-      .pt-value {
-        font-size: 15px;
+      .goal-compact {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
@@ -1040,54 +938,57 @@
       vertical-align:middle;
     }
 
-    /* ---- Food library table ---- */
+    /* ---- Food library list：改成跟「今日紀錄」一樣的卡片列，名稱一行、
+       數值整理成一行緊湊文字，手機不用左右捲動也能整齊看完每一項。 ---- */
     .food-table-wrap {
-      overflow-x: auto;
+      overflow-x: visible;
     }
 
     .food-row {
-      display: grid;
-      grid-template-columns: minmax(180px, 2.2fr) 82px 74px 74px 68px 68px 58px 112px;
-      gap: 7px;
-      align-items: center;
-      min-width: 760px;
-      padding: 9px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 10px 0;
       border-bottom: 1px solid var(--line);
       font-size: 13px;
     }
 
     .food-row:last-child {
       border-bottom: none;
+      padding-bottom: 0;
     }
 
-    .food-row.head {
-      color: var(--ink-soft);
-      font-size: 11px;
-      font-weight: 500;
+    .food-row .frow-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
     }
 
-    .food-row.row6 {
-      grid-template-columns: minmax(120px, 1.6fr) 62px 62px 66px 56px 56px;
-      min-width: 460px;
-    }
-
-    .food-row>span {
+    .food-row .fname {
+      flex: 1;
       min-width: 0;
-      overflow: visible;
-      text-overflow: clip;
-      white-space: nowrap;
-    }
-
-    .food-row>span.fname {
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--ink);
       line-height: 1.35;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 2px;
     }
 
-    .food-row>span.num {
+    .food-row .fstats {
       font-family: var(--font-num);
-      text-align: right;
+      font-size: 11.5px;
+      color: var(--ink-soft);
+      line-height: 1.4;
+    }
+
+    .food-row .fstats b {
+      font-family: var(--font-body);
+      font-weight: 500;
+      color: var(--ink-soft);
     }
 
     .food-row .fcat {
@@ -1098,7 +999,6 @@
       background: var(--protein-tint);
       border-radius: 999px;
       padding: 2px 7px;
-      margin-left: 5px;
       white-space: nowrap;
     }
 
@@ -1108,76 +1008,18 @@
       justify-content: flex-end;
       gap: 4px;
       white-space: nowrap;
+      flex: none;
     }
 
-    @media (max-width:640px) {
-      .food-table-wrap {
-        overflow-x: visible;
-      }
+    .food-row.selectable-row {
+      cursor: pointer;
+    }
 
-      .food-row.head {
-        display: none;
-      }
-
-      .food-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
-        min-width: 0;
-        gap: 2px 8px;
-        padding: 9px 0;
-      }
-
-      .food-row>span {
-        overflow: visible;
-        white-space: normal;
-        text-overflow: clip;
-        flex: none;
-      }
-
-      .food-row>span.fname {
-        flex: 1 1 auto;
-        min-width: 0;
-        order: -2;
-        font-weight: 700;
-        font-size: 13.5px;
-        color: var(--ink);
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      .food-actions {
-        flex: 0 0 auto;
-        order: -1;
-        justify-content: flex-end;
-        margin: 0;
-      }
-
-      /* 一份克數／熱量／蛋白質／脂肪／糖／份數改成同一行的緊湊文字，不再各自佔一整個
-         方塊、各自換行；手機瀏覽食材庫時每一項只佔 2 行，不用一直往下滑。 */
-      .food-row>span.num {
-        text-align: left;
-        font-family: var(--font-num);
-        font-size: 11.5px;
-        color: var(--ink-soft);
-        background: none;
-        border: none;
-        padding: 0;
-        white-space: nowrap;
-      }
-
-      .food-row>span.fname+span.num::before {
-        content: attr(data-label) ' ';
-        color: var(--ink-soft);
-        font-family: var(--font-body);
-      }
-
-      .food-row>span.num+span.num::before {
-        content: ' · ' attr(data-label) ' ';
-        color: var(--ink-soft);
-        font-family: var(--font-body);
-      }
+    .food-row.picked {
+      background: var(--protein-tint);
+      margin: 0 -8px;
+      padding: 10px 8px;
+      border-radius: var(--radius-sm);
     }
 
     .log-swipe {
@@ -1777,18 +1619,16 @@
       <div class="profile-tabs" id="profileTabs"></div>
     </div>
 
-    <!-- 1. 今日目標：預設收合成一行摘要（蛋白質/脂肪/糖/熱量），點一下才展開
-         完整進度環與近7天趨勢，讓「新增這一餐」更快出現在畫面上。 -->
-    <div class="section collapsed" id="blockGoal">
-      <div class="section-head goal-head" data-toggle="blockGoal">
+    <!-- 1. 今日目標：一律展開顯示、不能收合；用精簡長條圖取代大進度環，
+         整體視覺化高度盡量跟下方「近7天攝取趨勢」差不多，不佔太多版面。 -->
+    <div class="section" id="blockGoal">
+      <div class="section-head goal-head">
         <div class="goal-head-text">
           <span class="goal-head-title">今日目標 · <b id="profileDesc"></b></span>
-          <div class="goal-mini" id="goalMini"></div>
         </div>
-        <span class="chev">▾</span>
       </div>
       <div class="section-body goal-section-body">
-        <div class="progress-grid" id="remainGrid"></div>
+        <div class="goal-compact" id="remainGrid"></div>
 
         <!-- 近7天趨勢（進度條，精簡版面） -->
         <div class="week-dots-inline">
@@ -2030,9 +1870,6 @@
 
         <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。單筆食材點兩下可以直接編輯、向左滑會出現「刪除」；要一次刪除多項，按上方「批次刪除」勾選後再確認。</p>
         <div class="food-table-wrap" style="margin-top:10px;">
-          <div class="food-row head" id="foodTableHead">
-            <span>名稱</span><span>一份克數</span><span>熱量</span><span>蛋白質</span><span>脂肪</span><span>糖</span><span>份數</span>
-          </div>
           <div id="foodTable"></div>
         </div>
 
@@ -2041,13 +1878,58 @@
         </div>
         <div id="per100Wrap" style="display:none;margin-top:10px;">
           <p class="hint" style="margin:0 0 8px;">
-            下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數欄位是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
+            下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
             克，100 克就約等於 2.7 份）。</p>
           <div class="food-table-wrap">
-            <div class="food-row head row6">
-              <span>名稱</span><span>蛋白質</span><span>脂肪</span><span>熱量</span><span>糖</span><span>份數(100g)</span>
-            </div>
             <div id="per100Table"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 編輯食材：跟「今日紀錄」的編輯一樣固定貼在畫面下方操作，不會跳回頁面
+           上方的新增表單，編輯多項食材時不用一直上下捲動。 -->
+      <div class="food-detail" id="foodEditBox" style="display:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">編輯食材</span>
+          <button type="button" class="sheet-toggle" id="feCloseBtn">✕ 關閉</button>
+        </div>
+        <div class="sheet-body">
+          <div class="row">
+            <div class="field"><label>食材名稱</label><input type="text" id="feName" placeholder="例如：雞胸肉 / 水煮蛋 / 嫩豆腐"></div>
+          </div>
+          <div class="base-unit-row" style="margin-top:8px;">
+            <div class="field field-base"><label>基礎一份克數 (g)</label><input type="number" id="feBase" min="0.01"
+                step="any"></div>
+            <div class="field field-unit"><label>總份數（整包含幾份）</label><input type="number" id="feServings" min="0.01"
+                step="any"></div>
+          </div>
+          <p class="hint" id="fePackagePreview" style="margin:6px 0 0;"></p>
+
+          <div class="field" style="margin-top:8px;">
+            <label>類別（可複選）</label>
+            <div class="chip-scroll" id="feCategoryChips"></div>
+            <div class="chip-new-row" id="feCategoryNewRow" style="display:none;">
+              <input type="text" id="feCategoryNewInput" placeholder="輸入新類別名稱，例如：肉類">
+              <button type="button" class="btn btn-ghost" id="feCategoryNewConfirm">加入</button>
+            </div>
+            <input type="hidden" id="feCategory" value="">
+          </div>
+
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>熱量 (kcal／每份)</label><input type="number" id="feCal" min="0" step="1"></div>
+            <div class="field"><label>蛋白質 (g／每份)</label><input type="number" id="feProtein" min="0" step="0.1"></div>
+            <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="feFat" min="0" step="0.1"></div>
+            <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="feSugar" min="0" step="0.1"></div>
+          </div>
+          <div class="btn-row" style="justify-content:flex-start;">
+            <span class="toggle-manual" id="feAutoCal" style="margin:0;">用蛋白質/脂肪/糖（Sugar）估算熱量</span>
+          </div>
+        </div>
+        <div class="sheet-footer">
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="feCancelBtn">取消</button>
+            <button class="btn btn-primary" id="feSaveBtn">儲存修改</button>
           </div>
         </div>
       </div>
@@ -2111,6 +1993,7 @@
         selectedFoodId: null,
         editingFoodId: null,
         fCategorySelected: [],
+        feCategorySelected: [],
         batch: [],
         pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
@@ -2471,46 +2354,13 @@
         if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
 
         renderProfileTabs();
-        renderGoalMini(totals, goals);
         renderProgressGrid(totals, goals);
         renderWeekDotsGrid();
       }
 
-      // 收合狀態下顯示的一行摘要（蛋白質/脂肪/糖/熱量目前 vs 目標），
-      // 不用展開整張卡片就能快速確認今天吃到哪裡。
-      function renderGoalMini(totals, goals) {
-        var el = document.getElementById('goalMini');
-        if (!el) return;
-        var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
-        var pDone = totals.protein >= goals.protein && goals.protein > 0;
-        var fOver = totals.fat > goals.fat;
-        var sOver = totals.sugar > sugarGoal;
-        var cOver = totals.cal > goals.cal;
-        el.innerHTML =
-          '<span class="goal-mini-item p' + (pDone ? ' done' : '') + '">蛋白 ' + round1(totals.protein) + '/' + round1(goals.protein) + 'g</span>' +
-          '<span class="goal-mini-item f' + (fOver ? ' over' : '') + '">脂肪 ' + round1(totals.fat) + '/' + round1(goals.fat) + 'g</span>' +
-          '<span class="goal-mini-item s' + (sOver ? ' over' : '') + '">糖 ' + round1(totals.sugar) + '/' + round1(sugarGoal) + 'g</span>' +
-          '<span class="goal-mini-item k' + (cOver ? ' over' : '') + '">熱量 ' + Math.round(totals.cal) + '/' + Math.round(goals.cal) + 'kcal</span>';
-      }
-
-      var MACRO_ICON = { protein: '🥩', fat: '🧈', sugar: '🍬', cal: '🔥' };
-
-      function progressRing(cls, pct, danger) {
-        var r = 22, c = 2 * Math.PI * r;
-        var clamped = Math.max(0, Math.min(100, pct));
-        var offset = c * (1 - clamped / 100);
-        var color = danger ? 'var(--danger)' : ('var(' + '--' + (cls === 'sugar' ? 'carb' : cls) + ')');
-        return '<div class="progress-ring">' +
-          '<svg viewBox="0 0 56 56">' +
-          '<circle class="ring-track" cx="28" cy="28" r="' + r + '"/>' +
-          '<circle class="ring-fill" cx="28" cy="28" r="' + r + '" stroke="' + color + '" ' +
-          'stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/>' +
-          '</svg>' +
-          '<div class="ring-icon">' + MACRO_ICON[cls] + '</div>' +
-          '</div>';
-      }
-
-      function buildProgressGridHtml(totals, goals) {
+      // 精簡長條圖：蛋白質（達標即可）用一般顏色，脂肪／糖／熱量（不要超標）
+      // 超過上限時整條變紅；不用大進度環，高度跟近7天趨勢的長條圖一致。
+      function buildGoalCompactHtml(totals, goals) {
         var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
 
         var proteinLeft = round1(goals.protein - totals.protein);
@@ -2518,39 +2368,41 @@
         var sugarLeft = round1(sugarGoal - totals.sugar);
         var calLeft = Math.round(goals.cal - totals.cal);
 
-        function targetTile(label, amt, left, goal, unit) {
-          var reached = left <= 0;
-          var pct = goal > 0 ? (amt / goal) * 100 : 0;
-          return '<div class="progress-tile' + (reached ? ' done' : '') + '">' +
-            progressRing('protein', reached ? 100 : pct, false) +
-            '<div class="pt-body">' +
-            '<div class="pt-label">' + label + '</div>' +
-            '<div class="pt-value">' + (reached ? '已達標 ✓' : (left + '<small> ' + unit + ' 還需要</small>')) + '</div>' +
-            '<div class="pt-sub">' + (reached ? '辛苦了，吃夠囉！' : (round1(amt) + ' / ' + goal + unit)) + '</div>' +
-            '</div></div>';
-        }
-        function limitTile(cls, label, amt, left, goal, unit) {
-          var over = left < 0;
-          var pct = goal > 0 ? (amt / goal) * 100 : 0;
-          return '<div class="progress-tile' + (over ? ' over' : '') + '">' +
-            progressRing(cls, over ? 100 : pct, over) +
-            '<div class="pt-body">' +
-            '<div class="pt-label">' + label + '</div>' +
-            '<div class="pt-value">' + (over ? ('超標 ' + Math.abs(left)) : left) + '<small> ' + unit + '</small></div>' +
-            '<div class="pt-sub">' + (over ? '已超過當日上限' : ('還可以吃 · ' + round1(amt) + '/' + goal + unit)) + '</div>' +
-            '</div></div>';
+        function bar(pct, color) {
+          var clamped = Math.max(0, Math.min(100, pct));
+          return '<div class="goal-compact-bar"><span style="width:' + clamped.toFixed(0) + '%;background:' + color + ';"></span></div>';
         }
 
-        return targetTile('蛋白質', totals.protein, proteinLeft, goals.protein, 'g') +
-          limitTile('fat', '脂肪', totals.fat, fatLeft, goals.fat, 'g') +
-          limitTile('sugar', '糖', totals.sugar, sugarLeft, sugarGoal, 'g') +
-          limitTile('cal', '熱量', totals.cal, calLeft, goals.cal, 'kcal');
+        function targetItem(label, amt, left, goal, unit) {
+          var reached = left <= 0 && goal > 0;
+          var pct = goal > 0 ? (amt / goal) * 100 : 0;
+          return '<div class="goal-compact-item' + (reached ? ' done' : '') + '">' +
+            '<div class="gc-label">' + label + '</div>' +
+            '<div class="gc-value">' + (reached ? '已達標 ✓' : (left + '<small>' + unit + '</small>')) + '</div>' +
+            bar(reached ? 100 : pct, 'var(--protein)') +
+            '</div>';
+        }
+        function limitItem(cls, label, amt, left, goal, unit) {
+          var over = left < 0;
+          var pct = goal > 0 ? (amt / goal) * 100 : 0;
+          var color = over ? 'var(--danger)' : ('var(' + '--' + (cls === 'sugar' ? 'carb' : cls) + ')');
+          return '<div class="goal-compact-item' + (over ? ' over' : '') + '">' +
+            '<div class="gc-label">' + label + '</div>' +
+            '<div class="gc-value">' + (over ? ('超標' + Math.abs(left)) : left) + '<small>' + unit + '</small></div>' +
+            bar(over ? 100 : pct, color) +
+            '</div>';
+        }
+
+        return targetItem('蛋白質', totals.protein, proteinLeft, goals.protein, 'g') +
+          limitItem('fat', '脂肪', totals.fat, fatLeft, goals.fat, 'g') +
+          limitItem('sugar', '糖', totals.sugar, sugarLeft, sugarGoal, 'g') +
+          limitItem('cal', '熱量', totals.cal, calLeft, goals.cal, 'kcal');
       }
 
       function renderProgressGrid(totals, goals) {
         var el = document.getElementById('remainGrid');
         if (!el) return;
-        el.innerHTML = buildProgressGridHtml(totals, goals);
+        el.innerHTML = buildGoalCompactHtml(totals, goals);
       }
 
       function renderProfileTabs() {
@@ -2558,8 +2410,8 @@
         var el = document.getElementById('profileTabs');
         el.innerHTML = PROFILE_ORDER.map(function (k) {
           var prof = PROFILES[k];
-          return '<button type="button" class="profile-tab' + (k === p ? ' active' : '') + '" data-profile="' + k + '">' +
-            escapeHtml(prof.name) + '<em>' + escapeHtml(prof.desc) + '</em></button>';
+          return '<button type="button" class="profile-tab' + (k === p ? ' active' : '') + '" data-profile="' + k + '" title="' +
+            escapeHtml(prof.name + '　' + prof.desc) + '">' + escapeHtml(prof.name) + '</button>';
         }).join('');
         document.getElementById('profileDesc').textContent = PROFILES[p].desc;
       }
@@ -2875,13 +2727,12 @@
         }
         el.innerHTML = list.map(function (f) {
           var catBadge = categoryBadges(f);
-          return '<div class="food-row row6" data-food-id="' + escapeHtml(f.id) + '">' +
-            '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
-            '<span class="num" data-label="蛋白質">' + round1(per100Value(f, 'protein')) + '</span>' +
-            '<span class="num" data-label="脂肪">' + round1(per100Value(f, 'fat')) + '</span>' +
-            '<span class="num" data-label="熱量">' + Math.round(per100Value(f, 'cal')) + '</span>' +
-            '<span class="num" data-label="糖">' + round1(per100Value(f, 'sugar')) + '</span>' +
-            '<span class="num" data-label="份數(100g)">' + round1(per100Servings(f)) + '</span>' +
+          var stats = '<b>蛋白</b>' + round1(per100Value(f, 'protein')) + 'g · <b>脂肪</b>' + round1(per100Value(f, 'fat')) +
+            'g · <b>熱量</b>' + Math.round(per100Value(f, 'cal')) + 'kcal · <b>糖</b>' + round1(per100Value(f, 'sugar')) +
+            'g · <b>100g≈</b>' + round1(per100Servings(f)) + '份';
+          return '<div class="food-row" data-food-id="' + escapeHtml(f.id) + '">' +
+            '<div class="frow-top"><span class="fname">' + escapeHtml(f.name) + catBadge + '</span></div>' +
+            '<div class="fstats">' + stats + '</div>' +
             '</div>';
         }).join('');
       }
@@ -3030,6 +2881,39 @@
         renderFCategoryChips();
       }
 
+      // ---- 編輯食材（固定底部面板）專用的類別選擇，跟上方新增表單的
+      // fCategorySelected 分開一份狀態，避免編輯時互相覆蓋。 ----
+      function renderFeCategoryChips() {
+        var wrap = document.getElementById('feCategoryChips');
+        if (!wrap) return;
+        var cats = usedCategories();
+        var sel = state.feCategorySelected || [];
+        var html = cats.map(function (c) {
+          var active = sel.indexOf(c) > -1;
+          return '<button type="button" class="chip' + (active ? ' active' : '') + '" data-fecat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+        }).join('');
+        html += '<button type="button" class="chip chip-add" id="feCategoryAddChip">＋ 新增類別</button>';
+        wrap.innerHTML = html;
+        document.getElementById('feCategory').value = sel.join('、');
+      }
+
+      function setFECategory(val) {
+        state.feCategorySelected = normalizeCategories(val);
+        document.getElementById('feCategory').value = state.feCategorySelected.join('、');
+        renderFeCategoryChips();
+      }
+
+      function toggleFECategory(val) {
+        var c = String(val || '').trim();
+        if (!c) return;
+        var cats = state.feCategorySelected || [];
+        var idx = cats.indexOf(c);
+        if (idx > -1) cats.splice(idx, 1); else cats.push(c);
+        state.feCategorySelected = cats;
+        document.getElementById('feCategory').value = cats.join('、');
+        renderFeCategoryChips();
+      }
+
       function renderFoodSelectBar() {
         var delBtn = document.getElementById('foodDeleteToggle');
         var bar = document.getElementById('foodSelectBar');
@@ -3052,15 +2936,14 @@
         var tail = deleteMode
           ? '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span></span>'
           : '';
+        var stats = '<b>每份</b>' + escapeHtml(d.baseLabel) + ' · <b>熱量</b>' + d.cal + 'kcal · <b>蛋白</b>' + d.protein +
+          'g · <b>脂肪</b>' + d.fat + 'g · <b>糖</b>' + d.sugar + 'g · <b>共</b>' + d.servings + '份';
         var rowHtml = '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
+          '<div class="frow-top">' +
           '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
-          '<span class="num" data-label="一份克數" title="' + escapeHtml(d.baseTitle || '') + '">' + escapeHtml(d.baseLabel) + '</span>' +
-          '<span class="num" data-label="熱量">' + d.cal + '</span>' +
-          '<span class="num" data-label="蛋白質">' + d.protein + '</span>' +
-          '<span class="num" data-label="脂肪">' + d.fat + '</span>' +
-          '<span class="num" data-label="糖">' + d.sugar + '</span>' +
-          '<span class="num" data-label="份數">' + d.servings + '</span>' +
           tail +
+          '</div>' +
+          '<div class="fstats" title="' + escapeHtml(d.baseTitle || '') + '">' + stats + '</div>' +
           '</div>';
 
         if (deleteMode) return rowHtml;
@@ -3075,6 +2958,7 @@
         renderFoodCategoryChips();
         renderPickerCategoryChips();
         renderFCategoryChips();
+        if (state.editingFoodId) renderFeCategoryChips();
         renderFoodSelectBar();
         var list = sortedFoods();
         if (!list.length) {
@@ -3235,7 +3119,7 @@
       async function deleteFood(id) {
         state.foods = state.foods.filter(function (f) { return f.id !== id; });
         if (state.selectedFoodId === id) state.selectedFoodId = null;
-        if (state.editingFoodId === id) clearFoodForm();
+        if (state.editingFoodId === id) clearFoodEditForm();
         state.batch = state.batch.filter(function (b) { return b.foodId !== id; });
         await persistFoodsAndRender();
 
@@ -3254,7 +3138,7 @@
         ids.forEach(function (id) { idSet[id] = true; });
         state.foods = state.foods.filter(function (f) { return !idSet[f.id]; });
         if (state.selectedFoodId && idSet[state.selectedFoodId]) state.selectedFoodId = null;
-        if (state.editingFoodId && idSet[state.editingFoodId]) clearFoodForm();
+        if (state.editingFoodId && idSet[state.editingFoodId]) clearFoodEditForm();
         state.batch = state.batch.filter(function (b) { return !idSet[b.foodId]; });
         await persistFoodsAndRender();
 
@@ -3314,15 +3198,15 @@
         }
       }
 
+      // 上方「食材庫管理」表單現在只負責新增食材，不再兼作編輯用途，
+      // 所以清空表單不需要處理 editingFoodId 或切換按鈕文字。
       function clearFoodForm() {
-        state.editingFoodId = null;
         ['fName', 'fProtein', 'fFat', 'fSugar', 'fCal'].forEach(function (id) { document.getElementById(id).value = ''; });
         document.getElementById('fBase').value = 100;
         document.getElementById('fServings').value = 1;
         setFCategory('');
         document.getElementById('fCategoryNewRow').style.display = 'none';
         document.getElementById('fCategoryNewInput').value = '';
-        document.getElementById('fSaveBtn').textContent = '新增食材';
         updateFoodPackagePreview();
       }
 
@@ -3339,6 +3223,26 @@
         var fat = Number(document.getElementById('fFat').value) || 0;
         var sugar = Number(document.getElementById('fSugar').value) || 0;
         var cal = Number(document.getElementById('fCal').value) || 0;
+        el.textContent = '整包共 ' + round1(base * servings) + 'g，蛋白質 ' + round1(protein * servings) +
+          'g、脂肪 ' + round1(fat * servings) + 'g、糖 ' + round1(sugar * servings) +
+          'g、熱量 ' + Math.round(cal * servings) + 'kcal（＝一份 × 總份數）。';
+      }
+
+      // 編輯食材固定底部面板專用的整包預覽，邏輯跟 updateFoodPackagePreview 一致，
+      // 只是讀寫的是 fe* 欄位，避免跟上方新增表單互相干擾。
+      function updateFoodEditPreview() {
+        var el = document.getElementById('fePackagePreview');
+        if (!el) return;
+        var base = Number(document.getElementById('feBase').value);
+        var servings = Number(document.getElementById('feServings').value);
+        if (!base || base <= 0 || !servings || servings <= 0) {
+          el.textContent = '';
+          return;
+        }
+        var protein = Number(document.getElementById('feProtein').value) || 0;
+        var fat = Number(document.getElementById('feFat').value) || 0;
+        var sugar = Number(document.getElementById('feSugar').value) || 0;
+        var cal = Number(document.getElementById('feCal').value) || 0;
         el.textContent = '整包共 ' + round1(base * servings) + 'g，蛋白質 ' + round1(protein * servings) +
           'g、脂肪 ' + round1(fat * servings) + 'g、糖 ' + round1(sugar * servings) +
           'g、熱量 ' + Math.round(cal * servings) + 'kcal（＝一份 × 總份數）。';
@@ -3902,23 +3806,84 @@
         });
       }
 
-      // 把一項食材載入上方的表單準備編輯，並捲動到表單位置。
-      // 由每一列懸浮的 ✏️ 按鈕呼叫，不需要先進入任何「編輯模式」。
-      function loadFoodIntoForm(food) {
+      // 把一項食材載入固定貼在畫面下方的編輯面板，不用捲動頁面、也不會跳回
+      // 上方的新增表單；跟今日紀錄的 loadLogIntoForm 是同一套邏輯。
+      function loadFoodIntoEditSheet(food) {
         state.editingFoodId = food.id;
-        document.getElementById('fName').value = food.name || '';
-        document.getElementById('fBase').value = foodBaseGrams(food);
-        document.getElementById('fServings').value = foodTotalServings(food);
-        document.getElementById('fProtein').value = foodRawNutrient(food, 'protein');
-        document.getElementById('fFat').value = foodRawNutrient(food, 'fat');
-        document.getElementById('fSugar').value = foodRawNutrient(food, 'sugar');
-        document.getElementById('fCal').value = foodRawNutrient(food, 'cal');
-        setFCategory(foodCategories(food));
-        document.getElementById('fSaveBtn').textContent = '儲存食材修改';
-        updateFoodPackagePreview();
-        document.getElementById('secFoods').classList.remove('collapsed');
-        document.getElementById('fName').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        document.getElementById('fName').focus();
+        document.getElementById('feName').value = food.name || '';
+        document.getElementById('feBase').value = foodBaseGrams(food);
+        document.getElementById('feServings').value = foodTotalServings(food);
+        document.getElementById('feProtein').value = foodRawNutrient(food, 'protein');
+        document.getElementById('feFat').value = foodRawNutrient(food, 'fat');
+        document.getElementById('feSugar').value = foodRawNutrient(food, 'sugar');
+        document.getElementById('feCal').value = foodRawNutrient(food, 'cal');
+        setFECategory(foodCategories(food));
+        document.getElementById('feCategoryNewRow').style.display = 'none';
+        document.getElementById('feCategoryNewInput').value = '';
+        updateFoodEditPreview();
+        document.getElementById('foodEditBox').style.display = 'flex';
+      }
+
+      function clearFoodEditForm() {
+        state.editingFoodId = null;
+        document.getElementById('foodEditBox').style.display = 'none';
+      }
+
+      function wireFoodEditForm() {
+        document.getElementById('feCategoryChips').addEventListener('click', function (e) {
+          var chip = e.target.closest('[data-fecat]');
+          if (chip) { toggleFECategory(chip.getAttribute('data-fecat')); return; }
+          if (e.target.closest('#feCategoryAddChip')) {
+            var row = document.getElementById('feCategoryNewRow');
+            row.style.display = (row.style.display === 'none' ? 'flex' : 'none');
+          }
+        });
+        document.getElementById('feCategoryNewConfirm').addEventListener('click', function () {
+          var input = document.getElementById('feCategoryNewInput');
+          var v = input.value.trim();
+          if (v) {
+            if ((state.feCategorySelected || []).indexOf(v) === -1) {
+              state.feCategorySelected.push(v);
+              document.getElementById('feCategory').value = state.feCategorySelected.join('、');
+              renderFeCategoryChips();
+            }
+            input.value = '';
+            document.getElementById('feCategoryNewRow').style.display = 'none';
+          }
+        });
+
+        ['feBase', 'feServings', 'feProtein', 'feFat', 'feSugar', 'feCal'].forEach(function (id) {
+          document.getElementById(id).addEventListener('input', updateFoodEditPreview);
+        });
+
+        document.getElementById('feAutoCal').addEventListener('click', function () {
+          var p = Number(document.getElementById('feProtein').value) || 0;
+          var f = Number(document.getElementById('feFat').value) || 0;
+          var s = Number(document.getElementById('feSugar').value) || 0;
+          document.getElementById('feCal').value = estimateCalories(p, f, s);
+          updateFoodEditPreview();
+        });
+
+        document.getElementById('feCancelBtn').addEventListener('click', clearFoodEditForm);
+        document.getElementById('feCloseBtn').addEventListener('click', clearFoodEditForm);
+
+        document.getElementById('feSaveBtn').addEventListener('click', async function () {
+          if (!state.editingFoodId) return;
+          var result = buildFoodPayload({
+            name: document.getElementById('feName').value,
+            base: document.getElementById('feBase').value,
+            servings: document.getElementById('feServings').value,
+            protein: document.getElementById('feProtein').value,
+            fat: document.getElementById('feFat').value,
+            sugar: document.getElementById('feSugar').value,
+            cal: document.getElementById('feCal').value,
+          }, state.editingFoodId, state.feCategorySelected);
+
+          if (result.error) { alert(result.error); return; }
+          var foodObj = result.food;
+          clearFoodEditForm();
+          await updateFood(foodObj);
+        });
       }
 
       // 食材庫左滑刪除的手勢處理，邏輯跟 wireLogSwipe 一致：只在一般瀏覽模式
@@ -4008,7 +3973,7 @@
         lastFoodTap = isDouble ? { id: null, time: 0 } : { id: id, time: now };
         if (isDouble) {
           var food = state.foods.find(function (f) { return f.id === id; });
-          if (food) loadFoodIntoForm(food);
+          if (food) loadFoodIntoEditSheet(food);
           return true;
         }
         return false;
@@ -4112,6 +4077,7 @@
 
         document.getElementById('fClearBtn').addEventListener('click', clearFoodForm);
 
+        // 這個表單現在只負責「新增食材」，編輯一律走下方固定的 foodEditBox 面板。
         document.getElementById('fSaveBtn').addEventListener('click', async function () {
           var result = buildFoodPayload({
             name: document.getElementById('fName').value,
@@ -4121,18 +4087,14 @@
             fat: document.getElementById('fFat').value,
             sugar: document.getElementById('fSugar').value,
             cal: document.getElementById('fCal').value,
-          }, state.editingFoodId, state.fCategorySelected);
+          }, null, state.fCategorySelected);
 
           if (result.error) { alert(result.error); return; }
-          var foodObj = result.food;
-
-          if (state.editingFoodId) {
-            await updateFood(foodObj);
-          } else {
-            await addFood(foodObj);
-          }
+          await addFood(result.food);
           clearFoodForm();
         });
+
+        wireFoodEditForm();
       }
 
       function wireSnackNow() {
