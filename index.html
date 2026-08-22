@@ -1446,6 +1446,16 @@
       color: #fff;
     }
 
+    .tool-btn.on.mode-combine {
+      background: var(--cal);
+      border-color: var(--cal);
+      color: #fff;
+    }
+
+    .select-hint.mode-combine {
+      color: var(--cal);
+    }
+
     .select-bar {
       display: flex;
       align-items: center;
@@ -1482,7 +1492,64 @@
       color: #fff;
     }
 
+    .select-bar .btn-mini.confirm.mode-combine {
+      background: var(--cal);
+    }
+
+    .select-bar.mode-combine {
+      background: var(--cal-tint);
+      border-color: var(--cal);
+      color: var(--cal);
+    }
+
     .select-bar .btn-mini.cancel {
+      background: transparent;
+      color: var(--ink-soft);
+      text-decoration: underline;
+    }
+
+    /* ---- 每列懸浮的編輯／刪除小按鈕（食材庫管理，不用再滑到最上面按「編輯」） ---- */
+    .row-icon-btn {
+      flex: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .row-icon-btn.edit:hover {
+      background: var(--protein-tint);
+      border-color: var(--protein-dark);
+    }
+
+    .row-icon-btn.danger:hover {
+      background: #F7E7E2;
+      border-color: var(--danger);
+    }
+
+    /* ---- 拆散這一餐 ---- */
+    .meal-sub-actions {
+      display: flex;
+      justify-content: flex-end;
+      padding: 2px 0 6px;
+    }
+
+    .meal-sub-actions .btn-mini {
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 11.5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
       background: transparent;
       color: var(--ink-soft);
       text-decoration: underline;
@@ -1697,17 +1764,26 @@
         <span class="hero-logs-title">今日紀錄</span>
         <span class="hero-logs-count" id="logCount"></span>
       </div>
-      <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選。</p>
+      <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選；想把幾樣食材合併成一餐，按「組成一餐」勾選後確認。</p>
       <div class="list-toolbar">
         <button type="button" class="tool-btn" id="logEditToggle">編輯</button>
+        <button type="button" class="tool-btn" id="logCombineToggle">組成一餐</button>
         <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
       </div>
       <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄（一次一筆）</p>
+      <p class="select-hint mode-combine" id="logCombineHint" style="display:none;">勾選至少 2 筆想合併成一餐的紀錄（也可以直接勾選「這一餐」整組，把它跟其他筆再合併在一起）</p>
       <div class="select-bar" id="logSelectBar" style="display:none;">
         <span id="logSelectCount">已選 0 筆</span>
         <span class="select-actions">
           <button type="button" class="btn-mini cancel" id="logSelectCancel">取消</button>
           <button type="button" class="btn-mini confirm" id="logSelectConfirm">刪除選取</button>
+        </span>
+      </div>
+      <div class="select-bar mode-combine" id="logCombineBar" style="display:none;">
+        <span id="logCombineCount">已選 0 筆</span>
+        <span class="select-actions">
+          <button type="button" class="btn-mini cancel" id="logCombineCancel">取消</button>
+          <button type="button" class="btn-mini confirm mode-combine" id="logCombineConfirm">組成一餐</button>
         </span>
       </div>
       <div id="logList"></div>
@@ -1810,10 +1886,8 @@
         <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
 
         <div class="list-toolbar" style="margin-top:14px;">
-          <button type="button" class="tool-btn" id="foodEditToggle">編輯</button>
-          <button type="button" class="tool-btn" id="foodDeleteToggle">刪除</button>
+          <button type="button" class="tool-btn" id="foodDeleteToggle">批次刪除</button>
         </div>
-        <p class="select-hint" id="foodEditHint" style="display:none;">點選要編輯的食材（一次一項）</p>
         <div class="select-bar" id="foodSelectBar" style="display:none;">
           <span id="foodSelectCount">已選 0 項</span>
           <span class="select-actions">
@@ -1822,7 +1896,7 @@
           </span>
         </div>
 
-        <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。</p>
+        <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。每一列右側的 ✏️ 可直接編輯該項食材、🗑️ 可直接刪除該項；要一次刪除多項，按上方「批次刪除」勾選後再確認。</p>
         <div class="food-table-wrap" style="margin-top:10px;">
           <div class="food-row head" id="foodTableHead">
             <span>名稱</span><span>一份克數</span><span>熱量</span><span>蛋白質</span><span>脂肪</span><span>糖</span><span>份數</span><span></span>
@@ -1919,7 +1993,10 @@
         logDeleteSelected: [],
 
         logEditMode: false,
-        editingLogId: null
+        editingLogId: null,
+
+        logCombineMode: false,
+        logCombineSelected: []
       };
 
       function defaultGoalsSet() {
@@ -2349,18 +2426,40 @@
       function renderLogSelectBar() {
         var editToggle = document.getElementById('logEditToggle');
         var delToggle = document.getElementById('logDeleteToggle');
+        var combineToggle = document.getElementById('logCombineToggle');
         var editHint = document.getElementById('logEditHint');
+        var combineHint = document.getElementById('logCombineHint');
         var bar = document.getElementById('logSelectBar');
         var countEl = document.getElementById('logSelectCount');
+        var combineBar = document.getElementById('logCombineBar');
+        var combineCountEl = document.getElementById('logCombineCount');
+
         editToggle.classList.toggle('on', state.logEditMode);
         editToggle.classList.toggle('mode-edit', state.logEditMode);
         editToggle.textContent = state.logEditMode ? '取消編輯' : '編輯';
+
         delToggle.classList.toggle('on', state.logDeleteMode);
         delToggle.classList.toggle('mode-delete', state.logDeleteMode);
         delToggle.textContent = state.logDeleteMode ? '取消刪除' : '刪除';
+
+        combineToggle.classList.toggle('on', state.logCombineMode);
+        combineToggle.classList.toggle('mode-combine', state.logCombineMode);
+        combineToggle.textContent = state.logCombineMode ? '取消組合' : '組成一餐';
+
         editHint.style.display = state.logEditMode ? 'block' : 'none';
+        combineHint.style.display = state.logCombineMode ? 'block' : 'none';
         bar.style.display = state.logDeleteMode ? 'flex' : 'none';
         countEl.textContent = '已選 ' + state.logDeleteSelected.length + ' 筆';
+        combineBar.style.display = state.logCombineMode ? 'flex' : 'none';
+        combineCountEl.textContent = '已選 ' + state.logCombineSelected.length + ' 筆';
+      }
+
+      // 目前是否處於「勾選列」的模式（刪除 / 組成一餐 共用同一套勾選外觀），
+      // 回傳對應的已選清單，讓 renderLogRow / renderMealGroup 共用同一段程式。
+      function activeLogSelection() {
+        if (state.logDeleteMode) return state.logDeleteSelected;
+        if (state.logCombineMode) return state.logCombineSelected;
+        return null;
       }
 
       function logSugarVal(l) {
@@ -2372,11 +2471,12 @@
         var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + (l.unit || 'g')) : '');
         var sVal = logSugarVal(l);
         var dotCls = dominantMacroClass(l.protein, l.fat, sVal);
-        var checked = state.logDeleteSelected.indexOf(l.id) > -1;
-        var leftControl = state.logDeleteMode
+        var selection = activeLogSelection();
+        var checked = !!selection && selection.indexOf(l.id) > -1;
+        var leftControl = selection
           ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span>'
           : '';
-        var rowCls = 'log-item' + (state.logEditMode ? ' selectable-row' : '') + (extraClass ? ' ' + extraClass : '');
+        var rowCls = 'log-item' + (state.logEditMode || selection ? ' selectable-row' : '') + (checked ? ' picked' : '') + (extraClass ? ' ' + extraClass : '');
         return '<div class="' + rowCls + '" data-log-id="' + escapeHtml(l.id) + '">' +
           leftControl +
           '<span class="log-dot ' + dotCls + '"></span>' +
@@ -2406,9 +2506,10 @@
         var earliestTime = items.reduce(function (t, l) { return (!t || (l.time && l.time < t)) ? l.time : t; }, items[0].time);
 
         var subIds = items.map(function (l) { return l.id; });
-        var allChecked = state.logDeleteMode && subIds.length > 0 && subIds.every(function (id) { return state.logDeleteSelected.indexOf(id) > -1; });
-        var someChecked = state.logDeleteMode && subIds.some(function (id) { return state.logDeleteSelected.indexOf(id) > -1; });
-        var leftControl = state.logDeleteMode
+        var selection = activeLogSelection();
+        var allChecked = !!selection && subIds.length > 0 && subIds.every(function (id) { return selection.indexOf(id) > -1; });
+        var someChecked = !!selection && subIds.some(function (id) { return selection.indexOf(id) > -1; });
+        var leftControl = selection
           ? '<span class="row-check" data-group-check="' + escapeHtml(groupId) + '"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' ' + (!allChecked && someChecked ? 'data-indeterminate="1"' : '') + ' tabindex="-1"></span>'
           : '';
 
@@ -2426,7 +2527,9 @@
           '</div>';
 
         var subList = expanded
-          ? '<div class="meal-sub-list">' + items.map(function (l) { return renderLogRow(l, 'sub-item'); }).join('') + '</div>'
+          ? '<div class="meal-sub-list">' + items.map(function (l) { return renderLogRow(l, 'sub-item'); }).join('') +
+            (selection ? '' : '<div class="meal-sub-actions"><button type="button" class="btn-mini cancel" data-ungroup="' + escapeHtml(groupId) + '">拆散這一餐</button></div>') +
+            '</div>'
           : '';
 
         return '<div class="log-group' + (expanded ? ' expanded' : '') + '" data-group-id="' + escapeHtml(groupId) + '">' + head + subList + '</div>';
@@ -2767,18 +2870,12 @@
       }
 
       function renderFoodSelectBar() {
-        var editBtn = document.getElementById('foodEditToggle');
         var delBtn = document.getElementById('foodDeleteToggle');
-        var hint = document.getElementById('foodEditHint');
         var bar = document.getElementById('foodSelectBar');
         var countEl = document.getElementById('foodSelectCount');
-        editBtn.classList.toggle('on', state.foodMode === 'edit');
-        editBtn.classList.toggle('mode-edit', state.foodMode === 'edit');
-        editBtn.textContent = state.foodMode === 'edit' ? '取消編輯' : '編輯';
         delBtn.classList.toggle('on', state.foodMode === 'delete');
         delBtn.classList.toggle('mode-delete', state.foodMode === 'delete');
-        delBtn.textContent = state.foodMode === 'delete' ? '取消刪除' : '刪除';
-        hint.style.display = state.foodMode === 'edit' ? 'block' : 'none';
+        delBtn.textContent = state.foodMode === 'delete' ? '取消刪除' : '批次刪除';
         bar.style.display = state.foodMode === 'delete' ? 'flex' : 'none';
         countEl.textContent = '已選 ' + state.foodDeleteSelected.length + ' 項';
       }
@@ -2797,14 +2894,19 @@
             var d = foodDisplayRow(f);
             var catBadge = categoryBadges(f);
             var rowCls = 'food-row';
-            var tail = '<span class="food-actions"></span>';
-            if (state.foodMode === 'edit') {
-              rowCls += ' selectable-row';
-            } else if (state.foodMode === 'delete') {
+            var tail;
+            if (state.foodMode === 'delete') {
               rowCls += ' selectable-row';
               var checked = state.foodDeleteSelected.indexOf(f.id) > -1;
               if (checked) rowCls += ' picked';
               tail = '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span></span>';
+            } else {
+              // 一般瀏覽狀態下，每一列都直接懸浮著自己的編輯／刪除按鈕，
+              // 不需要再滑到最上面按「編輯」，也不用先進入某種模式才能操作。
+              tail = '<span class="food-actions">' +
+                '<button type="button" class="row-icon-btn edit" data-food-edit="' + escapeHtml(f.id) + '" title="編輯這項食材" aria-label="編輯">✏️</button>' +
+                '<button type="button" class="row-icon-btn danger" data-food-quickdel="' + escapeHtml(f.id) + '" title="刪除這項食材" aria-label="刪除">🗑️</button>' +
+                '</span>';
             }
             return '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
               '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
@@ -3274,24 +3376,91 @@
         });
       }
 
+      // 關閉「編輯／刪除／組成一餐」三種模式，回到一般瀏覽狀態。
+      function exitAllLogModes() {
+        state.logEditMode = false;
+        state.logDeleteMode = false;
+        state.logDeleteSelected = [];
+        state.logCombineMode = false;
+        state.logCombineSelected = [];
+        clearLogEditForm();
+      }
+
+      // 把選取到的多筆紀錄合併成一餐（共用一個 groupId）。
+      // 如果選取的紀錄裡剛好只牽涉到「一個」既有的這一餐分組，就直接併入那一組，
+      // 不會另外多出一組；牽涉到兩組以上（或原本都沒有分組）則開一組新的。
+      async function combineLogsIntoMeal(ids) {
+        if (ids.length < 2) { alert('請至少勾選 2 筆紀錄才能組成一餐'); return; }
+        var items = ids.map(function (id) { return state.logs.find(function (l) { return l.id === id; }); }).filter(Boolean);
+        if (items.length < 2) return;
+
+        var existingGroupIds = [];
+        items.forEach(function (l) {
+          if (l.groupId && existingGroupIds.indexOf(l.groupId) === -1) existingGroupIds.push(l.groupId);
+        });
+        var targetGroupId = existingGroupIds.length === 1 ? existingGroupIds[0] : uid('m');
+
+        items.forEach(function (l) { l.groupId = targetGroupId; });
+        state.expandedGroups[targetGroupId] = true;
+
+        await persistLogsAndRender();
+
+        if (hasSheet()) {
+          items.forEach(function (l) {
+            sheetPost('updateLog', { id: l.id, groupId: targetGroupId }).catch(function (e) {
+              setSheetStatus('組成一餐同步失敗：' + e.message, 'err');
+            });
+          });
+        }
+      }
+
+      // 把一組「這一餐」拆散回個別紀錄。
+      async function ungroupMeal(groupId) {
+        var items = state.logs.filter(function (l) { return l.groupId === groupId; });
+        if (!items.length) return;
+        if (!confirm('確定要把「這一餐」拆散成個別紀錄嗎？')) return;
+        items.forEach(function (l) { l.groupId = ''; });
+        delete state.expandedGroups[groupId];
+        await persistLogsAndRender();
+
+        if (hasSheet()) {
+          items.forEach(function (l) {
+            sheetPost('updateLog', { id: l.id, groupId: '' }).catch(function (e) {
+              setSheetStatus('拆散這一餐同步失敗：' + e.message, 'err');
+            });
+          });
+        }
+      }
+
       function wireLogList() {
         var listEl = document.getElementById('logList');
 
         listEl.addEventListener('click', function (e) {
+          var ungroupBtn = e.target.closest('[data-ungroup]');
+          if (ungroupBtn) {
+            ungroupMeal(ungroupBtn.getAttribute('data-ungroup'));
+            return;
+          }
+
           var row = e.target.closest('.log-item');
           if (!row) return;
 
+          var selection = activeLogSelection(); // 刪除模式或組成一餐模式，共用勾選外觀
+
           // 「這一餐」的整組標頭：一般模式下點一下展開/收合子項目；
-          // 刪除模式下點一下等於「整組全選／全不選」。
+          // 勾選模式（刪除／組成一餐）下點一下等於「整組全選／全不選」。
           var groupId = row.getAttribute('data-group-toggle');
           if (groupId) {
-            if (state.logDeleteMode) {
+            if (selection) {
               var subIds = state.logs.filter(function (l) { return l.groupId === groupId && l.date === state.currentDate; }).map(function (l) { return l.id; });
-              var allSelected = subIds.length > 0 && subIds.every(function (sid) { return state.logDeleteSelected.indexOf(sid) > -1; });
+              var allSelected = subIds.length > 0 && subIds.every(function (sid) { return selection.indexOf(sid) > -1; });
               if (allSelected) {
-                state.logDeleteSelected = state.logDeleteSelected.filter(function (sid) { return subIds.indexOf(sid) === -1; });
+                subIds.forEach(function (sid) {
+                  var idx = selection.indexOf(sid);
+                  if (idx > -1) selection.splice(idx, 1);
+                });
               } else {
-                subIds.forEach(function (sid) { if (state.logDeleteSelected.indexOf(sid) === -1) state.logDeleteSelected.push(sid); });
+                subIds.forEach(function (sid) { if (selection.indexOf(sid) === -1) selection.push(sid); });
               }
             } else {
               state.expandedGroups[groupId] = !state.expandedGroups[groupId];
@@ -3303,9 +3472,9 @@
           var id = row.getAttribute('data-log-id');
           if (!id) return;
 
-          if (state.logDeleteMode) {
-            var idx = state.logDeleteSelected.indexOf(id);
-            if (idx === -1) state.logDeleteSelected.push(id); else state.logDeleteSelected.splice(idx, 1);
+          if (selection) {
+            var idx2 = selection.indexOf(id);
+            if (idx2 === -1) selection.push(id); else selection.splice(idx2, 1);
             renderLogList();
             return;
           }
@@ -3320,15 +3489,21 @@
         });
 
         document.getElementById('logEditToggle').addEventListener('click', function () {
-          state.logEditMode = !state.logEditMode;
-          if (state.logEditMode) { state.logDeleteMode = false; state.logDeleteSelected = []; }
-          else { clearLogEditForm(); }
+          var next = !state.logEditMode;
+          exitAllLogModes();
+          state.logEditMode = next;
           renderLogList();
         });
         document.getElementById('logDeleteToggle').addEventListener('click', function () {
-          state.logDeleteMode = !state.logDeleteMode;
-          if (state.logDeleteMode) { state.logEditMode = false; clearLogEditForm(); }
-          state.logDeleteSelected = [];
+          var next = !state.logDeleteMode;
+          exitAllLogModes();
+          state.logDeleteMode = next;
+          renderLogList();
+        });
+        document.getElementById('logCombineToggle').addEventListener('click', function () {
+          var next = !state.logCombineMode;
+          exitAllLogModes();
+          state.logCombineMode = next;
           renderLogList();
         });
         document.getElementById('logSelectCancel').addEventListener('click', function () {
@@ -3343,6 +3518,17 @@
           state.logDeleteMode = false;
           state.logDeleteSelected = [];
           await deleteLogsBatch(ids);
+        });
+        document.getElementById('logCombineCancel').addEventListener('click', function () {
+          state.logCombineMode = false;
+          state.logCombineSelected = [];
+          renderLogList();
+        });
+        document.getElementById('logCombineConfirm').addEventListener('click', async function () {
+          var ids = state.logCombineSelected.slice();
+          state.logCombineMode = false;
+          state.logCombineSelected = [];
+          await combineLogsIntoMeal(ids);
         });
 
         wireLogEditForm();
@@ -3449,6 +3635,25 @@
         });
       }
 
+      // 把一項食材載入上方的表單準備編輯，並捲動到表單位置。
+      // 由每一列懸浮的 ✏️ 按鈕呼叫，不需要先進入任何「編輯模式」。
+      function loadFoodIntoForm(food) {
+        state.editingFoodId = food.id;
+        document.getElementById('fName').value = food.name || '';
+        document.getElementById('fBase').value = foodBaseGrams(food);
+        document.getElementById('fServings').value = foodTotalServings(food);
+        document.getElementById('fProtein').value = foodRawNutrient(food, 'protein');
+        document.getElementById('fFat').value = foodRawNutrient(food, 'fat');
+        document.getElementById('fSugar').value = foodRawNutrient(food, 'sugar');
+        document.getElementById('fCal').value = foodRawNutrient(food, 'cal');
+        setFCategory(foodCategories(food));
+        document.getElementById('fSaveBtn').textContent = '儲存食材修改';
+        updateFoodPackagePreview();
+        document.getElementById('secFoods').classList.remove('collapsed');
+        document.getElementById('fName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('fName').focus();
+      }
+
       function wireFoodTable() {
         var foodTable = document.getElementById('foodTable');
 
@@ -3460,6 +3665,27 @@
         });
 
         foodTable.addEventListener('click', function (e) {
+          // 每一列自己懸浮的 ✏️ 編輯按鈕：不管目前是不是在批次刪除模式，
+          // 一按就直接把該項食材載入表單，不用先切換模式。
+          var editBtn = e.target.closest('[data-food-edit]');
+          if (editBtn) {
+            var editFood = state.foods.find(function (f) { return f.id === editBtn.getAttribute('data-food-edit'); });
+            if (editFood) loadFoodIntoForm(editFood);
+            return;
+          }
+
+          // 每一列自己懸浮的 🗑️ 刪除按鈕：單筆直接刪除，確認一次即可，
+          // 不用先按「批次刪除」再勾選。
+          var quickDelBtn = e.target.closest('[data-food-quickdel]');
+          if (quickDelBtn) {
+            var delId = quickDelBtn.getAttribute('data-food-quickdel');
+            var delFood = state.foods.find(function (f) { return f.id === delId; });
+            if (delFood && confirm('確定要刪除「' + delFood.name + '」這項食材嗎？')) {
+              deleteFood(delId);
+            }
+            return;
+          }
+
           var row = e.target.closest('.food-row');
           if (!row) return;
           var id = row.getAttribute('data-food-id');
@@ -3470,34 +3696,8 @@
             renderFoodTable();
             return;
           }
-          if (state.foodMode === 'edit') {
-            var food = state.foods.find(function (f) { return f.id === id; });
-            if (food) {
-              state.editingFoodId = food.id;
-              document.getElementById('fName').value = food.name || '';
-              document.getElementById('fBase').value = foodBaseGrams(food);
-              document.getElementById('fServings').value = foodTotalServings(food);
-              document.getElementById('fProtein').value = foodRawNutrient(food, 'protein');
-              document.getElementById('fFat').value = foodRawNutrient(food, 'fat');
-              document.getElementById('fSugar').value = foodRawNutrient(food, 'sugar');
-              document.getElementById('fCal').value = foodRawNutrient(food, 'cal');
-              setFCategory(foodCategories(food));
-              document.getElementById('fSaveBtn').textContent = '儲存食材修改';
-              updateFoodPackagePreview();
-              state.foodMode = '';
-              renderFoodTable();
-              document.getElementById('secFoods').classList.remove('collapsed');
-              document.getElementById('fName').scrollIntoView({ behavior: 'smooth', block: 'center' });
-              document.getElementById('fName').focus();
-            }
-          }
         });
 
-        document.getElementById('foodEditToggle').addEventListener('click', function () {
-          state.foodMode = (state.foodMode === 'edit') ? '' : 'edit';
-          state.foodDeleteSelected = [];
-          renderFoodTable();
-        });
         document.getElementById('foodDeleteToggle').addEventListener('click', function () {
           state.foodMode = (state.foodMode === 'delete') ? '' : 'delete';
           state.foodDeleteSelected = [];
