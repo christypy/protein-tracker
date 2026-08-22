@@ -21,13 +21,18 @@
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
 var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100'];
-var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order'];
+var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order', 'groupId'];
 // 【v9 新增】Logs 新增了 order 欄位，用來記錄「今日紀錄」使用者手動拖移排序後的順序
 // （單純一個數字，同一天、同一身份的紀錄依這個數字由小到大顯示）。舊試算表沒有這欄時
 // ensureHeaders() 會自動補上；讀取舊資料時 order 欄位若是空的，前端會用時間排序當作預設值。
+// 【v12 新增】Logs 新增了 groupId 欄位：「新增這一餐」一次選好幾樣食材、按「全部加入紀錄」
+// 送出時，同一批送出的紀錄會共用同一個 groupId，前端「今日紀錄」會把同一個 groupId 的
+// 紀錄自動包成一張「這一餐」卡片，顯示這一餐吃了哪些東西、加總多少蛋白質/熱量等。
+// 舊試算表沒有這欄時 ensureHeaders() 會自動補上；讀取舊資料時 groupId 是空的就當作沒有
+// 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v11-multi-category';
+var APP_BACKEND_VERSION = 'v12-meal-groups';
 // 【v7 新增】Foods / Logs 都新增了 unit 欄位（例如 g、顆、盒、碗）。
 // 舊試算表沒有這欄時，ensureHeaders() 會自動補上，不需要手動搬移；
 // 讀取舊資料時 unit 欄位若是空的，一律視為 'g'。
@@ -315,6 +320,10 @@ function readLogs() {
     if (orderRaw !== '' && orderRaw !== undefined && orderRaw !== null && !isNaN(Number(orderRaw))) {
       logObj.order = Number(orderRaw);
     }
+    var groupIdRaw = map.hasOwnProperty('groupId') ? r[map['groupId']] : '';
+    if (groupIdRaw !== '' && groupIdRaw !== undefined && groupIdRaw !== null) {
+      logObj.groupId = String(groupIdRaw);
+    }
     logs.push(logObj);
   }
   return logs;
@@ -429,7 +438,8 @@ function addLog(payload) {
     fat: Number(payload.fat) || 0,
     sugar: Number(sugarVal) || 0,
     cal: Number(payload.cal) || 0,
-    order: payload.order != null ? Number(payload.order) : ''
+    order: payload.order != null ? Number(payload.order) : '',
+    groupId: payload.groupId ? String(payload.groupId) : ''
   });
   SpreadsheetApp.flush();
   return { success: true, id: id };
@@ -455,6 +465,14 @@ function updateLog(payload) {
           map['order'] = newOrderCol - 1;
         }
         sheet.getRange(rowNum, map['order'] + 1).setValue(Number(payload.order) || 0);
+      }
+      if (payload.groupId !== undefined) {
+        if (!map.hasOwnProperty('groupId')) {
+          var newGroupCol = sheet.getLastColumn() + 1;
+          sheet.getRange(1, newGroupCol).setValue('groupId');
+          map['groupId'] = newGroupCol - 1;
+        }
+        sheet.getRange(rowNum, map['groupId'] + 1).setValue(payload.groupId || '');
       }
       if (payload.foodName !== undefined) sheet.getRange(rowNum, map['foodName'] + 1).setValue(payload.foodName);
       if (payload.grams !== undefined) sheet.getRange(rowNum, map['grams'] + 1).setValue(payload.grams == null ? '' : payload.grams);

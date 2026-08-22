@@ -375,19 +375,6 @@
       }
     }
 
-    /* ---- 今日紀錄：編輯表單 ---- */
-    .log-edit-box {
-      margin-top: 10px;
-      padding: 12px;
-      border: 1px dashed var(--protein);
-      border-radius: var(--radius-sm);
-      background: var(--protein-tint);
-    }
-
-    .log-edit-box .btn-row {
-      margin-top: 10px;
-    }
-
     /* ---- 近 7 天趨勢（進度條版，精簡版面） ---- */
     .week-dots-inline {
       margin-top: 14px;
@@ -787,12 +774,102 @@
       }
     }
 
+    /* ---- 固定彈跳面板（新增這一餐 / 編輯紀錄共用）：
+       選好食材或按「編輯」後，面板會固定貼在畫面底部並保持顯示，
+       不需要為了填數值或選下一樣食材而不斷上下捲動頁面。 ---- */
     .food-detail {
-      margin-top: 10px;
-      padding: 12px;
-      border: 1px dashed var(--protein);
-      border-radius: var(--radius-sm);
-      background: var(--protein-tint);
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 640px;
+      margin: 0;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-bottom: none;
+      border-radius: 18px 18px 0 0;
+      background: var(--card);
+      box-shadow: 0 -6px 28px rgba(43, 38, 33, 0.18);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      max-height: 74vh;
+      overflow: hidden;
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--line);
+      margin: 8px auto 0;
+      flex: none;
+    }
+
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      flex: none;
+    }
+
+    .sheet-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .sheet-title b {
+      color: var(--protein-dark);
+      font-family: var(--font-num);
+    }
+
+    .sheet-toggle {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: 999px;
+      font-size: 11.5px;
+      padding: 4px 10px;
+      color: var(--ink-soft);
+      cursor: pointer;
+      flex: none;
+    }
+
+    .sheet-body {
+      overflow-y: auto;
+      padding: 0 16px 8px;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .sheet-footer {
+      flex: none;
+      padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 0 0 18px 18px;
+    }
+
+    .sheet-footer .btn-row {
+      margin: 0;
+    }
+
+    .food-detail.collapsed .sheet-body,
+    .food-detail.collapsed .sheet-footer {
+      display: none;
+    }
+
+    .food-detail.collapsed .sheet-handle {
+      display: none;
+    }
+
+    /* 面板固定在底部時，讓「新增這一餐」清單底部留一點空間，避免最後幾樣食材被面板擋住 */
+    #secAdd .section-body {
+      padding-bottom: 4px;
     }
 
     .empty {
@@ -1136,6 +1213,71 @@
 
     .log-macros .k {
       color: var(--cal);
+    }
+
+    /* ---- 這一餐（批次新增食材自動打包成一筆，可展開看子項目） ---- */
+    .log-group {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .log-group:last-child {
+      border-bottom: none;
+    }
+
+    .log-group .meal-head {
+      border-bottom: none;
+      padding: 10px 0;
+      cursor: pointer;
+    }
+
+    .log-group.expanded .meal-head {
+      padding-bottom: 6px;
+    }
+
+    .log-dot.dot-meal {
+      background: var(--cal);
+    }
+
+    .meal-head .log-main .name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meal-count-badge {
+      font-family: var(--font-num);
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--cal);
+      background: var(--cal-tint);
+      border-radius: 999px;
+      padding: 1px 7px;
+    }
+
+    .group-chev {
+      font-size: 12px;
+      color: var(--ink-soft);
+      flex: none;
+      transition: transform .15s;
+    }
+
+    .log-group.expanded .group-chev {
+      transform: rotate(180deg);
+    }
+
+    .meal-sub-list {
+      padding-left: 16px;
+      border-left: 2px solid var(--line);
+      margin: 0 0 8px 4px;
+    }
+
+    .meal-sub-list .log-item {
+      padding: 7px 0;
+    }
+
+    .meal-sub-list .log-item .log-main .name {
+      font-size: 12.5px;
+      font-weight: 500;
     }
 
     /* ---- 現在可以吃什麼 ---- */
@@ -1499,11 +1641,20 @@
         <div class="chip-scroll" id="pickerCategoryChips" style="margin-bottom:10px;"></div>
         <div class="food-list" id="pickerList"></div>
         <div class="food-detail" id="pickerDetail" style="display:none;">
-          <p class="hint" style="margin:0 0 10px;">點選上面的食材可以一次選好幾樣；每一項都可以自由切換「輸入份數」或「輸入克數」，兩邊會自動互相換算——例如半份就填 0.5、三份就填
-            3，填好後按下面按鈕一次送出。</p>
-          <div id="batchList"></div>
-          <div class="btn-row">
-            <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
+          <div class="sheet-handle"></div>
+          <div class="sheet-header" id="pickerSheetHeader">
+            <span class="sheet-title">已選 <b id="pickerBatchCount">0</b> 項食材，填好份數／克數後送出</span>
+            <button type="button" class="sheet-toggle" id="pickerSheetToggle">收合 ▾</button>
+          </div>
+          <div class="sheet-body">
+            <p class="hint" style="margin:0 0 10px;">面板會固定在畫面下方，選其他食材時不用捲動找它；每一項都可以自由切換「輸入份數」或「輸入克數」，兩邊會自動互相換算——例如半份就填
+              0.5、三份就填 3。</p>
+            <div id="batchList"></div>
+          </div>
+          <div class="sheet-footer">
+            <div class="btn-row">
+              <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
+            </div>
           </div>
         </div>
 
@@ -1560,24 +1711,33 @@
         </span>
       </div>
       <div id="logList"></div>
-      <div class="log-edit-box" id="logEditBox" style="display:none;">
-        <div class="row">
-          <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
+      <div class="food-detail" id="logEditBox" style="display:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">編輯這筆紀錄</span>
+          <button type="button" class="sheet-toggle" id="leCloseBtn">✕ 關閉</button>
         </div>
-        <div class="row" id="leGramsRow" style="margin-top:8px;display:none;">
-          <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
+        <div class="sheet-body">
+          <div class="row">
+            <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
+          </div>
+          <div class="row" id="leGramsRow" style="margin-top:8px;display:none;">
+            <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
+          </div>
+          <p class="hint" id="leLockedHint" style="display:none;margin:6px 0 0;">
+            這筆紀錄連結食材庫，只能調整克數，蛋白質／脂肪／糖／熱量會自動換算。如需調整食材本身的營養數值，請到下方「食材庫管理」修改。</p>
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
+            <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
+            <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
+            <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
+          </div>
         </div>
-        <p class="hint" id="leLockedHint" style="display:none;margin:6px 0 0;">
-          這筆紀錄連結食材庫，只能調整克數，蛋白質／脂肪／糖／熱量會自動換算。如需調整食材本身的營養數值，請到下方「食材庫管理」修改。</p>
-        <div class="row" style="margin-top:8px;">
-          <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
-          <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
-          <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
-          <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="leCancelBtn">取消</button>
-          <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
+        <div class="sheet-footer">
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="leCancelBtn">取消</button>
+            <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1746,9 +1906,11 @@
         editingFoodId: null,
         fCategorySelected: [],
         batch: [],
+        pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
         foodCategoryFilter: '',
         pickerCategoryFilter: '',
+        expandedGroups: {},
 
         foodMode: '',
         foodDeleteSelected: [],
@@ -2201,6 +2363,75 @@
         countEl.textContent = '已選 ' + state.logDeleteSelected.length + ' 筆';
       }
 
+      function logSugarVal(l) {
+        return l.sugar !== undefined ? l.sugar : (l.carb || 0);
+      }
+
+      // 單一筆紀錄的列（一般紀錄、以及「這一餐」展開後的子項目都共用這個函式畫出來）
+      function renderLogRow(l, extraClass) {
+        var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + (l.unit || 'g')) : '');
+        var sVal = logSugarVal(l);
+        var dotCls = dominantMacroClass(l.protein, l.fat, sVal);
+        var checked = state.logDeleteSelected.indexOf(l.id) > -1;
+        var leftControl = state.logDeleteMode
+          ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span>'
+          : '';
+        var rowCls = 'log-item' + (state.logEditMode ? ' selectable-row' : '') + (extraClass ? ' ' + extraClass : '');
+        return '<div class="' + rowCls + '" data-log-id="' + escapeHtml(l.id) + '">' +
+          leftControl +
+          '<span class="log-dot ' + dotCls + '"></span>' +
+          '<div class="log-time">' + escapeHtml(l.time || '') + '</div>' +
+          '<div class="log-main"><div class="name">' + escapeHtml(l.foodName || '未命名') + '</div>' +
+          '<div class="sub">' + escapeHtml(sub) + '</div></div>' +
+          '<div class="log-macros"><span class="p">P ' + round1(l.protein) + '</span>' +
+          '<span class="f">F ' + round1(l.fat) + '</span>' +
+          '<span class="s">S ' + round1(sVal) + '</span>' +
+          '<span class="k">' + Math.round(l.cal || 0) + 'kcal</span></div>' +
+          '</div>';
+      }
+
+      // 一整餐（同一個 groupId 的多筆紀錄）：顯示加總的 P/F/S/熱量，
+      // 點一下可以展開看這餐實際吃了哪些子項目。
+      function renderMealGroup(groupId, items) {
+        var totals = items.reduce(function (acc, l) {
+          acc.protein += Number(l.protein) || 0;
+          acc.fat += Number(l.fat) || 0;
+          acc.sugar += Number(logSugarVal(l)) || 0;
+          acc.cal += Number(l.cal) || 0;
+          return acc;
+        }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
+        var dotCls = dominantMacroClass(totals.protein, totals.fat, totals.sugar);
+        var expanded = !!state.expandedGroups[groupId];
+        var namesPreview = items.map(function (l) { return l.foodName || '未命名'; }).join('、');
+        var earliestTime = items.reduce(function (t, l) { return (!t || (l.time && l.time < t)) ? l.time : t; }, items[0].time);
+
+        var subIds = items.map(function (l) { return l.id; });
+        var allChecked = state.logDeleteMode && subIds.length > 0 && subIds.every(function (id) { return state.logDeleteSelected.indexOf(id) > -1; });
+        var someChecked = state.logDeleteMode && subIds.some(function (id) { return state.logDeleteSelected.indexOf(id) > -1; });
+        var leftControl = state.logDeleteMode
+          ? '<span class="row-check" data-group-check="' + escapeHtml(groupId) + '"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' ' + (!allChecked && someChecked ? 'data-indeterminate="1"' : '') + ' tabindex="-1"></span>'
+          : '';
+
+        var head = '<div class="log-item meal-head" data-group-toggle="' + escapeHtml(groupId) + '">' +
+          leftControl +
+          '<span class="log-dot ' + dotCls + '"></span>' +
+          '<div class="log-time">' + escapeHtml(earliestTime || '') + '</div>' +
+          '<div class="log-main"><div class="name">這一餐<span class="meal-count-badge">' + items.length + ' 項</span></div>' +
+          '<div class="sub">' + escapeHtml(namesPreview) + '</div></div>' +
+          '<div class="log-macros"><span class="p">P ' + round1(totals.protein) + '</span>' +
+          '<span class="f">F ' + round1(totals.fat) + '</span>' +
+          '<span class="s">S ' + round1(totals.sugar) + '</span>' +
+          '<span class="k">' + Math.round(totals.cal) + 'kcal</span></div>' +
+          '<span class="group-chev">▾</span>' +
+          '</div>';
+
+        var subList = expanded
+          ? '<div class="meal-sub-list">' + items.map(function (l) { return renderLogRow(l, 'sub-item'); }).join('') + '</div>'
+          : '';
+
+        return '<div class="log-group' + (expanded ? ' expanded' : '') + '" data-group-id="' + escapeHtml(groupId) + '">' + head + subList + '</div>';
+      }
+
       function renderLogList() {
         var el = document.getElementById('logList');
         var countEl = document.getElementById('logCount');
@@ -2211,27 +2442,31 @@
           el.innerHTML = '<div class="empty">這天還沒有紀錄，從「新增這一餐」開始吧。</div>';
           return;
         }
-        el.innerHTML = logs.map(function (l) {
-          var sub = l.type === 'manual' ? '手動輸入' : (l.grams ? (l.grams + (l.unit || 'g')) : '');
-          var sVal = l.sugar !== undefined ? l.sugar : (l.carb || 0);
-          var dotCls = dominantMacroClass(l.protein, l.fat, sVal);
-          var checked = state.logDeleteSelected.indexOf(l.id) > -1;
-          var leftControl = state.logDeleteMode
-            ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span>'
-            : '';
-          var rowCls = 'log-item' + (state.logEditMode ? ' selectable-row' : '');
-          return '<div class="' + rowCls + '" data-log-id="' + escapeHtml(l.id) + '">' +
-            leftControl +
-            '<span class="log-dot ' + dotCls + '"></span>' +
-            '<div class="log-time">' + escapeHtml(l.time || '') + '</div>' +
-            '<div class="log-main"><div class="name">' + escapeHtml(l.foodName || '未命名') + '</div>' +
-            '<div class="sub">' + escapeHtml(sub) + '</div></div>' +
-            '<div class="log-macros"><span class="p">P ' + round1(l.protein) + '</span>' +
-            '<span class="f">F ' + round1(l.fat) + '</span>' +
-            '<span class="s">S ' + round1(sVal) + '</span>' +
-            '<span class="k">' + Math.round(l.cal || 0) + 'kcal</span></div>' +
-            '</div>';
+
+        // 依 groupId 把同一批「全部加入紀錄」送出的項目包成一組；沒有 groupId
+        // （手動輸入、單選加入、或分組後只剩一項）的維持原本逐筆顯示。
+        var order = [];
+        var groupsById = {};
+        logs.forEach(function (l) {
+          if (l.groupId) {
+            if (!groupsById[l.groupId]) {
+              groupsById[l.groupId] = { groupId: l.groupId, items: [] };
+              order.push(groupsById[l.groupId]);
+            }
+            groupsById[l.groupId].items.push(l);
+          } else {
+            order.push({ single: l });
+          }
+        });
+
+        el.innerHTML = order.map(function (entry) {
+          if (entry.single) return renderLogRow(entry.single);
+          if (entry.items.length === 1) return renderLogRow(entry.items[0]);
+          return renderMealGroup(entry.groupId, entry.items);
         }).join('');
+
+        // checkbox 的「部分選取」樣式（indeterminate）沒辦法用 HTML 屬性表示，要用 JS 補上。
+        el.querySelectorAll('[data-indeterminate="1"]').forEach(function (cb) { cb.indeterminate = true; });
       }
 
       // ---- 近7天數據 ----
@@ -2613,12 +2848,19 @@
       function renderBatchList() {
         var wrap = document.getElementById('pickerDetail');
         var el = document.getElementById('batchList');
+        var countEl = document.getElementById('pickerBatchCount');
+        var toggleBtn = document.getElementById('pickerSheetToggle');
         if (!state.batch.length) {
           wrap.style.display = 'none';
+          wrap.classList.remove('collapsed');
           el.innerHTML = '';
+          state.pickerSheetCollapsed = false;
           return;
         }
-        wrap.style.display = 'block';
+        wrap.style.display = 'flex';
+        wrap.classList.toggle('collapsed', !!state.pickerSheetCollapsed);
+        if (countEl) countEl.textContent = state.batch.length;
+        if (toggleBtn) toggleBtn.textContent = state.pickerSheetCollapsed ? '展開 ▴' : '收合 ▾';
         el.innerHTML = state.batch.map(function (b) {
           var food = state.foods.find(function (f) { return f.id === b.foodId; });
           if (!food) return '';
@@ -2921,10 +3163,19 @@
             var food = state.foods.find(function (f) { return f.id === id; });
             var baseGrams = (food && (food.base || food.baseGrams)) || 100;
             state.batch.push({ foodId: id, grams: baseGrams, servings: 1, mode: 'g' });
+            // 挑選食材時自動展開固定面板，不用另外捲動到面板才看得到剛選的東西。
+            state.pickerSheetCollapsed = false;
           } else {
             state.batch.splice(idx, 1);
           }
           renderPickerList();
+        });
+
+        document.getElementById('pickerDetail').addEventListener('click', function (e) {
+          if (e.target.closest('#pickerSheetToggle') || (e.target.closest('.sheet-header') && !e.target.closest('input'))) {
+            state.pickerSheetCollapsed = !state.pickerSheetCollapsed;
+            renderBatchList();
+          }
         });
 
         document.getElementById('batchList').addEventListener('input', function (e) {
@@ -2983,14 +3234,19 @@
           if (!state.batch.length) return;
           var items = state.batch.slice();
           state.batch = [];
+          // 一次選了兩樣以上食材時，這批一起送出的紀錄共用一個 groupId，
+          // 「今日紀錄」會把它們自動包成一張「這一餐」卡片方便看加總。
+          var groupId = items.length > 1 ? uid('m') : null;
           for (var i = 0; i < items.length; i++) {
             var food = state.foods.find(function (f) { return f.id === items[i].foodId; });
             if (!food || !items[i].grams || items[i].grams <= 0) continue;
             var m = computeMacros(food, items[i].grams);
-            await addLog({
+            var entry = {
               type: 'selected', foodId: food.id, foodName: food.name, grams: items[i].grams, unit: food.unit || 'g',
               protein: m.protein, fat: m.fat, sugar: m.sugar, cal: m.cal
-            });
+            };
+            if (groupId) entry.groupId = groupId;
+            await addLog(entry);
           }
           renderPickerList();
         });
@@ -3024,7 +3280,28 @@
         listEl.addEventListener('click', function (e) {
           var row = e.target.closest('.log-item');
           if (!row) return;
+
+          // 「這一餐」的整組標頭：一般模式下點一下展開/收合子項目；
+          // 刪除模式下點一下等於「整組全選／全不選」。
+          var groupId = row.getAttribute('data-group-toggle');
+          if (groupId) {
+            if (state.logDeleteMode) {
+              var subIds = state.logs.filter(function (l) { return l.groupId === groupId && l.date === state.currentDate; }).map(function (l) { return l.id; });
+              var allSelected = subIds.length > 0 && subIds.every(function (sid) { return state.logDeleteSelected.indexOf(sid) > -1; });
+              if (allSelected) {
+                state.logDeleteSelected = state.logDeleteSelected.filter(function (sid) { return subIds.indexOf(sid) === -1; });
+              } else {
+                subIds.forEach(function (sid) { if (state.logDeleteSelected.indexOf(sid) === -1) state.logDeleteSelected.push(sid); });
+              }
+            } else {
+              state.expandedGroups[groupId] = !state.expandedGroups[groupId];
+            }
+            renderLogList();
+            return;
+          }
+
           var id = row.getAttribute('data-log-id');
+          if (!id) return;
 
           if (state.logDeleteMode) {
             var idx = state.logDeleteSelected.indexOf(id);
@@ -3098,7 +3375,7 @@
           lockedHint.style.display = 'none';
           document.getElementById('leGrams').value = '';
         }
-        document.getElementById('logEditBox').style.display = 'block';
+        document.getElementById('logEditBox').style.display = 'flex';
       }
 
       function clearLogEditForm() {
@@ -3122,6 +3399,7 @@
         });
 
         document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
+        document.getElementById('leCloseBtn').addEventListener('click', clearLogEditForm);
 
         document.getElementById('leSaveBtn').addEventListener('click', async function () {
           if (!state.editingLogId) return;
@@ -3209,6 +3487,7 @@
               state.foodMode = '';
               renderFoodTable();
               document.getElementById('secFoods').classList.remove('collapsed');
+              document.getElementById('fName').scrollIntoView({ behavior: 'smooth', block: 'center' });
               document.getElementById('fName').focus();
             }
           }
