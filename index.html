@@ -1066,10 +1066,10 @@
       .food-row {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
+        align-items: flex-start;
         min-width: 0;
-        gap: 4px 10px;
-        padding: 11px 0;
+        gap: 2px 8px;
+        padding: 9px 0;
       }
 
       .food-row>span {
@@ -1080,10 +1080,11 @@
       }
 
       .food-row>span.fname {
-        flex: 1 1 100%;
+        flex: 1 1 auto;
+        min-width: 0;
         order: -2;
         font-weight: 700;
-        font-size: 14px;
+        font-size: 13.5px;
         color: var(--ink);
         display: flex;
         align-items: center;
@@ -1091,28 +1092,84 @@
       }
 
       .food-actions {
-        flex: 1 1 100%;
+        flex: 0 0 auto;
         order: -1;
-        justify-content: flex-start;
-        margin: 2px 0 2px;
+        justify-content: flex-end;
+        margin: 0;
       }
 
+      /* 一份克數／熱量／蛋白質／脂肪／糖／份數改成同一行的緊湊文字，不再各自佔一整個
+         方塊、各自換行；手機瀏覽食材庫時每一項只佔 2 行，不用一直往下滑。 */
       .food-row>span.num {
         text-align: left;
         font-family: var(--font-num);
-        font-size: 12px;
-        color: var(--ink);
-        background: var(--paper);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 3px 8px;
+        font-size: 11.5px;
+        color: var(--ink-soft);
+        background: none;
+        border: none;
+        padding: 0;
+        white-space: nowrap;
       }
 
-      .food-row>span.num::before {
-        content: attr(data-label) '：';
+      .food-row>span.fname+span.num::before {
+        content: attr(data-label) ' ';
         color: var(--ink-soft);
         font-family: var(--font-body);
       }
+
+      .food-row>span.num+span.num::before {
+        content: ' · ' attr(data-label) ' ';
+        color: var(--ink-soft);
+        font-family: var(--font-body);
+      }
+    }
+
+    .log-swipe {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .log-swipe-action {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 72px;
+      background: var(--danger);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .log-swipe>.log-item {
+      position: relative;
+      background: var(--card);
+      touch-action: pan-y;
+    }
+
+    .log-swipe.dragging>.log-item {
+      transition: none;
+    }
+
+    .log-swipe:not(.dragging)>.log-item {
+      transition: transform .18s ease;
+    }
+
+    .log-swipe.swiped>.log-item {
+      transform: translateX(-72px);
+    }
+
+    .meal-sub-list .log-swipe-action {
+      width: 60px;
+      font-size: 11px;
+    }
+
+    .meal-sub-list .log-swipe.swiped>.log-item {
+      transform: translateX(-60px);
     }
 
     /* ---- Log list ---- */
@@ -1189,6 +1246,9 @@
     .log-main .sub {
       font-size: 11px;
       color: var(--ink-soft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .log-macros {
@@ -1764,7 +1824,7 @@
         <span class="hero-logs-title">今日紀錄</span>
         <span class="hero-logs-count" id="logCount"></span>
       </div>
-      <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。想修改內容，按「編輯」再點選要改的那一筆；想刪除的話，先按「刪除」再勾選；想把幾樣食材合併成一餐，按「組成一餐」勾選後確認。</p>
+      <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。單筆紀錄點兩下可以直接編輯、向左滑會出現「刪除」；要一次處理多筆，可以用下面的「編輯」「組成一餐」「刪除」。</p>
       <div class="list-toolbar">
         <button type="button" class="tool-btn" id="logEditToggle">編輯</button>
         <button type="button" class="tool-btn" id="logCombineToggle">組成一餐</button>
@@ -2477,7 +2537,7 @@
           ? '<span class="row-check" data-log-check="' + escapeHtml(l.id) + '"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span>'
           : '';
         var rowCls = 'log-item' + (state.logEditMode || selection ? ' selectable-row' : '') + (checked ? ' picked' : '') + (extraClass ? ' ' + extraClass : '');
-        return '<div class="' + rowCls + '" data-log-id="' + escapeHtml(l.id) + '">' +
+        var rowHtml = '<div class="' + rowCls + '" data-log-id="' + escapeHtml(l.id) + '">' +
           leftControl +
           '<span class="log-dot ' + dotCls + '"></span>' +
           '<div class="log-time">' + escapeHtml(l.time || '') + '</div>' +
@@ -2487,6 +2547,14 @@
           '<span class="f">F ' + round1(l.fat) + '</span>' +
           '<span class="s">S ' + round1(sVal) + '</span>' +
           '<span class="k">' + Math.round(l.cal || 0) + 'kcal</span></div>' +
+          '</div>';
+
+        // 一般瀏覽模式（不是編輯／刪除／組成一餐勾選中）才提供左滑刪除；
+        // 勾選模式下維持單純的列，避免手勢跟勾選互相干擾。
+        if (selection || state.logEditMode) return rowHtml;
+        return '<div class="log-swipe" data-swipe-id="' + escapeHtml(l.id) + '">' +
+          '<div class="log-swipe-action" data-swipe-delete="' + escapeHtml(l.id) + '">刪除</div>' +
+          rowHtml +
           '</div>';
       }
 
@@ -2502,7 +2570,10 @@
         }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
         var dotCls = dominantMacroClass(totals.protein, totals.fat, totals.sugar);
         var expanded = !!state.expandedGroups[groupId];
-        var namesPreview = items.map(function (l) { return l.foodName || '未命名'; }).join('、');
+        var itemNames = items.map(function (l) { return l.foodName || '未命名'; });
+        var namesPreview = itemNames.length > 3
+          ? itemNames.slice(0, 3).join('、') + ' 等 ' + itemNames.length + ' 項'
+          : itemNames.join('、');
         var earliestTime = items.reduce(function (t, l) { return (!t || (l.time && l.time < t)) ? l.time : t; }, items[0].time);
 
         var subIds = items.map(function (l) { return l.id; });
@@ -3432,8 +3503,101 @@
         }
       }
 
+      // 左滑刪除的手勢處理：只在一般瀏覽模式（沒有勾選中）才會啟用，
+      // 對應到 renderLogRow 產生的 .log-swipe 包裹層。
+      function wireLogSwipe(listEl) {
+        var OPEN_X = 72;
+        var active = null;
+
+        function closeSwipes(exceptId) {
+          listEl.querySelectorAll('.log-swipe.swiped').forEach(function (w) {
+            if (exceptId && w.getAttribute('data-swipe-id') === exceptId) return;
+            w.classList.remove('swiped');
+          });
+        }
+
+        listEl.addEventListener('pointerdown', function (e) {
+          var wrap = e.target.closest('.log-swipe');
+          if (e.target.closest('.log-swipe-action')) return; // 交給下面的 click 處理刪除
+          if (!wrap) { closeSwipes(); return; }
+          var content = wrap.querySelector(':scope > .log-item');
+          if (!content) return;
+          active = {
+            wrap: wrap,
+            content: content,
+            startX: e.clientX,
+            startY: e.clientY,
+            baseX: wrap.classList.contains('swiped') ? -OPEN_X : 0,
+            dragging: false,
+            moved: false,
+            pointerId: e.pointerId
+          };
+        });
+
+        listEl.addEventListener('pointermove', function (e) {
+          if (!active || active.pointerId !== e.pointerId) return;
+          var dx = e.clientX - active.startX;
+          var dy = e.clientY - active.startY;
+          if (!active.dragging) {
+            if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+            if (Math.abs(dy) > Math.abs(dx)) { active = null; return; } // 判斷是垂直捲動，放棄滑動處理
+            active.dragging = true;
+            active.wrap.classList.add('dragging');
+            closeSwipes(active.wrap.getAttribute('data-swipe-id'));
+          }
+          active.moved = true;
+          var x = Math.min(0, Math.max(-OPEN_X - 24, active.baseX + dx));
+          active.content.style.transform = 'translateX(' + x + 'px)';
+          e.preventDefault();
+        });
+
+        function endDrag(e) {
+          if (!active || active.pointerId !== e.pointerId) return;
+          var wrap = active.wrap, content = active.content, moved = active.moved, baseX = active.baseX, startX = active.startX;
+          wrap.classList.remove('dragging');
+          content.style.transform = '';
+          if (moved) {
+            var finalX = baseX + (e.clientX - startX);
+            if (finalX < -OPEN_X / 2) wrap.classList.add('swiped'); else wrap.classList.remove('swiped');
+          }
+          active = null;
+        }
+        listEl.addEventListener('pointerup', endDrag);
+        listEl.addEventListener('pointercancel', endDrag);
+
+        document.addEventListener('pointerdown', function (e) {
+          if (!e.target.closest('.log-swipe')) closeSwipes();
+        });
+
+        // 滑開後點紅色「刪除」按鈕：確認後刪除這一筆。
+        listEl.addEventListener('click', function (e) {
+          var delBtn = e.target.closest('[data-swipe-delete]');
+          if (!delBtn) return;
+          var id = delBtn.getAttribute('data-swipe-delete');
+          var log = state.logs.find(function (l) { return l.id === id; });
+          if (log && confirm('確定要刪除「' + (log.foodName || '這筆紀錄') + '」嗎？')) {
+            deleteLog(id);
+          }
+        });
+      }
+
+      // 兩下快速點擊同一筆紀錄＝直接開啟編輯（只在一般瀏覽模式下生效）。
+      var lastLogTap = { id: null, time: 0 };
+      function handleLogDoubleTap(id) {
+        var now = Date.now();
+        var isDouble = lastLogTap.id === id && (now - lastLogTap.time) < 400;
+        lastLogTap = isDouble ? { id: null, time: 0 } : { id: id, time: now };
+        if (isDouble) {
+          var log = state.logs.find(function (l) { return l.id === id; });
+          if (log) loadLogIntoForm(log);
+          return true;
+        }
+        return false;
+      }
+
       function wireLogList() {
         var listEl = document.getElementById('logList');
+        wireLogSwipe(listEl);
 
         listEl.addEventListener('click', function (e) {
           var ungroupBtn = e.target.closest('[data-ungroup]');
@@ -3444,6 +3608,14 @@
 
           var row = e.target.closest('.log-item');
           if (!row) return;
+
+          // 如果這一列已經左滑開著「刪除」按鈕，點內容區域先收回去就好，
+          // 不要順便觸發展開/選取/雙擊編輯等其他動作。
+          var swipeWrap = row.closest('.log-swipe');
+          if (swipeWrap && swipeWrap.classList.contains('swiped')) {
+            swipeWrap.classList.remove('swiped');
+            return;
+          }
 
           var selection = activeLogSelection(); // 刪除模式或組成一餐模式，共用勾選外觀
 
@@ -3485,7 +3657,11 @@
               state.logEditMode = false;
               renderLogList();
             }
+            return;
           }
+
+          // 一般瀏覽模式：兩下快速點擊同一筆＝直接開啟編輯。
+          handleLogDoubleTap(id);
         });
 
         document.getElementById('logEditToggle').addEventListener('click', function () {
