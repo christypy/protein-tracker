@@ -58,48 +58,55 @@
     .app {
       max-width: 640px;
       margin: 0 auto;
-      padding: 28px 18px 80px;
+      padding: 0 18px 80px;
     }
 
     a {
       color: inherit;
     }
 
-    /* ---- Header ---- */
-    .app-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 22px;
+    /* ---- Topbar：品牌／日期／身份切換全部收進一個緊湊的黏頂列。
+       捲動時仍然黏在最上面，隨時能確認「現在是誰、哪一天」，
+       但整體高度大幅縮小，讓「新增這一餐」更快出現。 ---- */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--paper);
+      margin: 0 -18px 14px;
+      padding: 12px 18px 8px;
+      border-bottom: 1px solid var(--line);
     }
 
-    .brand h1 {
+    .topbar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .topbar-title {
       font-family: var(--font-display);
       font-weight: 700;
-      font-size: 26px;
-      margin: 0 0 2px;
-      letter-spacing: 0.01em;
-    }
-
-    .brand p {
+      font-size: 15px;
       margin: 0;
-      color: var(--ink-soft);
-      font-size: 13px;
+      flex: none;
+      letter-spacing: 0.01em;
     }
 
     .sync-dot {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--ink-soft);
-      padding: 6px 10px;
+      padding: 5px 9px;
       border: 1px solid var(--line);
       border-radius: 999px;
       background: var(--card);
       white-space: nowrap;
       cursor: pointer;
+      flex: none;
     }
 
     .sync-dot .dot {
@@ -117,24 +124,26 @@
       background: var(--danger);
     }
 
-    /* ---- Date nav ---- */
+    /* ---- Date nav（併入 topbar 第一列，吃掉剩餘寬度並置中） ---- */
     .date-nav {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 14px;
-      margin: 0 0 20px;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
     }
 
     .date-nav button {
       border: 1px solid var(--line);
       background: var(--card);
       border-radius: 999px;
-      width: 32px;
-      height: 32px;
-      font-size: 15px;
+      width: 28px;
+      height: 28px;
+      font-size: 14px;
       cursor: pointer;
       color: var(--ink);
+      flex: none;
     }
 
     .date-nav button:hover {
@@ -144,49 +153,49 @@
 
     .date-label {
       font-family: var(--font-num);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
-      min-width: 112px;
+      min-width: 0;
       text-align: center;
       letter-spacing: 0.02em;
+      white-space: nowrap;
     }
 
     .date-label small {
       display: block;
       color: var(--ink-soft);
       font-family: var(--font-body);
-      font-size: 11px;
-      margin-top: 1px;
+      font-size: 10px;
+      margin-top: 0;
     }
 
-    /* ---- Profile tabs ---- */
+    /* ---- Profile tabs（併入 topbar 第二列，A／B 隨時看得到） ---- */
     .profile-tabs {
       display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 6px;
     }
 
     .profile-tab {
       flex: 1;
       min-width: 0;
       font-family: var(--font-body);
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 700;
-      padding: 9px 6px;
+      padding: 7px 6px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--line);
       background: var(--card);
       color: var(--ink);
       cursor: pointer;
       text-align: center;
-      line-height: 1.35;
+      line-height: 1.3;
     }
 
     .profile-tab em {
       display: block;
       font-style: normal;
       font-weight: 500;
-      font-size: 10.5px;
+      font-size: 10px;
       color: var(--ink-soft);
       margin-top: 1px;
       white-space: nowrap;
@@ -204,10 +213,22 @@
       color: rgba(255, 255, 255, 0.82);
     }
 
-    .profile-hint {
-      font-size: 11px;
-      color: var(--ink-soft);
-      margin: 0 0 14px;
+    .app-top-spacer {
+      height: 12px;
+    }
+
+    @media (max-width: 460px) {
+      #syncLabel {
+        display: none;
+      }
+
+      .sync-dot {
+        padding: 5px 7px;
+      }
+
+      .topbar-title {
+        font-size: 13.5px;
+      }
     }
 
     /* ---- Card Styles ---- */
@@ -220,16 +241,51 @@
       margin-bottom: 20px;
     }
 
-    /* ---- 今日目標 ---- */
-    .goal-info .label {
-      font-size: 12px;
-      color: var(--ink-soft);
-      margin-bottom: 10px;
+    /* ---- 今日目標：預設收合成一行摘要，點一下才展開完整進度卡／趨勢，
+       避免整張卡片一直佔掉「新增這一餐」上方的空間。 ---- */
+    .goal-head {
+      align-items: flex-start;
     }
 
-    .goal-info .label b {
-      color: var(--ink);
+    .goal-head-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .goal-head-title {
+      font-family: var(--font-display);
       font-weight: 700;
+      font-size: 14.5px;
+    }
+
+    .goal-mini {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px 10px;
+      margin-top: 4px;
+    }
+
+    .goal-mini-item {
+      font-family: var(--font-num);
+      font-size: 11px;
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+
+    .goal-mini-item.p.done {
+      color: var(--protein-dark);
+      font-weight: 700;
+    }
+
+    .goal-mini-item.f.over,
+    .goal-mini-item.s.over,
+    .goal-mini-item.k.over {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .goal-section-body {
+      padding-top: 14px;
     }
 
     /* ---- 進度卡 ---- */
@@ -1172,6 +1228,46 @@
       transform: translateX(-60px);
     }
 
+    /* ---- 食材庫每一列的左滑刪除，跟今日紀錄用同一套手勢 ---- */
+    .food-swipe {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .food-swipe-action {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 72px;
+      background: var(--danger);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .food-swipe>.food-row {
+      position: relative;
+      background: var(--card);
+      touch-action: pan-y;
+    }
+
+    .food-swipe.dragging>.food-row {
+      transition: none;
+    }
+
+    .food-swipe:not(.dragging)>.food-row {
+      transition: transform .18s ease;
+    }
+
+    .food-swipe.swiped>.food-row {
+      transform: translateX(-72px);
+    }
+
     /* ---- Log list ---- */
     .hero-logs-head {
       display: flex;
@@ -1568,33 +1664,6 @@
       text-decoration: underline;
     }
 
-    /* ---- 每列懸浮的編輯／刪除小按鈕（食材庫管理，不用再滑到最上面按「編輯」） ---- */
-    .row-icon-btn {
-      flex: none;
-      width: 28px;
-      height: 28px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--card);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      line-height: 1;
-      padding: 0;
-      cursor: pointer;
-    }
-
-    .row-icon-btn.edit:hover {
-      background: var(--protein-tint);
-      border-color: var(--protein-dark);
-    }
-
-    .row-icon-btn.danger:hover {
-      background: #F7E7E2;
-      border-color: var(--danger);
-    }
-
     /* ---- 拆散這一餐 ---- */
     .meal-sub-actions {
       display: flex;
@@ -1692,65 +1761,68 @@
 <body>
   <div class="app">
 
-    <div class="app-header">
-      <div class="brand">
-        <h1>蛋白質日記</h1>
-        <p>紀錄每一餐，看見蛋白質的累積</p>
+    <!-- 品牌／日期／身份切換：黏在最上方的緊湊列，捲動時也能隨時確認
+         現在是誰、記錄哪一天，但不會佔掉「新增這一餐」上方太多空間。 -->
+    <div class="topbar" id="topbar">
+      <div class="topbar-row">
+        <h1 class="topbar-title">蛋白質日記</h1>
+        <div class="date-nav">
+          <button id="prevDay" aria-label="前一天">‹</button>
+          <div class="date-label" id="dateLabel">今天<small id="dateSub"></small></div>
+          <button id="nextDay" aria-label="後一天">›</button>
+        </div>
+        <div class="sync-dot" id="syncDot" title="點擊查看同步設定"><span class="dot"></span><span id="syncLabel">本機儲存</span>
+        </div>
       </div>
-      <div class="sync-dot" id="syncDot" title="點擊查看同步設定"><span class="dot"></span><span id="syncLabel">本機儲存</span>
-      </div>
+      <div class="profile-tabs" id="profileTabs"></div>
     </div>
 
-    <div class="date-nav">
-      <button id="prevDay" aria-label="前一天">‹</button>
-      <div class="date-label" id="dateLabel">今天<small id="dateSub"></small></div>
-      <button id="nextDay" aria-label="後一天">›</button>
-    </div>
-
-    <div class="profile-tabs" id="profileTabs"></div>
-    <p class="profile-hint">切換身份會需要再次確認，避免不小心紀錄到對方的餐點。</p>
-
-    <!-- 1. 今日目標（最上方） -->
-    <div class="card-block" id="blockGoal">
-      <div class="goal-info">
-        <div class="label">今日目標 · <b id="profileDesc"></b></div>
+    <!-- 1. 今日目標：預設收合成一行摘要（蛋白質/脂肪/糖/熱量），點一下才展開
+         完整進度環與近7天趨勢，讓「新增這一餐」更快出現在畫面上。 -->
+    <div class="section collapsed" id="blockGoal">
+      <div class="section-head goal-head" data-toggle="blockGoal">
+        <div class="goal-head-text">
+          <span class="goal-head-title">今日目標 · <b id="profileDesc"></b></span>
+          <div class="goal-mini" id="goalMini"></div>
+        </div>
+        <span class="chev">▾</span>
+      </div>
+      <div class="section-body goal-section-body">
         <div class="progress-grid" id="remainGrid"></div>
-      </div>
 
-      <!-- 近7天趨勢（進度條，精簡版面） -->
-      <div class="week-dots-inline">
-        <div class="week-dots-header">
-          <span>近 7 天攝取趨勢</span>
+        <!-- 近7天趨勢（進度條，精簡版面） -->
+        <div class="week-dots-inline">
+          <div class="week-dots-header">
+            <span>近 7 天攝取趨勢</span>
+          </div>
+          <div class="week-dots-grid" id="weekDotsGrid"></div>
+          <div class="week-dots-legend">
+            <span><i class="legend-chip protein"></i>蛋白質</span>
+            <span><i class="legend-chip fat"></i>脂肪</span>
+            <span><i class="legend-chip sugar"></i>糖</span>
+            <span><i class="legend-chip cal"></i>熱量</span>
+            <span><i class="legend-chip red"></i>超標</span>
+            <span><i class="legend-chip nodata"></i>無紀錄</span>
+          </div>
         </div>
-        <div class="week-dots-grid" id="weekDotsGrid"></div>
-        <div class="week-dots-legend">
-          <span><i class="legend-chip protein"></i>蛋白質</span>
-          <span><i class="legend-chip fat"></i>脂肪</span>
-          <span><i class="legend-chip sugar"></i>糖</span>
-          <span><i class="legend-chip cal"></i>熱量</span>
-          <span><i class="legend-chip red"></i>超標</span>
-          <span><i class="legend-chip nodata"></i>無紀錄</span>
-        </div>
-      </div>
 
-      <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
-      <div id="goalsBox" style="display:none;margin-top:12px;">
-        <div class="row">
-          <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
-          <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
-          <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
-        </div>
-        <div class="btn-row" style="justify-content:space-between;">
-          <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
-          <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
+        <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
+        <div id="goalsBox" style="display:none;margin-top:12px;">
+          <div class="row">
+            <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
+            <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
+            <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
+          </div>
+          <div class="btn-row" style="justify-content:space-between;">
+            <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
+            <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
+          </div>
         </div>
       </div>
     </div>
-
-
 
     <!-- 2. 新增這一餐 -->
     <div class="section" id="secAdd">
@@ -1956,10 +2028,10 @@
           </span>
         </div>
 
-        <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。每一列右側的 ✏️ 可直接編輯該項食材、🗑️ 可直接刪除該項；要一次刪除多項，按上方「批次刪除」勾選後再確認。</p>
+        <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。單筆食材點兩下可以直接編輯、向左滑會出現「刪除」；要一次刪除多項，按上方「批次刪除」勾選後再確認。</p>
         <div class="food-table-wrap" style="margin-top:10px;">
           <div class="food-row head" id="foodTableHead">
-            <span>名稱</span><span>一份克數</span><span>熱量</span><span>蛋白質</span><span>脂肪</span><span>糖</span><span>份數</span><span></span>
+            <span>名稱</span><span>一份克數</span><span>熱量</span><span>蛋白質</span><span>脂肪</span><span>糖</span><span>份數</span>
           </div>
           <div id="foodTable"></div>
         </div>
@@ -2399,8 +2471,26 @@
         if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
 
         renderProfileTabs();
+        renderGoalMini(totals, goals);
         renderProgressGrid(totals, goals);
         renderWeekDotsGrid();
+      }
+
+      // 收合狀態下顯示的一行摘要（蛋白質/脂肪/糖/熱量目前 vs 目標），
+      // 不用展開整張卡片就能快速確認今天吃到哪裡。
+      function renderGoalMini(totals, goals) {
+        var el = document.getElementById('goalMini');
+        if (!el) return;
+        var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
+        var pDone = totals.protein >= goals.protein && goals.protein > 0;
+        var fOver = totals.fat > goals.fat;
+        var sOver = totals.sugar > sugarGoal;
+        var cOver = totals.cal > goals.cal;
+        el.innerHTML =
+          '<span class="goal-mini-item p' + (pDone ? ' done' : '') + '">蛋白 ' + round1(totals.protein) + '/' + round1(goals.protein) + 'g</span>' +
+          '<span class="goal-mini-item f' + (fOver ? ' over' : '') + '">脂肪 ' + round1(totals.fat) + '/' + round1(goals.fat) + 'g</span>' +
+          '<span class="goal-mini-item s' + (sOver ? ' over' : '') + '">糖 ' + round1(totals.sugar) + '/' + round1(sugarGoal) + 'g</span>' +
+          '<span class="goal-mini-item k' + (cOver ? ' over' : '') + '">熱量 ' + Math.round(totals.cal) + '/' + Math.round(goals.cal) + 'kcal</span>';
       }
 
       var MACRO_ICON = { protein: '🥩', fat: '🧈', sugar: '🍬', cal: '🔥' };
@@ -2951,6 +3041,35 @@
         countEl.textContent = '已選 ' + state.foodDeleteSelected.length + ' 項';
       }
 
+      // 單一食材列：跟今日紀錄的 renderLogRow 用同一套手勢——一般瀏覽模式下
+      // 點兩下直接編輯、向左滑出現「刪除」；批次刪除模式下維持勾選外觀，不套用手勢。
+      function renderFoodRow(f) {
+        var d = foodDisplayRow(f);
+        var catBadge = categoryBadges(f);
+        var deleteMode = state.foodMode === 'delete';
+        var checked = deleteMode && state.foodDeleteSelected.indexOf(f.id) > -1;
+        var rowCls = 'food-row' + (deleteMode ? ' selectable-row' : '') + (checked ? ' picked' : '');
+        var tail = deleteMode
+          ? '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span></span>'
+          : '';
+        var rowHtml = '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
+          '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
+          '<span class="num" data-label="一份克數" title="' + escapeHtml(d.baseTitle || '') + '">' + escapeHtml(d.baseLabel) + '</span>' +
+          '<span class="num" data-label="熱量">' + d.cal + '</span>' +
+          '<span class="num" data-label="蛋白質">' + d.protein + '</span>' +
+          '<span class="num" data-label="脂肪">' + d.fat + '</span>' +
+          '<span class="num" data-label="糖">' + d.sugar + '</span>' +
+          '<span class="num" data-label="份數">' + d.servings + '</span>' +
+          tail +
+          '</div>';
+
+        if (deleteMode) return rowHtml;
+        return '<div class="food-swipe" data-swipe-food-id="' + escapeHtml(f.id) + '">' +
+          '<div class="food-swipe-action" data-food-swipe-delete="' + escapeHtml(f.id) + '">刪除</div>' +
+          rowHtml +
+          '</div>';
+      }
+
       function renderFoodTable() {
         var el = document.getElementById('foodTable');
         renderFoodCategoryChips();
@@ -2961,35 +3080,7 @@
         if (!list.length) {
           el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
         } else {
-          el.innerHTML = list.map(function (f) {
-            var d = foodDisplayRow(f);
-            var catBadge = categoryBadges(f);
-            var rowCls = 'food-row';
-            var tail;
-            if (state.foodMode === 'delete') {
-              rowCls += ' selectable-row';
-              var checked = state.foodDeleteSelected.indexOf(f.id) > -1;
-              if (checked) rowCls += ' picked';
-              tail = '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span></span>';
-            } else {
-              // 一般瀏覽狀態下，每一列都直接懸浮著自己的編輯／刪除按鈕，
-              // 不需要再滑到最上面按「編輯」，也不用先進入某種模式才能操作。
-              tail = '<span class="food-actions">' +
-                '<button type="button" class="row-icon-btn edit" data-food-edit="' + escapeHtml(f.id) + '" title="編輯這項食材" aria-label="編輯">✏️</button>' +
-                '<button type="button" class="row-icon-btn danger" data-food-quickdel="' + escapeHtml(f.id) + '" title="刪除這項食材" aria-label="刪除">🗑️</button>' +
-                '</span>';
-            }
-            return '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
-              '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
-              '<span class="num" data-label="一份克數" title="' + escapeHtml(d.baseTitle || '') + '">' + escapeHtml(d.baseLabel) + '</span>' +
-              '<span class="num" data-label="熱量">' + d.cal + '</span>' +
-              '<span class="num" data-label="蛋白質">' + d.protein + '</span>' +
-              '<span class="num" data-label="脂肪">' + d.fat + '</span>' +
-              '<span class="num" data-label="糖">' + d.sugar + '</span>' +
-              '<span class="num" data-label="份數">' + d.servings + '</span>' +
-              tail +
-              '</div>';
-          }).join('');
+          el.innerHTML = list.map(renderFoodRow).join('');
         }
         renderPer100Table();
       }
@@ -3830,8 +3921,102 @@
         document.getElementById('fName').focus();
       }
 
+      // 食材庫左滑刪除的手勢處理，邏輯跟 wireLogSwipe 一致：只在一般瀏覽模式
+      // （不是批次刪除中）才會啟用，對應 renderFoodRow 產生的 .food-swipe 包裹層。
+      function wireFoodSwipe(listEl) {
+        var OPEN_X = 72;
+        var active = null;
+
+        function closeSwipes(exceptId) {
+          listEl.querySelectorAll('.food-swipe.swiped').forEach(function (w) {
+            if (exceptId && w.getAttribute('data-swipe-food-id') === exceptId) return;
+            w.classList.remove('swiped');
+          });
+        }
+
+        listEl.addEventListener('pointerdown', function (e) {
+          var wrap = e.target.closest('.food-swipe');
+          if (e.target.closest('.food-swipe-action')) return; // 交給下面的 click 處理刪除
+          if (!wrap) { closeSwipes(); return; }
+          var content = wrap.querySelector(':scope > .food-row');
+          if (!content) return;
+          active = {
+            wrap: wrap,
+            content: content,
+            startX: e.clientX,
+            startY: e.clientY,
+            baseX: wrap.classList.contains('swiped') ? -OPEN_X : 0,
+            dragging: false,
+            moved: false,
+            pointerId: e.pointerId
+          };
+        });
+
+        listEl.addEventListener('pointermove', function (e) {
+          if (!active || active.pointerId !== e.pointerId) return;
+          var dx = e.clientX - active.startX;
+          var dy = e.clientY - active.startY;
+          if (!active.dragging) {
+            if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+            if (Math.abs(dy) > Math.abs(dx)) { active = null; return; } // 判斷是垂直捲動，放棄滑動處理
+            active.dragging = true;
+            active.wrap.classList.add('dragging');
+            closeSwipes(active.wrap.getAttribute('data-swipe-food-id'));
+          }
+          active.moved = true;
+          var x = Math.min(0, Math.max(-OPEN_X - 24, active.baseX + dx));
+          active.content.style.transform = 'translateX(' + x + 'px)';
+          e.preventDefault();
+        });
+
+        function endDrag(e) {
+          if (!active || active.pointerId !== e.pointerId) return;
+          var wrap = active.wrap, content = active.content, moved = active.moved, baseX = active.baseX, startX = active.startX;
+          wrap.classList.remove('dragging');
+          content.style.transform = '';
+          if (moved) {
+            var finalX = baseX + (e.clientX - startX);
+            if (finalX < -OPEN_X / 2) wrap.classList.add('swiped'); else wrap.classList.remove('swiped');
+          }
+          active = null;
+        }
+        listEl.addEventListener('pointerup', endDrag);
+        listEl.addEventListener('pointercancel', endDrag);
+
+        document.addEventListener('pointerdown', function (e) {
+          if (!e.target.closest('.food-swipe')) closeSwipes();
+        });
+
+        // 滑開後點紅色「刪除」按鈕：確認後刪除這項食材。
+        listEl.addEventListener('click', function (e) {
+          var delBtn = e.target.closest('[data-food-swipe-delete]');
+          if (!delBtn) return;
+          var id = delBtn.getAttribute('data-food-swipe-delete');
+          var food = state.foods.find(function (f) { return f.id === id; });
+          if (food && confirm('確定要刪除「' + food.name + '」這項食材嗎？')) {
+            deleteFood(id);
+          }
+        });
+      }
+
+      // 兩下快速點擊同一項食材＝直接開啟編輯（只在一般瀏覽模式下生效），
+      // 跟今日紀錄的 handleLogDoubleTap 是同一套邏輯。
+      var lastFoodTap = { id: null, time: 0 };
+      function handleFoodDoubleTap(id) {
+        var now = Date.now();
+        var isDouble = lastFoodTap.id === id && (now - lastFoodTap.time) < 400;
+        lastFoodTap = isDouble ? { id: null, time: 0 } : { id: id, time: now };
+        if (isDouble) {
+          var food = state.foods.find(function (f) { return f.id === id; });
+          if (food) loadFoodIntoForm(food);
+          return true;
+        }
+        return false;
+      }
+
       function wireFoodTable() {
         var foodTable = document.getElementById('foodTable');
+        wireFoodSwipe(foodTable);
 
         document.getElementById('foodCategoryChips').addEventListener('click', function (e) {
           var chip = e.target.closest('[data-cat-filter]');
@@ -3841,30 +4026,17 @@
         });
 
         foodTable.addEventListener('click', function (e) {
-          // 每一列自己懸浮的 ✏️ 編輯按鈕：不管目前是不是在批次刪除模式，
-          // 一按就直接把該項食材載入表單，不用先切換模式。
-          var editBtn = e.target.closest('[data-food-edit]');
-          if (editBtn) {
-            var editFood = state.foods.find(function (f) { return f.id === editBtn.getAttribute('data-food-edit'); });
-            if (editFood) loadFoodIntoForm(editFood);
-            return;
-          }
-
-          // 每一列自己懸浮的 🗑️ 刪除按鈕：單筆直接刪除，確認一次即可，
-          // 不用先按「批次刪除」再勾選。
-          var quickDelBtn = e.target.closest('[data-food-quickdel]');
-          if (quickDelBtn) {
-            var delId = quickDelBtn.getAttribute('data-food-quickdel');
-            var delFood = state.foods.find(function (f) { return f.id === delId; });
-            if (delFood && confirm('確定要刪除「' + delFood.name + '」這項食材嗎？')) {
-              deleteFood(delId);
-            }
-            return;
-          }
-
           var row = e.target.closest('.food-row');
           if (!row) return;
           var id = row.getAttribute('data-food-id');
+
+          // 如果這一列已經左滑開著「刪除」按鈕，點內容區域先收回去就好，
+          // 不要順便觸發選取／雙擊編輯等其他動作。
+          var swipeWrap = row.closest('.food-swipe');
+          if (swipeWrap && swipeWrap.classList.contains('swiped')) {
+            swipeWrap.classList.remove('swiped');
+            return;
+          }
 
           if (state.foodMode === 'delete') {
             var idx = state.foodDeleteSelected.indexOf(id);
@@ -3872,6 +4044,9 @@
             renderFoodTable();
             return;
           }
+
+          // 一般瀏覽模式：兩下快速點擊同一項＝直接開啟編輯。
+          handleFoodDoubleTap(id);
         });
 
         document.getElementById('foodDeleteToggle').addEventListener('click', function () {
