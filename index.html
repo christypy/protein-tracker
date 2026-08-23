@@ -1395,6 +1395,26 @@
       color: var(--danger);
     }
 
+    .snack-item.over-limit .grams-line {
+      color: var(--fat);
+    }
+
+    .snack-item.over-limit .name {
+      color: var(--fat);
+    }
+
+    .snack-over-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--fat);
+      border-radius: 999px;
+      padding: 1px 7px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
     .snack-more-row {
       margin-top: 10px;
       text-align: center;
@@ -1713,10 +1733,11 @@
     <div class="section" id="secAdd">
       <div class="section-head" data-toggle="secAdd">
         <h2>新增這一餐</h2>
+        <button type="button" class="btn btn-primary head-btn" id="manualOpenBtn">✍️ 手動輸入</button>
         <span class="chev">▾</span>
       </div>
       <div class="section-body">
-        <p class="hint">從食材庫挑選，輸入攝取的份數或克數（g）皆可；也可以手動輸入蛋白質、脂肪與糖（Sugar）。</p>
+        <p class="hint">從食材庫挑選，輸入攝取的份數或克數（g）皆可；也可以按右上角「手動輸入」直接填蛋白質、脂肪與糖（Sugar）。</p>
 
         <div class="search-wrap">
           <input type="text" id="foodSearch" placeholder="搜尋食材，例如：雞胸肉">
@@ -1743,44 +1764,49 @@
         </div>
 
       </div>
-    </div>
 
-    <!-- 2b. 手動輸入這一餐（獨立成一個區塊，用按鈕展開，取代原本的文字連結） -->
-    <div class="section collapsed" id="secManual">
-      <div class="section-head" data-toggle="secManual">
-        <h2>✍️ 手動輸入這一餐</h2>
-        <span class="chev">▾</span>
-      </div>
-      <div class="section-body">
-        <p class="hint">食材庫裡找不到的品項可以直接輸入蛋白質／脂肪／糖／熱量；一餐有好幾樣手動輸入的東西時，先逐項按「加入清單」，最後按「加入紀錄」會自動合併成一餐一起計算。</p>
-        <div id="manualBatchList"></div>
-        <div class="row">
-          <div class="field">
-            <label>名稱（選填）</label>
-            <input type="text" id="manualName" placeholder="例如：外食便當">
+      <!-- 手動輸入這一餐：跟「新增食材」一樣固定貼在畫面下方，按標題列的
+           「✍️ 手動輸入」才打開面板；可以逐項「加入清單」再一次送出，
+           多樣品項會自動合併成一餐一起計算。 -->
+      <div class="food-detail" id="manualAddBox" style="display:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">手動輸入這一餐</span>
+          <button type="button" class="sheet-toggle" id="manualCloseBtn">✕ 關閉</button>
+        </div>
+        <div class="sheet-body">
+          <p class="hint" style="margin:0 0 10px;">食材庫裡找不到的品項可以直接輸入蛋白質／脂肪／糖／熱量；一餐有好幾樣手動輸入的東西時，先逐項按「加入清單」，最後按「加入紀錄」會自動合併成一餐一起計算。</p>
+          <div id="manualBatchList"></div>
+          <div class="row">
+            <div class="field">
+              <label>名稱（選填）</label>
+              <input type="text" id="manualName" placeholder="例如：外食便當">
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field">
+              <label>蛋白質 (g)</label>
+              <input type="number" id="manualProtein" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label>脂肪 (g，選填)</label>
+              <input type="number" id="manualFat" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label>糖（Sugar）(g，選填)</label>
+              <input type="number" id="manualSugar" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label>熱量 (kcal，選填)</label>
+              <input type="number" id="manualCal" min="0" step="1">
+            </div>
           </div>
         </div>
-        <div class="row" style="margin-top:8px;">
-          <div class="field">
-            <label>蛋白質 (g)</label>
-            <input type="number" id="manualProtein" min="0" step="0.1">
+        <div class="sheet-footer">
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="manualAddItemBtn">加入清單 ＋</button>
+            <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
           </div>
-          <div class="field">
-            <label>脂肪 (g，選填)</label>
-            <input type="number" id="manualFat" min="0" step="0.1">
-          </div>
-          <div class="field">
-            <label>糖（Sugar）(g，選填)</label>
-            <input type="number" id="manualSugar" min="0" step="0.1">
-          </div>
-          <div class="field">
-            <label>熱量 (kcal，選填)</label>
-            <input type="number" id="manualCal" min="0" step="1">
-          </div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="manualAddItemBtn">加入清單 ＋</button>
-          <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
         </div>
       </div>
     </div>
@@ -1858,9 +1884,7 @@
           先預留晚餐份量，再計算現在可以吃什麼
         </label>
         <div class="row" id="snackDinnerRow">
-          <div class="field"><label>晚餐預留熱量下限 (kcal)</label><input type="number" id="snackDinnerMin" min="0" step="10"
-              value="500"></div>
-          <div class="field"><label>晚餐預留熱量上限 (kcal)</label><input type="number" id="snackDinnerMax" min="0" step="10"
+          <div class="field"><label>晚餐預留熱量 (kcal)</label><input type="number" id="snackDinnerMax" min="0" step="10"
               value="700"></div>
         </div>
         <div class="status-msg" id="snackBudgetSummary"></div>
@@ -2382,17 +2406,13 @@
         });
       }
 
-      // 純函式：不碰 DOM，方便單元測試。dinnerMin/dinnerMax 是「晚餐可能會吃掉的熱量」估計範圍，
-      // 為了保守起見，計算「現在還能吃多少」時，用估計範圍的上限（dinnerMax）先扣掉，
-      // 確保晚餐一定還有預算可用。
-      // deductDinner 預設 true（跟升級前行為一致）：true 時會先扣掉晚餐預留熱量上限，
-      // 保守估計「現在」還能吃多少；false 時代表使用者選擇不預留晚餐份量，
-      // 直接用今天剩下的總熱量額度來計算，dinnerMin/dinnerMax 只用來顯示，不拿去扣除。
-      function computeSnackBudget(totals, goals, dinnerMin, dinnerMax, deductDinner) {
+      // 純函式：不碰 DOM，方便單元測試。
+      // dinnerReserve 是「晚餐可能會吃掉的熱量」保守估計上限，deductDinner 為 true 時
+      // 會先扣掉這個上限，確保晚餐一定還有預算可用；deductDinner 為 false 時代表使用者
+      // 選擇不預留晚餐份量，直接用今天剩下的總熱量額度來計算，dinnerReserve 就不會扣除。
+      function computeSnackBudget(totals, goals, dinnerReserve, deductDinner) {
         var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
-        dinnerMin = Number(dinnerMin) || 0;
-        dinnerMax = Number(dinnerMax) || 0;
-        if (dinnerMax < dinnerMin) { var tmp = dinnerMin; dinnerMin = dinnerMax; dinnerMax = tmp; }
+        dinnerReserve = Number(dinnerReserve) || 0;
         deductDinner = deductDinner !== false;
 
         var calLeftTotal = goals.cal - (totals.cal || 0);
@@ -2400,11 +2420,10 @@
           totals: totals,
           goals: goals,
           sugarGoal: sugarGoal,
-          dinnerMin: dinnerMin,
-          dinnerMax: dinnerMax,
+          dinnerReserve: dinnerReserve,
           deductDinner: deductDinner,
           calLeftTotal: calLeftTotal,
-          calAvailableNow: deductDinner ? (calLeftTotal - dinnerMax) : calLeftTotal,
+          calAvailableNow: deductDinner ? (calLeftTotal - dinnerReserve) : calLeftTotal,
           fatLeft: goals.fat - (totals.fat || 0),
           sugarLeft: sugarGoal - (totals.sugar || 0)
         };
@@ -2417,6 +2436,10 @@
       // 不能直接假設是「每100g」。
       // 同時用「這個食材目前庫存的總重量」（一份克數 × 份數）當作天花板，
       // 避免熱量額度很寬鬆時，建議吃超過食材實際庫存的荒謬數字。
+      // 熱量預算一律硬限制（不管有沒有勾選預留晚餐份量），避免熱量明顯超標。
+      // 有勾選「先預留晚餐份量」時，脂肪／糖額度也會實際限制建議份量（維持原本行為）；
+      // 沒勾選時，脂肪／糖不拿來限制份量，只在畫面上用橘色標示「這樣吃脂肪/糖會超標」，
+      // 讓使用者自己判斷，而不是直接把建議份量砍到 0。
       function maxGramsForFood(food, budget) {
         var base = foodBaseGrams(food);
         var perBaseAmount = {
@@ -2424,17 +2447,23 @@
           fat: foodRawNutrient(food, 'fat'),
           sugar: foodRawNutrient(food, 'sugar')
         };
-        var remaining = { cal: budget.calAvailableNow, fat: budget.fatLeft, sugar: budget.sugarLeft };
         var packageGrams = base * foodTotalServings(food);
 
         var maxG = packageGrams;
-        ['cal', 'fat', 'sugar'].forEach(function (key) {
-          var perBase = perBaseAmount[key];
-          if (perBase > 0) {
-            var allowed = remaining[key] > 0 ? (remaining[key] / perBase * base) : 0;
-            maxG = Math.min(maxG, allowed);
-          }
-        });
+        if (perBaseAmount.cal > 0) {
+          var allowedByCal = budget.calAvailableNow > 0 ? (budget.calAvailableNow / perBaseAmount.cal * base) : 0;
+          maxG = Math.min(maxG, allowedByCal);
+        }
+        if (budget.deductDinner) {
+          ['fat', 'sugar'].forEach(function (key) {
+            var perBase = perBaseAmount[key];
+            var remaining = budget[key + 'Left'];
+            if (perBase > 0) {
+              var allowed = remaining > 0 ? (remaining / perBase * base) : 0;
+              maxG = Math.min(maxG, allowed);
+            }
+          });
+        }
         return Math.max(0, maxG);
       }
 
@@ -2922,21 +2951,18 @@
         var listEl = document.getElementById('snackFoodList');
         if (!summaryEl || !listEl) return;
 
-        var minInput = document.getElementById('snackDinnerMin');
         var maxInput = document.getElementById('snackDinnerMax');
         var deductInput = document.getElementById('snackDeductDinner');
-        var dinnerMin = minInput ? minInput.value : 500;
-        var dinnerMax = maxInput ? maxInput.value : 700;
+        var dinnerReserve = maxInput ? maxInput.value : 700;
         var deductDinner = deductInput ? !!deductInput.checked : true;
 
         var dinnerRow = document.getElementById('snackDinnerRow');
         if (dinnerRow) dinnerRow.style.opacity = deductDinner ? '1' : '0.45';
-        if (minInput) minInput.disabled = !deductDinner;
         if (maxInput) maxInput.disabled = !deductDinner;
 
         var totals = todayTotalsForSnack();
         var goals = currentGoals();
-        var budget = computeSnackBudget(totals, goals, dinnerMin, dinnerMax, deductDinner);
+        var budget = computeSnackBudget(totals, goals, dinnerReserve, deductDinner);
 
         var summaryText = '今天已攝取熱量 ' + Math.round(totals.cal) + ' kcal（目標 ' + goals.cal + ' kcal）。';
         if (!deductDinner) {
@@ -2945,15 +2971,15 @@
             summaryEl.className = 'status-msg err';
           } else {
             summaryText += '目前沒有預留晚餐份量，現在最多還能吃約 ' + Math.round(budget.calAvailableNow) + ' kcal（這個額度晚餐也會一起用到，請自行留意）。';
-            if (budget.fatLeft <= 0) summaryText += '（脂肪額度已用完，會限制可吃的食材）';
-            if (budget.sugarLeft <= 0) summaryText += '（糖額度已用完，會限制可吃的食材）';
+            if (budget.fatLeft <= 0) summaryText += '（脂肪額度已用完，超過的品項會用橘色標示，僅供參考）';
+            if (budget.sugarLeft <= 0) summaryText += '（糖額度已用完，超過的品項會用橘色標示，僅供參考）';
             summaryEl.className = 'status-msg ok';
           }
         } else if (budget.calAvailableNow <= 0) {
-          summaryText += '扣掉晚餐預留的 ' + budget.dinnerMax + ' kcal 之後，目前熱量額度已經用完了，建議先不要加零食類，把額度留給晚餐。';
+          summaryText += '扣掉晚餐預留的 ' + budget.dinnerReserve + ' kcal 之後，目前熱量額度已經用完了，建議先不要加零食類，把額度留給晚餐。';
           summaryEl.className = 'status-msg err';
         } else {
-          summaryText += '扣掉晚餐預留 ' + budget.dinnerMin + '–' + budget.dinnerMax + ' kcal（保守用上限計算）後，現在最多還能吃約 ' + Math.round(budget.calAvailableNow) + ' kcal。';
+          summaryText += '扣掉晚餐預留 ' + budget.dinnerReserve + ' kcal 後，現在最多還能吃約 ' + Math.round(budget.calAvailableNow) + ' kcal。';
           if (budget.fatLeft <= 0) summaryText += '（脂肪額度已用完，會限制可吃的食材）';
           if (budget.sugarLeft <= 0) summaryText += '（糖額度已用完，會限制可吃的食材）';
           summaryEl.className = 'status-msg ok';
@@ -2975,8 +3001,13 @@
           var base = foodBaseGrams(f);
           var totalServings = foodTotalServings(f);
           var suggestedServings = base > 0 ? grams / base : 0;
+          // 沒勾選「先預留晚餐份量」時，脂肪／糖不拿來限制份量，改成標示提醒：
+          // 用這個建議克數計算，脂肪或糖是否會超出今天剩下的額度。
+          var overFat = !budget.deductDinner && grams > 0 && (budget.fatLeft - m.fat) < -0.05;
+          var overSugar = !budget.deductDinner && grams > 0 && (budget.sugarLeft - m.sugar) < -0.05;
           return { food: f, grams: grams, macros: m, proteinPer100Cal: proteinPer100Cal,
-            suggestedServings: suggestedServings, totalServings: totalServings };
+            suggestedServings: suggestedServings, totalServings: totalServings,
+            overFat: overFat, overSugar: overSugar };
         });
         ranked.sort(function (a, b) {
           if (b.proteinPer100Cal !== a.proteinPer100Cal) return b.proteinPer100Cal - a.proteinPer100Cal;
@@ -2994,10 +3025,17 @@
 
         var itemsHtml = visible.map(function (r, index) {
           var f = r.food, m = r.macros, noBudget = r.grams <= 0;
+          var overLimit = !noBudget && (r.overFat || r.overSugar);
+          var overNote = '';
+          if (overLimit) {
+            if (r.overFat && r.overSugar) overNote = '<span class="snack-over-badge">脂肪／糖會超標</span>';
+            else if (r.overFat) overNote = '<span class="snack-over-badge">脂肪會超標</span>';
+            else overNote = '<span class="snack-over-badge">糖會超標</span>';
+          }
           var servingText = noBudget ? '0 份' : round1(r.suggestedServings) + ' 份/共 ' + round1(r.totalServings) + ' 份';
-          return '<div class="snack-item' + (noBudget ? ' no-budget' : '') + '">' +
+          return '<div class="snack-item' + (noBudget ? ' no-budget' : '') + (overLimit ? ' over-limit' : '') + '">' +
             '<div class="snack-main">' +
-            '<div class="name">' + (index === 0 ? '<span class="recommend-badge">優先推薦</span>' : '') + escapeHtml(f.name) + '</div>' +
+            '<div class="name">' + (index === 0 ? '<span class="recommend-badge">優先推薦</span>' : '') + escapeHtml(f.name) + overNote + '</div>' +
             '<div class="sub">P ' + round1(m.protein) + 'g · F ' + round1(m.fat) + 'g · 糖 ' + round1(m.sugar) + 'g</div>' +
             '</div>' +
             '<div class="snack-amount">' +
@@ -3417,6 +3455,7 @@
       function openFoodAddSheet() {
         clearFoodEditForm();
         clearFoodForm();
+        closeManualSheet();
         document.getElementById('foodAddBox').style.display = 'flex';
       }
 
@@ -3676,7 +3715,31 @@
           ' kcal，送出時會合併成一餐。</p>' + rows;
       }
 
+      // 手動輸入這一餐：跟「新增食材」一樣固定貼在畫面下方，按標題列按鈕打開，
+      // 開啟前先收起其他固定面板（新增食材／編輯食材／編輯紀錄），避免同時疊在畫面下方。
+      function openManualSheet() {
+        var foodAddBox = document.getElementById('foodAddBox');
+        var foodEditBox = document.getElementById('foodEditBox');
+        var logEditBox = document.getElementById('logEditBox');
+        if (foodAddBox) foodAddBox.style.display = 'none';
+        if (foodEditBox) foodEditBox.style.display = 'none';
+        if (logEditBox) logEditBox.style.display = 'none';
+        document.getElementById('manualAddBox').style.display = 'flex';
+      }
+
+      function closeManualSheet() {
+        document.getElementById('manualAddBox').style.display = 'none';
+      }
+
       function wireManual() {
+        // 按鈕放在「新增這一餐」卡片標題列（跟「＋ 新增食材」同一種按鈕），
+        // 要阻止事件冒泡到 section-head，不然會連同觸發整張卡片收合/展開。
+        document.getElementById('manualOpenBtn').addEventListener('click', function (e) {
+          e.stopPropagation();
+          openManualSheet();
+        });
+        document.getElementById('manualCloseBtn').addEventListener('click', closeManualSheet);
+
         document.getElementById('manualBatchList').addEventListener('click', function (e) {
           var btn = e.target.closest('[data-manual-remove]');
           if (!btn) return;
@@ -3707,6 +3770,7 @@
           state.manualBatch = [];
           clearManualForm();
           renderManualBatchList();
+          closeManualSheet();
 
           var groupId = items.length > 1 ? uid('m') : null;
           for (var i = 0; i < items.length; i++) {
@@ -4008,6 +4072,7 @@
           lockedHint.style.display = 'none';
           document.getElementById('leGrams').value = '';
         }
+        closeManualSheet();
         document.getElementById('logEditBox').style.display = 'flex';
       }
 
@@ -4086,6 +4151,7 @@
       // 上方的新增表單；跟今日紀錄的 loadLogIntoForm 是同一套邏輯。
       function loadFoodIntoEditSheet(food) {
         closeFoodAddSheet();
+        closeManualSheet();
         state.editingFoodId = food.id;
         document.getElementById('feName').value = food.name || '';
         document.getElementById('feBase').value = foodBaseGrams(food);
@@ -4385,10 +4451,8 @@
       }
 
       function wireSnackNow() {
-        ['snackDinnerMin', 'snackDinnerMax'].forEach(function (id) {
-          var el = document.getElementById(id);
-          if (el) el.addEventListener('input', renderSnackNow);
-        });
+        var maxInput = document.getElementById('snackDinnerMax');
+        if (maxInput) maxInput.addEventListener('input', renderSnackNow);
         var deductInput = document.getElementById('snackDeductDinner');
         if (deductInput) deductInput.addEventListener('change', renderSnackNow);
         // 「顯示全部／收合」按鈕是每次 renderSnackNow 重畫時才產生的，
