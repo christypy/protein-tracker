@@ -123,6 +123,20 @@
       background: var(--danger);
     }
 
+    .sync-dot.warn .dot {
+      background: var(--fat);
+    }
+
+    .sync-dot.syncing .dot {
+      background: var(--fat);
+      animation: syncPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes syncPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
     /* ---- Date nav（併入 topbar 第一列，吃掉剩餘寬度並置中） ---- */
     .date-nav {
       display: flex;
@@ -1728,35 +1742,45 @@
           </div>
         </div>
 
-        <div class="toggle-manual" id="toggleManual">或直接手動輸入這餐的蛋白質量 ＋</div>
-        <div id="manualBox" style="display:none;margin-top:12px;">
-          <div class="row">
-            <div class="field">
-              <label>名稱（選填）</label>
-              <input type="text" id="manualName" placeholder="例如：外食便當">
-            </div>
+      </div>
+    </div>
+
+    <!-- 2b. 手動輸入這一餐（獨立成一個區塊，用按鈕展開，取代原本的文字連結） -->
+    <div class="section collapsed" id="secManual">
+      <div class="section-head" data-toggle="secManual">
+        <h2>✍️ 手動輸入這一餐</h2>
+        <span class="chev">▾</span>
+      </div>
+      <div class="section-body">
+        <p class="hint">食材庫裡找不到的品項可以直接輸入蛋白質／脂肪／糖／熱量；一餐有好幾樣手動輸入的東西時，先逐項按「加入清單」，最後按「加入紀錄」會自動合併成一餐一起計算。</p>
+        <div id="manualBatchList"></div>
+        <div class="row">
+          <div class="field">
+            <label>名稱（選填）</label>
+            <input type="text" id="manualName" placeholder="例如：外食便當">
           </div>
-          <div class="row" style="margin-top:8px;">
-            <div class="field">
-              <label>蛋白質 (g)</label>
-              <input type="number" id="manualProtein" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>脂肪 (g，選填)</label>
-              <input type="number" id="manualFat" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>糖（Sugar）(g，選填)</label>
-              <input type="number" id="manualSugar" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>熱量 (kcal，選填)</label>
-              <input type="number" id="manualCal" min="0" step="1">
-            </div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field">
+            <label>蛋白質 (g)</label>
+            <input type="number" id="manualProtein" min="0" step="0.1">
           </div>
-          <div class="btn-row">
-            <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
+          <div class="field">
+            <label>脂肪 (g，選填)</label>
+            <input type="number" id="manualFat" min="0" step="0.1">
           </div>
+          <div class="field">
+            <label>糖（Sugar）(g，選填)</label>
+            <input type="number" id="manualSugar" min="0" step="0.1">
+          </div>
+          <div class="field">
+            <label>熱量 (kcal，選填)</label>
+            <input type="number" id="manualCal" min="0" step="1">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="manualAddItemBtn">加入清單 ＋</button>
+          <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
         </div>
       </div>
     </div>
@@ -1829,7 +1853,11 @@
       </div>
       <div class="section-body">
         <p class="select-hint">從「零食」類別的食材裡，扣掉晚餐可能吃掉的熱量之後，抓出現在最多還能吃多少份量。</p>
-        <div class="row">
+        <label class="snack-deduct-toggle" for="snackDeductDinner" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:13px;color:var(--ink);">
+          <input type="checkbox" id="snackDeductDinner" checked style="width:16px;height:16px;flex:none;">
+          先預留晚餐份量，再計算現在可以吃什麼
+        </label>
+        <div class="row" id="snackDinnerRow">
           <div class="field"><label>晚餐預留熱量下限 (kcal)</label><input type="number" id="snackDinnerMin" min="0" step="10"
               value="500"></div>
           <div class="field"><label>晚餐預留熱量上限 (kcal)</label><input type="number" id="snackDinnerMax" min="0" step="10"
@@ -2008,8 +2036,10 @@
         </div>
         <div class="btn-row">
           <button class="btn btn-ghost" id="sheetClearBtn" style="margin-right:8px;">清除連結</button>
+          <button class="btn btn-ghost" id="sheetResyncBtn" style="margin-right:8px;">立即重新同步</button>
           <button class="btn btn-primary" id="sheetSaveBtn">儲存並連線</button>
         </div>
+        <p class="hint" style="margin-top:2px;">如果曾經看過「同步失敗」或紀錄新增後手機正常、但雲端試算表沒看到那一餐，按「立即重新同步」會重新檢查一次、把本機有但試算表還沒有的資料自動補傳。</p>
         <div class="status-msg" id="sheetStatus"></div>
         <div class="settings-note">
           設定方式：<br>
@@ -2052,6 +2082,7 @@
         fCategorySelected: [],
         feCategorySelected: [],
         batch: [],
+        manualBatch: [],
         pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
         foodCategoryFilter: '',
@@ -2185,24 +2216,84 @@
         return Object.keys(map).map(function (k) { return map[k]; });
       }
 
+      // 找出「本機有，但試算表回傳的資料裡沒有」的項目：這正是「手機顯示已同步、
+      // 雲端其實沒更新」的根本原因——某次 addLog/addFood 的 POST 送出失敗（例如手機
+      // 訊號不穩），本機還是照樣把資料存下來、畫面照常顯示這一餐，但試算表那邊
+      // 從來沒收到。過去唯一的線索只有當下那次失敗的提示訊息，一旦被滑過去就找不回來了。
+      function findUnsynced(remoteList, localList) {
+        var remoteIds = {};
+        (remoteList || []).forEach(function (x) { if (x && x.id) remoteIds[x.id] = true; });
+        return (localList || []).filter(function (x) { return x && x.id && !remoteIds[x.id]; });
+      }
+
+      // 把「本機有、試算表沒有」的資料重新送一次。addFood 這邊試算表會沿用原本的 id
+      // （不會重複新增食材本身），addLog 的部分試算表固定會產生新的 id，成功後把本機
+      // 那筆的 id 換成試算表回傳的 id，避免下次又被誤判成「還沒同步」。
+      async function resyncPending(pendingFoods, pendingLogs) {
+        var results = { foodsOk: 0, foodsFail: 0, logsOk: 0, logsFail: 0 };
+        for (var i = 0; i < pendingFoods.length; i++) {
+          try { await sheetPost('addFood', Object.assign({}, pendingFoods[i])); results.foodsOk++; }
+          catch (e) { results.foodsFail++; }
+        }
+        for (var j = 0; j < pendingLogs.length; j++) {
+          var l = pendingLogs[j];
+          try {
+            var res = await sheetPost('addLog', l);
+            if (res && res.id && res.id !== l.id) { l.id = res.id; }
+            results.logsOk++;
+          } catch (e) { results.logsFail++; }
+        }
+        if (results.foodsOk || results.logsOk) {
+          await saveLocalFoods();
+          await saveLocalLogs();
+        }
+        return results;
+      }
+
+      // 每次連上試算表（開啟 App、重新整理、或按「立即重新同步」）都會做這件事：
+      // 1) 抓試算表目前的資料 2) 比對哪些本機資料試算表還沒有 3) 有的話自動補傳，
+      // 並把同步燈號改成準確反映「是不是真的全部同步完成」，不會再一直卡在
+      // 「已連線試算表」卻其實漏了資料的狀態。
       async function refreshFromSheet(showStatus) {
         var dot = document.getElementById('syncDot');
         var label = document.getElementById('syncLabel');
         try {
           var data = await sheetGet();
+          var pendingFoods = findUnsynced(data.foods, state.foods);
+          var pendingLogs = findUnsynced(data.logs, state.logs);
+
           state.foods = mergeById(data.foods, state.foods);
           migrateFoodCategories();
           state.logs = mergeById(data.logs, state.logs);
           await saveLocalFoods();
           await saveLocalLogs();
-          dot.className = 'sync-dot on';
-          label.textContent = '已連線試算表';
-          if (showStatus) setSheetStatus('連線成功，已載入試算表資料。', 'ok');
+
+          var pendingCount = pendingFoods.length + pendingLogs.length;
+          if (pendingCount > 0) {
+            dot.className = 'sync-dot syncing';
+            label.textContent = '補傳 ' + pendingCount + ' 筆待同步…';
+            if (showStatus) setSheetStatus('偵測到 ' + pendingCount + ' 筆本機資料還沒進試算表，正在補傳…', '');
+            var results = await resyncPending(pendingFoods, pendingLogs);
+            var stillFailed = results.foodsFail + results.logsFail;
+            if (stillFailed > 0) {
+              dot.className = 'sync-dot warn';
+              label.textContent = '尚有 ' + stillFailed + ' 筆待同步';
+              setSheetStatus('仍有 ' + stillFailed + ' 筆資料同步失敗，稍後重新整理會再自動重試，也可以到「資料同步設定」按「立即重新同步」。', 'err');
+            } else {
+              dot.className = 'sync-dot on';
+              label.textContent = '已連線試算表';
+              setSheetStatus('已自動補傳 ' + pendingCount + ' 筆先前沒同步成功的資料，試算表現在是最新的了。', 'ok');
+            }
+          } else {
+            dot.className = 'sync-dot on';
+            label.textContent = '已連線試算表';
+            if (showStatus) setSheetStatus('連線成功，已載入試算表資料，本機資料也都已同步。', 'ok');
+          }
           return true;
         } catch (e) {
           dot.className = 'sync-dot err';
           label.textContent = '同步失敗（本機模式）';
-          if (showStatus) setSheetStatus('連線失敗：' + e.message + '（將暫時使用本機資料）', 'err');
+          if (showStatus) setSheetStatus('連線失敗：' + e.message + '（將暫時使用本機資料，資料不會遺失，下次連線成功會自動補同步）', 'err');
           return false;
         }
       }
@@ -2294,11 +2385,15 @@
       // 純函式：不碰 DOM，方便單元測試。dinnerMin/dinnerMax 是「晚餐可能會吃掉的熱量」估計範圍，
       // 為了保守起見，計算「現在還能吃多少」時，用估計範圍的上限（dinnerMax）先扣掉，
       // 確保晚餐一定還有預算可用。
-      function computeSnackBudget(totals, goals, dinnerMin, dinnerMax) {
+      // deductDinner 預設 true（跟升級前行為一致）：true 時會先扣掉晚餐預留熱量上限，
+      // 保守估計「現在」還能吃多少；false 時代表使用者選擇不預留晚餐份量，
+      // 直接用今天剩下的總熱量額度來計算，dinnerMin/dinnerMax 只用來顯示，不拿去扣除。
+      function computeSnackBudget(totals, goals, dinnerMin, dinnerMax, deductDinner) {
         var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
         dinnerMin = Number(dinnerMin) || 0;
         dinnerMax = Number(dinnerMax) || 0;
         if (dinnerMax < dinnerMin) { var tmp = dinnerMin; dinnerMin = dinnerMax; dinnerMax = tmp; }
+        deductDinner = deductDinner !== false;
 
         var calLeftTotal = goals.cal - (totals.cal || 0);
         return {
@@ -2307,8 +2402,9 @@
           sugarGoal: sugarGoal,
           dinnerMin: dinnerMin,
           dinnerMax: dinnerMax,
+          deductDinner: deductDinner,
           calLeftTotal: calLeftTotal,
-          calAvailableNow: calLeftTotal - dinnerMax,
+          calAvailableNow: deductDinner ? (calLeftTotal - dinnerMax) : calLeftTotal,
           fatLeft: goals.fat - (totals.fat || 0),
           sugarLeft: sugarGoal - (totals.sugar || 0)
         };
@@ -2828,15 +2924,32 @@
 
         var minInput = document.getElementById('snackDinnerMin');
         var maxInput = document.getElementById('snackDinnerMax');
+        var deductInput = document.getElementById('snackDeductDinner');
         var dinnerMin = minInput ? minInput.value : 500;
         var dinnerMax = maxInput ? maxInput.value : 700;
+        var deductDinner = deductInput ? !!deductInput.checked : true;
+
+        var dinnerRow = document.getElementById('snackDinnerRow');
+        if (dinnerRow) dinnerRow.style.opacity = deductDinner ? '1' : '0.45';
+        if (minInput) minInput.disabled = !deductDinner;
+        if (maxInput) maxInput.disabled = !deductDinner;
 
         var totals = todayTotalsForSnack();
         var goals = currentGoals();
-        var budget = computeSnackBudget(totals, goals, dinnerMin, dinnerMax);
+        var budget = computeSnackBudget(totals, goals, dinnerMin, dinnerMax, deductDinner);
 
         var summaryText = '今天已攝取熱量 ' + Math.round(totals.cal) + ' kcal（目標 ' + goals.cal + ' kcal）。';
-        if (budget.calAvailableNow <= 0) {
+        if (!deductDinner) {
+          if (budget.calAvailableNow <= 0) {
+            summaryText += '目前熱量額度已經用完了，建議先不要加零食類。';
+            summaryEl.className = 'status-msg err';
+          } else {
+            summaryText += '目前沒有預留晚餐份量，現在最多還能吃約 ' + Math.round(budget.calAvailableNow) + ' kcal（這個額度晚餐也會一起用到，請自行留意）。';
+            if (budget.fatLeft <= 0) summaryText += '（脂肪額度已用完，會限制可吃的食材）';
+            if (budget.sugarLeft <= 0) summaryText += '（糖額度已用完，會限制可吃的食材）';
+            summaryEl.className = 'status-msg ok';
+          }
+        } else if (budget.calAvailableNow <= 0) {
           summaryText += '扣掉晚餐預留的 ' + budget.dinnerMax + ' kcal 之後，目前熱量額度已經用完了，建議先不要加零食類，把額度留給晚餐。';
           summaryEl.className = 'status-msg err';
         } else {
@@ -3521,25 +3634,87 @@
         });
       }
 
+      // 讀出手動輸入表單目前填的內容；protein 沒有有效值時回傳 null（代表這一列還沒填）。
+      function readManualFormEntry() {
+        var protein = Number(document.getElementById('manualProtein').value);
+        if (!protein || protein <= 0) return null;
+        var name = document.getElementById('manualName').value.trim() || '手動紀錄';
+        var fat = Number(document.getElementById('manualFat').value) || 0;
+        var sugar = Number(document.getElementById('manualSugar').value) || 0;
+        var calInput = document.getElementById('manualCal').value;
+        var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
+        return { name: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal) };
+      }
+
+      function clearManualForm() {
+        document.getElementById('manualName').value = '';
+        document.getElementById('manualProtein').value = '';
+        document.getElementById('manualFat').value = '';
+        document.getElementById('manualSugar').value = '';
+        document.getElementById('manualCal').value = '';
+      }
+
+      // 顯示目前已加入清單、還沒送出的手動品項，讓使用者可以一次輸入多樣品項
+      // 再合併成一餐（跟食材庫「新增這一餐」的批次清單邏輯相同）。
+      function renderManualBatchList() {
+        var el = document.getElementById('manualBatchList');
+        if (!el) return;
+        if (!state.manualBatch.length) { el.innerHTML = ''; return; }
+        var totals = state.manualBatch.reduce(function (acc, it) {
+          acc.protein += it.protein; acc.fat += it.fat; acc.sugar += it.sugar; acc.cal += it.cal;
+          return acc;
+        }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
+        var rows = state.manualBatch.map(function (it, idx) {
+          return '<div class="batch-row" data-manual-idx="' + idx + '">' +
+            '<div class="field"><label>' + escapeHtml(it.name) + '</label>' +
+            '<p class="hint" style="margin:2px 0 0;">P ' + round1(it.protein) + 'g · F ' + round1(it.fat) + 'g · 糖 ' + round1(it.sugar) + 'g · ' + Math.round(it.cal) + ' kcal</p></div>' +
+            '<button type="button" class="btn-danger" data-manual-remove="' + idx + '">移除</button>' +
+            '</div>';
+        }).join('');
+        el.innerHTML = '<p class="hint" style="margin:0 0 6px;">已加入清單 <b>' + state.manualBatch.length + '</b> 項，合計 P ' +
+          round1(totals.protein) + 'g · F ' + round1(totals.fat) + 'g · 糖 ' + round1(totals.sugar) + 'g · ' + Math.round(totals.cal) +
+          ' kcal，送出時會合併成一餐。</p>' + rows;
+      }
+
       function wireManual() {
-        document.getElementById('toggleManual').addEventListener('click', function () {
-          var box = document.getElementById('manualBox');
-          box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+        document.getElementById('manualBatchList').addEventListener('click', function (e) {
+          var btn = e.target.closest('[data-manual-remove]');
+          if (!btn) return;
+          var idx = Number(btn.getAttribute('data-manual-remove'));
+          state.manualBatch.splice(idx, 1);
+          renderManualBatchList();
         });
+
+        // 「加入清單」：把目前表單的內容存進清單，讓使用者可以繼續輸入下一樣，
+        // 最後一次全部送出、自動合併成同一餐（groupId 相同）。
+        document.getElementById('manualAddItemBtn').addEventListener('click', function () {
+          var entry = readManualFormEntry();
+          if (!entry) { alert('請先輸入蛋白質克數，再加入清單'); return; }
+          state.manualBatch.push(entry);
+          clearManualForm();
+          renderManualBatchList();
+        });
+
+        // 「加入紀錄」：清單裡的品項 + 目前表單（如果有填）一起送出。
+        // 只有一樣品項時維持原本單筆紀錄的行為；兩樣以上時共用一個 groupId，
+        // 「今日紀錄」會自動把它們包成一張「這一餐」卡片並加總顯示。
         document.getElementById('manualAddBtn').addEventListener('click', async function () {
-          var protein = Number(document.getElementById('manualProtein').value);
-          if (!protein || protein < 0) { alert('請輸入蛋白質克數'); return; }
-          var name = document.getElementById('manualName').value.trim() || '手動紀錄';
-          var fat = Number(document.getElementById('manualFat').value) || 0;
-          var sugar = Number(document.getElementById('manualSugar').value) || 0;
-          var calInput = document.getElementById('manualCal').value;
-          var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
-          await addLog({ type: 'manual', foodId: null, foodName: name, grams: null, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal) });
-          document.getElementById('manualName').value = '';
-          document.getElementById('manualProtein').value = '';
-          document.getElementById('manualFat').value = '';
-          document.getElementById('manualSugar').value = '';
-          document.getElementById('manualCal').value = '';
+          var items = state.manualBatch.slice();
+          var current = readManualFormEntry();
+          if (current) items.push(current);
+          if (!items.length) { alert('請輸入蛋白質克數，或先把品項加入清單'); return; }
+
+          state.manualBatch = [];
+          clearManualForm();
+          renderManualBatchList();
+
+          var groupId = items.length > 1 ? uid('m') : null;
+          for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            var entry = { type: 'manual', foodId: null, foodName: it.name, grams: null, protein: it.protein, fat: it.fat, sugar: it.sugar, cal: it.cal };
+            if (groupId) entry.groupId = groupId;
+            await addLog(entry);
+          }
         });
       }
 
@@ -4214,6 +4389,8 @@
           var el = document.getElementById(id);
           if (el) el.addEventListener('input', renderSnackNow);
         });
+        var deductInput = document.getElementById('snackDeductDinner');
+        if (deductInput) deductInput.addEventListener('change', renderSnackNow);
         // 「顯示全部／收合」按鈕是每次 renderSnackNow 重畫時才產生的，
         // 用事件委派掛在外層清單容器上，才不會每次重畫後失效。
         var listEl = document.getElementById('snackFoodList');
@@ -4244,6 +4421,12 @@
             setSheetStatus('正在測試連線…', '');
             refreshFromSheet(true);
           }
+        });
+        document.getElementById('sheetResyncBtn').addEventListener('click', async function () {
+          if (!hasSheet()) { setSheetStatus('尚未設定試算表網址，無法同步。', 'err'); return; }
+          setSheetStatus('正在檢查並重新同步…', '');
+          await refreshFromSheet(true);
+          renderAll();
         });
         document.getElementById('sheetClearBtn').addEventListener('click', async function () {
           document.getElementById('sheetUrl').value = '';
