@@ -224,6 +224,42 @@
       color: #fff;
     }
 
+    /* ---- 懸浮「立即重新同步」：跟 A／B 身份切換共用同一條固定在畫面右側的
+       浮動欄位，不用特地展開「資料同步設定」卡片才能補傳。只有設定過試算表
+       網址時才會出現，同步中會有轉圈動畫。 ---- */
+    .sync-float-btn {
+      width: 38px;
+      height: 38px;
+      flex: none;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 17px;
+      line-height: 1;
+      box-shadow: var(--shadow);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sync-float-btn:hover {
+      background: var(--protein-tint);
+      border-color: var(--protein);
+    }
+
+    .sync-float-btn.spinning {
+      color: var(--fat);
+      border-color: var(--fat);
+      animation: syncSpin 0.8s linear infinite;
+    }
+
+    @keyframes syncSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     .app-top-spacer {
       height: 12px;
     }
@@ -326,17 +362,33 @@
       font-family: var(--font-body);
     }
 
+    /* 「這一餐」還沒送出前的暫估量：淺色小字標註在「攝取」數字後面，
+       跟長條圖上的淺色疊加段落是同一組資訊，選食材當下就能看到影響。 */
+    .gc-pending-note {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--fat);
+      margin-left: 5px;
+      font-family: var(--font-body);
+    }
+
     .goal-compact-bar {
       height: 4px;
       border-radius: 2px;
       background: var(--line);
       overflow: hidden;
+      display: flex;
     }
 
     .goal-compact-bar>span {
       display: block;
       height: 100%;
-      border-radius: 2px;
+    }
+
+    .goal-compact-bar>.gc-bar-pending {
+      opacity: 0.45;
+      background-image: linear-gradient(90deg, rgba(255,255,255,0.6) 0 2px, transparent 2px 4px);
+      background-size: 4px 100%;
     }
 
     .goal-compact-item.done .gc-label,
@@ -511,6 +563,14 @@
       font-size: 12.5px;
       margin-left: auto;
       margin-right: 10px;
+      flex: none;
+    }
+
+    /* 「＋ 新增食材」搬到跟「食材列表」批次操作同一排工具列後，沿用同一種
+       小尺寸按鈕外觀，跟旁邊的「批次刪除」對齊。 */
+    .list-toolbar .head-btn {
+      padding: 7px 14px;
+      font-size: 12.5px;
       flex: none;
     }
 
@@ -1519,6 +1579,8 @@
       color: var(--cal);
     }
 
+    /* ---- 勾選列（刪除／組成一餐共用）：改成懸浮貼在畫面下方的確認列，
+       勾選時不管清單捲到多下面，確認／取消按鈕都在手邊，不用捲回最上面。 ---- */
     .select-bar {
       display: flex;
       align-items: center;
@@ -1527,12 +1589,17 @@
       background: var(--protein-tint);
       border: 1px solid var(--protein);
       border-radius: var(--radius-sm);
-      padding: 99px 12px;
-      padding: 9px 12px;
-      margin-bottom: 10px;
+      padding: 11px 14px;
       font-size: 12.5px;
       color: var(--protein-dark);
       font-weight: 700;
+      position: fixed;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      width: min(calc(100% - 36px), 604px);
+      z-index: 40;
+      box-shadow: 0 6px 20px rgba(43, 38, 33, 0.16), 0 2px 6px rgba(43, 38, 33, 0.12);
     }
 
     .select-bar .select-actions {
@@ -1681,7 +1748,10 @@
         <div class="sync-dot" id="syncDot" title="點擊查看同步設定"><span class="dot"></span><span id="syncLabel">本機儲存</span>
         </div>
       </div>
-      <div class="profile-tabs" id="profileTabs"></div>
+      <div class="profile-tabs" id="profileFloatCol">
+        <button type="button" class="sync-float-btn" id="syncFloatBtn" title="立即重新同步" style="display:none;">⟳</button>
+        <div id="profileTabs" style="display:contents;"></div>
+      </div>
     </div>
 
     <!-- 1. 今日目標：一律展開顯示、不能收合；用精簡長條圖取代大進度環，
@@ -1897,7 +1967,6 @@
     <div class="section collapsed" id="secFoods">
       <div class="section-head" data-toggle="secFoods">
         <h2>食材庫管理</h2>
-        <button type="button" class="btn btn-primary head-btn" id="foodAddOpenBtn">＋ 新增食材</button>
         <span class="chev">▾</span>
       </div>
       <div class="section-body">
@@ -2015,6 +2084,7 @@
         <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
 
         <div class="list-toolbar" style="margin-top:14px;">
+          <button type="button" class="btn btn-primary head-btn" id="foodAddOpenBtn" style="margin-right:auto;">＋ 新增食材</button>
           <button type="button" class="tool-btn" id="foodDeleteToggle">批次刪除</button>
         </div>
         <div class="select-bar" id="foodSelectBar" style="display:none;">
@@ -2518,6 +2588,43 @@
           '<small>' + state.currentDate + '</small>';
       }
 
+      // 「新增這一餐」還沒送出前（挑選中的食材、手動輸入清單、手動輸入表單
+      // 目前填的內容）的暫估營養總和；讓「今日目標」卡片可以馬上反映「如果
+      // 現在送出這一餐，還會剩多少」，不用等按下「全部加入紀錄」才更新。
+      function pendingMealTotals() {
+        var totals = { protein: 0, fat: 0, sugar: 0, cal: 0 };
+        (state.batch || []).forEach(function (b) {
+          var food = state.foods.find(function (f) { return f.id === b.foodId; });
+          if (!food || !b.grams) return;
+          var m = computeMacros(food, b.grams);
+          totals.protein += Number(m.protein) || 0;
+          totals.fat += Number(m.fat) || 0;
+          totals.sugar += Number(m.sugar) || 0;
+          totals.cal += Number(m.cal) || 0;
+        });
+        (state.manualBatch || []).forEach(function (it) {
+          totals.protein += Number(it.protein) || 0;
+          totals.fat += Number(it.fat) || 0;
+          totals.sugar += Number(it.sugar) || 0;
+          totals.cal += Number(it.cal) || 0;
+        });
+        // 手動輸入表單目前正在填、但還沒按「加入清單／加入紀錄」的那一列，
+        // 只要蛋白質有填就先算進暫估總和，讓使用者邊填邊看剩餘額度。
+        var manualBox = document.getElementById('manualAddBox');
+        if (manualBox && manualBox.style.display !== 'none') {
+          var pField = document.getElementById('manualProtein');
+          var pVal = pField ? Number(pField.value) : 0;
+          if (pVal > 0) {
+            totals.protein += pVal;
+            totals.fat += Number(document.getElementById('manualFat').value) || 0;
+            totals.sugar += Number(document.getElementById('manualSugar').value) || 0;
+            var calVal = document.getElementById('manualCal').value;
+            totals.cal += calVal !== '' ? (Number(calVal) || 0) : estimateCalories(pVal, Number(document.getElementById('manualFat').value) || 0, Number(document.getElementById('manualSugar').value) || 0);
+          }
+        }
+        return totals;
+      }
+
       function renderHero() {
         var logs = logsForCurrentDate();
         var totals = logs.reduce(function (acc, l) {
@@ -2537,13 +2644,29 @@
         if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
 
         renderProfileTabs();
-        renderProgressGrid(totals, goals);
+        renderProgressGrid(totals, goals, pendingMealTotals());
         renderWeekDotsGrid();
+      }
+
+      // 挑選食材／填手動表單時，只要「今日目標」的數字，不用整頁重畫
+      // （renderHero 還會動到身份分頁、近7天趨勢等較重的部分)。
+      function refreshGoalPreview() {
+        var totals = logsForCurrentDate().reduce(function (acc, l) {
+          acc.protein += Number(l.protein) || 0;
+          acc.fat += Number(l.fat) || 0;
+          acc.sugar += Number(l.sugar !== undefined ? l.sugar : l.carb) || 0;
+          acc.cal += Number(l.cal) || 0;
+          return acc;
+        }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
+        renderProgressGrid(totals, currentGoals(), pendingMealTotals());
       }
 
       // 精簡長條圖：蛋白質（達標即可）用一般顏色，脂肪／糖／熱量（不要超標）
       // 超過上限時整條變紅；不用大進度環，高度跟近7天趨勢的長條圖一致。
-      function buildGoalCompactHtml(totals, goals) {
+      // pending：這一餐正在選、還沒送出的暫估量，用淺色虛線段疊加在長條圖上，
+      // 並在「剩餘」數字旁加註，讓使用者選食材當下就能看到會不會超標。
+      function buildGoalCompactHtml(totals, goals, pending) {
+        pending = pending || { protein: 0, fat: 0, sugar: 0, cal: 0 };
         var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
 
         var proteinLeft = round1(goals.protein - totals.protein);
@@ -2551,51 +2674,64 @@
         var sugarLeft = round1(sugarGoal - totals.sugar);
         var calLeft = Math.round(goals.cal - totals.cal);
 
-        function bar(pct, color) {
+        function bar(pct, pendingPct, color) {
           var clamped = Math.max(0, Math.min(100, pct));
-          return '<div class="goal-compact-bar"><span style="width:' + clamped.toFixed(0) + '%;background:' + color + ';"></span></div>';
+          var pendingClamped = Math.max(0, Math.min(100 - clamped, pendingPct));
+          var pendingSeg = pendingClamped > 0
+            ? '<span class="gc-bar-pending" style="width:' + pendingClamped.toFixed(0) + '%;background:' + color + ';"></span>'
+            : '';
+          return '<div class="goal-compact-bar"><span style="width:' + clamped.toFixed(0) + '%;background:' + color + ';"></span>' + pendingSeg + '</div>';
+        }
+
+        function pendingNote(pendingAmt, unit) {
+          return pendingAmt > 0 ? ('<span class="gc-pending-note">＋這一餐 ' + round1(pendingAmt) + unit + '</span>') : '';
         }
 
         // 每個指標一律同時顯示「攝取」與「剩餘」兩個數值，不用再切換或用推算的，
-        // 一眼就能看到目前吃了多少、還能吃（或還差）多少。
-        function targetItem(label, amt, left, goal, unit) {
-          var reached = left <= 0 && goal > 0;
+        // 一眼就能看到目前吃了多少、還能吃（或還差）多少；有正在組合的這一餐時，
+        // 「剩餘」會直接改成算進暫估量之後的預覽值。
+        function targetItem(label, amt, left, goal, unit, pendingAmt) {
+          var previewLeft = round1(left - pendingAmt);
+          var reached = previewLeft <= 0 && goal > 0;
           var pct = goal > 0 ? (amt / goal) * 100 : 0;
-          var remainLine = reached ? '已達標 ✓' : ('剩餘 ' + left + '<small>' + unit + '</small>');
+          var pendingPct = goal > 0 ? (pendingAmt / goal) * 100 : 0;
+          var remainLine = reached ? '已達標 ✓' : ('剩餘 ' + previewLeft + '<small>' + unit + '</small>');
           return '<div class="goal-compact-item' + (reached ? ' done' : '') + '">' +
             '<div class="gc-label">' + label + '</div>' +
             '<div class="gc-value">' +
-            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small></span>' +
+            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small>' + pendingNote(pendingAmt, unit) + '</span>' +
             '<span class="gc-line gc-sub">' + remainLine + '</span>' +
             '</div>' +
-            bar(reached ? 100 : pct, 'var(--protein)') +
+            bar(pct, pendingPct, 'var(--protein)') +
             '</div>';
         }
-        function limitItem(cls, label, amt, left, goal, unit) {
-          var over = left < 0;
+        function limitItem(cls, label, amt, left, goal, unit, pendingAmt) {
+          var previewLeft = round1(left - pendingAmt);
+          var over = previewLeft < 0;
           var pct = goal > 0 ? (amt / goal) * 100 : 0;
+          var pendingPct = goal > 0 ? (pendingAmt / goal) * 100 : 0;
           var color = over ? 'var(--danger)' : ('var(' + '--' + (cls === 'sugar' ? 'carb' : cls) + ')');
-          var remainLine = over ? ('超標 ' + Math.abs(left) + '<small>' + unit + '</small>') : ('剩餘 ' + left + '<small>' + unit + '</small>');
+          var remainLine = over ? ('超標 ' + Math.abs(previewLeft) + '<small>' + unit + '</small>') : ('剩餘 ' + previewLeft + '<small>' + unit + '</small>');
           return '<div class="goal-compact-item' + (over ? ' over' : '') + '">' +
             '<div class="gc-label">' + label + '</div>' +
             '<div class="gc-value">' +
-            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small></span>' +
+            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small>' + pendingNote(pendingAmt, unit) + '</span>' +
             '<span class="gc-line gc-sub">' + remainLine + '</span>' +
             '</div>' +
-            bar(over ? 100 : pct, color) +
+            bar(pct, pendingPct, color) +
             '</div>';
         }
 
-        return targetItem('蛋白質', round1(totals.protein), proteinLeft, goals.protein, 'g') +
-          limitItem('fat', '脂肪', round1(totals.fat), fatLeft, goals.fat, 'g') +
-          limitItem('sugar', '糖', round1(totals.sugar), sugarLeft, sugarGoal, 'g') +
-          limitItem('cal', '熱量', Math.round(totals.cal), calLeft, goals.cal, 'kcal');
+        return targetItem('蛋白質', round1(totals.protein), proteinLeft, goals.protein, 'g', pending.protein) +
+          limitItem('fat', '脂肪', round1(totals.fat), fatLeft, goals.fat, 'g', pending.fat) +
+          limitItem('sugar', '糖', round1(totals.sugar), sugarLeft, sugarGoal, 'g', pending.sugar) +
+          limitItem('cal', '熱量', Math.round(totals.cal), calLeft, goals.cal, 'kcal', pending.cal);
       }
 
-      function renderProgressGrid(totals, goals) {
+      function renderProgressGrid(totals, goals, pending) {
         var el = document.getElementById('remainGrid');
         if (!el) return;
-        el.innerHTML = buildGoalCompactHtml(totals, goals);
+        el.innerHTML = buildGoalCompactHtml(totals, goals, pending);
       }
 
       function renderProfileTabs() {
@@ -3243,6 +3379,7 @@
           wrap.classList.remove('collapsed');
           el.innerHTML = '';
           state.pickerSheetCollapsed = false;
+          refreshGoalPreview();
           return;
         }
         wrap.style.display = 'flex';
@@ -3276,6 +3413,7 @@
             '</div>';
         }).join('');
         document.getElementById('batchAddBtn').textContent = '全部加入紀錄（' + state.batch.length + ' 項）';
+        refreshGoalPreview();
       }
 
       function renderAll() {
@@ -3619,6 +3757,7 @@
           var m = computeMacros(food, b.grams);
           var prev = document.querySelector('[data-batch-preview="' + id + '"]');
           if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
+          refreshGoalPreview();
         });
 
         document.getElementById('batchList').addEventListener('click', function (e) {
@@ -3698,7 +3837,7 @@
       function renderManualBatchList() {
         var el = document.getElementById('manualBatchList');
         if (!el) return;
-        if (!state.manualBatch.length) { el.innerHTML = ''; return; }
+        if (!state.manualBatch.length) { el.innerHTML = ''; refreshGoalPreview(); return; }
         var totals = state.manualBatch.reduce(function (acc, it) {
           acc.protein += it.protein; acc.fat += it.fat; acc.sugar += it.sugar; acc.cal += it.cal;
           return acc;
@@ -3713,6 +3852,7 @@
         el.innerHTML = '<p class="hint" style="margin:0 0 6px;">已加入清單 <b>' + state.manualBatch.length + '</b> 項，合計 P ' +
           round1(totals.protein) + 'g · F ' + round1(totals.fat) + 'g · 糖 ' + round1(totals.sugar) + 'g · ' + Math.round(totals.cal) +
           ' kcal，送出時會合併成一餐。</p>' + rows;
+        refreshGoalPreview();
       }
 
       // 手動輸入這一餐：跟「新增食材」一樣固定貼在畫面下方，按標題列按鈕打開，
@@ -3725,10 +3865,12 @@
         if (foodEditBox) foodEditBox.style.display = 'none';
         if (logEditBox) logEditBox.style.display = 'none';
         document.getElementById('manualAddBox').style.display = 'flex';
+        refreshGoalPreview();
       }
 
       function closeManualSheet() {
         document.getElementById('manualAddBox').style.display = 'none';
+        refreshGoalPreview();
       }
 
       function wireManual() {
@@ -3739,6 +3881,11 @@
           openManualSheet();
         });
         document.getElementById('manualCloseBtn').addEventListener('click', closeManualSheet);
+
+        // 表單邊填邊更新「今日目標」預覽，不用等按下「加入清單／加入紀錄」。
+        ['manualProtein', 'manualFat', 'manualSugar', 'manualCal'].forEach(function (id) {
+          document.getElementById(id).addEventListener('input', refreshGoalPreview);
+        });
 
         document.getElementById('manualBatchList').addEventListener('click', function (e) {
           var btn = e.target.closest('[data-manual-remove]');
@@ -4467,12 +4614,40 @@
         }
       }
 
+      // 「立即重新同步」的實際動作：懸浮按鈕跟設定頁裡的按鈕共用同一段邏輯，
+      // 避免兩個入口各寫一次、行為不一致。
+      var syncFloatBusy = false;
+      async function doManualResync() {
+        if (syncFloatBusy) return;
+        if (!hasSheet()) { setSheetStatus('尚未設定試算表網址，無法同步。', 'err'); return; }
+        syncFloatBusy = true;
+        var floatBtn = document.getElementById('syncFloatBtn');
+        if (floatBtn) floatBtn.classList.add('spinning');
+        setSheetStatus('正在檢查並重新同步…', '');
+        await refreshFromSheet(true);
+        renderAll();
+        if (floatBtn) floatBtn.classList.remove('spinning');
+        syncFloatBusy = false;
+      }
+
+      // 懸浮的「立即重新同步」按鈕只在有設定試算表網址時才顯示，狀態跟著
+      // sync-dot 的連線狀態走，不用特地打開「資料同步設定」也能一鍵補傳。
+      function updateSyncFloatBtn() {
+        var floatBtn = document.getElementById('syncFloatBtn');
+        if (!floatBtn) return;
+        floatBtn.style.display = hasSheet() ? 'flex' : 'none';
+      }
+
       function wireSettings() {
         document.getElementById('sheetUrl').value = state.settings.sheetUrl || '';
         document.getElementById('syncDot').addEventListener('click', function () {
           document.getElementById('secSettings').classList.remove('collapsed');
           document.getElementById('sheetUrl').focus();
         });
+        var syncFloatBtn = document.getElementById('syncFloatBtn');
+        if (syncFloatBtn) syncFloatBtn.addEventListener('click', doManualResync);
+        updateSyncFloatBtn();
+
         document.getElementById('sheetSaveBtn').addEventListener('click', async function () {
           var url = document.getElementById('sheetUrl').value.trim();
           state.settings.sheetUrl = url;
@@ -4485,13 +4660,9 @@
             setSheetStatus('正在測試連線…', '');
             refreshFromSheet(true);
           }
+          updateSyncFloatBtn();
         });
-        document.getElementById('sheetResyncBtn').addEventListener('click', async function () {
-          if (!hasSheet()) { setSheetStatus('尚未設定試算表網址，無法同步。', 'err'); return; }
-          setSheetStatus('正在檢查並重新同步…', '');
-          await refreshFromSheet(true);
-          renderAll();
-        });
+        document.getElementById('sheetResyncBtn').addEventListener('click', doManualResync);
         document.getElementById('sheetClearBtn').addEventListener('click', async function () {
           document.getElementById('sheetUrl').value = '';
           state.settings.sheetUrl = '';
@@ -4499,6 +4670,7 @@
           setSheetStatus('已清除試算表連結，切換為純本機模式。', 'ok');
           document.getElementById('syncDot').className = 'sync-dot';
           document.getElementById('syncLabel').textContent = '本機儲存';
+          updateSyncFloatBtn();
         });
       }
 
