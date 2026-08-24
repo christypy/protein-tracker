@@ -566,14 +566,6 @@
       flex: none;
     }
 
-    /* 「＋ 新增食材」搬到跟「食材列表」批次操作同一排工具列後，沿用同一種
-       小尺寸按鈕外觀，跟旁邊的「批次刪除」對齊。 */
-    .list-toolbar .head-btn {
-      padding: 7px 14px;
-      font-size: 12.5px;
-      flex: none;
-    }
-
     .section.collapsed .chev {
       transform: rotate(-90deg);
     }
@@ -1962,18 +1954,9 @@
       </div>
     </div>
 
-    <!-- 食材庫：管理（新增食材）跟列表拆成兩張卡片，新增／編輯都固定貼在畫面下方
-         操作，不用在頁面裡展開再往下捲動填寫。 -->
-    <div class="section collapsed" id="secFoods">
-      <div class="section-head" data-toggle="secFoods">
-        <h2>食材庫管理</h2>
-        <span class="chev">▾</span>
-      </div>
-      <div class="section-body">
-        <p class="hint">
-          單位一律以公克（g）計算。輸入這個食材「一份」的克數，以及這一份對應的蛋白質／脂肪／糖（Sugar）／熱量；再填「總份數」（整包／整份含幾份），系統會自動算出整包的總重量與總營養，之後也能依實際攝取的克數自動換算。
-        </p>
-      </div>
+    <!-- 食材庫管理已經併入「食材列表」卡片：新增食材直接按標題列右邊的
+         「＋ 新增食材」開啟固定面板，不用另外展開一張卡片才找得到。 -->
+    <div id="foodManageBoxes">
 
       <!-- 新增食材：固定貼在畫面下方，跟編輯食材共用同一套操作方式，
            不用在頁面內展開往下捲動填寫。 -->
@@ -1984,6 +1967,9 @@
           <button type="button" class="sheet-toggle" id="faCloseBtn">✕ 關閉</button>
         </div>
         <div class="sheet-body">
+          <p class="hint" style="margin:0 0 10px;">
+            單位一律以公克（g）計算。輸入這個食材「一份」的克數，以及這一份對應的蛋白質／脂肪／糖（Sugar）／熱量；再填「總份數」（整包／整份含幾份），系統會自動算出整包的總重量與總營養，之後也能依實際攝取的克數自動換算。
+          </p>
           <div class="row">
             <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉 / 水煮蛋 / 嫩豆腐"></div>
           </div>
@@ -2072,11 +2058,13 @@
       </div>
     </div>
 
-    <!-- 食材列表：從「食材庫管理」拆出來的獨立卡片，只負責篩選／瀏覽／刪除，
-         新增與編輯都在上面「食材庫管理」卡片的固定面板操作。 -->
+    <!-- 食材列表：篩選／瀏覽／刪除都在這張卡片；新增與編輯都是固定貼在畫面下方
+         的面板（foodAddBox／foodEditBox，定義在上面），按標題列右邊的
+         「＋ 新增食材」或點兩下列表項目就會打開，不需要另外一張「食材庫管理」卡片。 -->
     <div class="section collapsed" id="secFoodList">
       <div class="section-head" data-toggle="secFoodList">
         <h2>食材列表</h2>
+        <button type="button" class="btn btn-primary head-btn" id="foodAddOpenBtn">＋ 新增食材</button>
         <span class="chev">▾</span>
       </div>
       <div class="section-body">
@@ -2084,7 +2072,6 @@
         <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
 
         <div class="list-toolbar" style="margin-top:14px;">
-          <button type="button" class="btn btn-primary head-btn" id="foodAddOpenBtn" style="margin-right:auto;">＋ 新增食材</button>
           <button type="button" class="tool-btn" id="foodDeleteToggle">批次刪除</button>
         </div>
         <div class="select-bar" id="foodSelectBar" style="display:none;">
@@ -4569,8 +4556,8 @@
 
         // 新增食材：跟編輯食材一樣固定貼在畫面下方，按「＋ 新增食材」才打開面板，
         // 送出成功後收起面板；編輯一律走下方固定的 foodEditBox 面板。
-        // 按鈕現在放在卡片標題列，不管「食材庫管理」目前是收合還是展開都能直接按，
-        // 要阻止事件冒泡到 section-head，不然會連同觸發整張卡片收合/展開。
+        // 按鈕現在放在「食材列表」卡片標題列，不管這張卡片目前是收合還是展開都能
+        // 直接按，要阻止事件冒泡到 section-head，不然會連同觸發整張卡片收合/展開。
         document.getElementById('foodAddOpenBtn').addEventListener('click', function (e) {
           e.stopPropagation();
           openFoodAddSheet();
