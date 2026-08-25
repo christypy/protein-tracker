@@ -1088,6 +1088,21 @@
       white-space: nowrap;
     }
 
+    .food-row .fstock {
+      font-style: normal;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--danger);
+      background: #F5E4DE;
+      border-radius: 999px;
+      padding: 2px 7px;
+      white-space: nowrap;
+    }
+
+    .food-row.out-of-stock .fname {
+      color: var(--ink-soft);
+    }
+
     .food-actions {
       display: flex;
       align-items: center;
@@ -1764,10 +1779,10 @@
           </div>
           <div class="week-dots-grid" id="weekDotsGrid"></div>
           <div class="week-dots-legend">
+            <span><i class="legend-chip cal"></i>熱量</span>
             <span><i class="legend-chip protein"></i>蛋白質</span>
             <span><i class="legend-chip fat"></i>脂肪</span>
             <span><i class="legend-chip sugar"></i>糖</span>
-            <span><i class="legend-chip cal"></i>熱量</span>
             <span><i class="legend-chip red"></i>超標</span>
             <span><i class="legend-chip nodata"></i>無紀錄</span>
           </div>
@@ -1776,12 +1791,12 @@
         <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
         <div id="goalsBox" style="display:none;margin-top:12px;">
           <div class="row">
+            <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
             <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
-            <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
           </div>
           <div class="row" style="margin-top:8px;">
+            <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
             <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
-            <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
           </div>
           <div class="btn-row" style="justify-content:space-between;">
             <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
@@ -1837,7 +1852,7 @@
           <button type="button" class="sheet-toggle" id="manualCloseBtn">✕ 關閉</button>
         </div>
         <div class="sheet-body">
-          <p class="hint" style="margin:0 0 10px;">食材庫裡找不到的品項可以直接輸入蛋白質／脂肪／糖／熱量；一餐有好幾樣手動輸入的東西時，先逐項按「加入清單」，最後按「加入紀錄」會自動合併成一餐一起計算。</p>
+          <p class="hint" style="margin:0 0 10px;">食材庫裡找不到的品項可以直接輸入熱量／蛋白質／脂肪／糖；一餐有好幾樣手動輸入的東西時，先逐項按「加入清單」，最後按「加入紀錄」會自動合併成一餐一起計算。</p>
           <div id="manualBatchList"></div>
           <div class="row">
             <div class="field">
@@ -1846,6 +1861,10 @@
             </div>
           </div>
           <div class="row" style="margin-top:8px;">
+            <div class="field">
+              <label>熱量 (kcal，選填)</label>
+              <input type="number" id="manualCal" min="0" step="1">
+            </div>
             <div class="field">
               <label>蛋白質 (g)</label>
               <input type="number" id="manualProtein" min="0" step="0.1">
@@ -1857,10 +1876,6 @@
             <div class="field">
               <label>糖（Sugar）(g，選填)</label>
               <input type="number" id="manualSugar" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>熱量 (kcal，選填)</label>
-              <input type="number" id="manualCal" min="0" step="1">
             </div>
           </div>
         </div>
@@ -1916,12 +1931,12 @@
             <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
           </div>
           <p class="hint" id="leLockedHint" style="display:none;margin:6px 0 0;">
-            這筆紀錄連結食材庫，只能調整克數，蛋白質／脂肪／糖／熱量會自動換算。如需調整食材本身的營養數值，請到下方「食材庫管理」修改。</p>
+            這筆紀錄連結食材庫，只能調整克數，熱量／蛋白質／脂肪／糖會自動換算。如需調整食材本身的營養數值，請到下方「食材庫管理」修改。</p>
           <div class="row" style="margin-top:8px;">
+            <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
             <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
             <div class="field"><label>脂肪 (g)</label><input type="number" id="leFat" min="0" step="0.1"></div>
             <div class="field"><label>糖（Sugar）(g)</label><input type="number" id="leSugar" min="0" step="0.1"></div>
-            <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
           </div>
         </div>
         <div class="sheet-footer">
@@ -1968,7 +1983,7 @@
         </div>
         <div class="sheet-body">
           <p class="hint" style="margin:0 0 10px;">
-            單位一律以公克（g）計算。輸入這個食材「一份」的克數，以及這一份對應的蛋白質／脂肪／糖（Sugar）／熱量；再填「總份數」（整包／整份含幾份），系統會自動算出整包的總重量與總營養，之後也能依實際攝取的克數自動換算。
+            單位一律以公克（g）計算。輸入這個食材「一份」的克數，以及這一份對應的熱量／蛋白質／脂肪／糖（Sugar）；再填「總份數」（整包／整份含幾份），系統會自動算出整包的總重量與總營養，之後也能依實際攝取的克數自動換算。
           </p>
           <div class="row">
             <div class="field"><label>食材名稱</label><input type="text" id="fName" placeholder="例如：雞胸肉 / 水煮蛋 / 嫩豆腐"></div>
@@ -1997,6 +2012,10 @@
             <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="fFat" min="0" step="0.1"></div>
             <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
           </div>
+          <label for="fOutOfStock" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);">
+            <input type="checkbox" id="fOutOfStock" style="width:16px;height:16px;flex:none;">
+            目前缺貨中（勾選後不會出現在「新增這一餐」的選擇清單裡）
+          </label>
           <div class="btn-row" style="justify-content:flex-start;">
             <span class="toggle-manual" id="fAutoCal" style="margin:0;">用蛋白質/脂肪/糖（Sugar）估算熱量</span>
           </div>
@@ -2045,6 +2064,10 @@
             <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="feFat" min="0" step="0.1"></div>
             <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="feSugar" min="0" step="0.1"></div>
           </div>
+          <label for="feOutOfStock" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);">
+            <input type="checkbox" id="feOutOfStock" style="width:16px;height:16px;flex:none;">
+            目前缺貨中（勾選後不會出現在「新增這一餐」的選擇清單裡）
+          </label>
           <div class="btn-row" style="justify-content:flex-start;">
             <span class="toggle-manual" id="feAutoCal" style="margin:0;">用蛋白質/脂肪/糖（Sugar）估算熱量</span>
           </div>
@@ -2092,7 +2115,7 @@
         </div>
         <div id="per100Wrap" style="display:none;margin-top:10px;">
           <p class="hint" style="margin:0 0 8px;">
-            下表把每項食材換算成「每100克」的蛋白質／脂肪／熱量／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
+            下表把每項食材換算成「每100克」的熱量／蛋白質／脂肪／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
             克，100 克就約等於 2.7 份）。</p>
           <div class="food-table-wrap">
             <div id="per100Table"></div>
@@ -2459,7 +2482,7 @@
 
       function snackCategoryFoods(foods) {
         return (foods || state.foods).filter(function (f) {
-          return foodCategories(f).some(function (c) { return SNACK_CATEGORIES.indexOf(c) > -1; });
+          return !f.outOfStock && foodCategories(f).some(function (c) { return SNACK_CATEGORIES.indexOf(c) > -1; });
         });
       }
 
@@ -2558,7 +2581,9 @@
             sugar100: round1(sugar),
             cal100: Math.round(cal),
             categories: normalizeCategories(categories),
-            category: normalizeCategories(categories)[0] || '',}
+            category: normalizeCategories(categories)[0] || '',
+            outOfStock: !!input.outOfStock,
+          }
         };
       }
 
@@ -2709,10 +2734,10 @@
             '</div>';
         }
 
-        return targetItem('蛋白質', round1(totals.protein), proteinLeft, goals.protein, 'g', pending.protein) +
+        return limitItem('cal', '熱量', Math.round(totals.cal), calLeft, goals.cal, 'kcal', pending.cal) +
+          targetItem('蛋白質', round1(totals.protein), proteinLeft, goals.protein, 'g', pending.protein) +
           limitItem('fat', '脂肪', round1(totals.fat), fatLeft, goals.fat, 'g', pending.fat) +
-          limitItem('sugar', '糖', round1(totals.sugar), sugarLeft, sugarGoal, 'g', pending.sugar) +
-          limitItem('cal', '熱量', Math.round(totals.cal), calLeft, goals.cal, 'kcal', pending.cal);
+          limitItem('sugar', '糖', round1(totals.sugar), sugarLeft, sugarGoal, 'g', pending.sugar);
       }
 
       function renderProgressGrid(totals, goals, pending) {
@@ -2801,10 +2826,10 @@
           '<div class="log-time">' + escapeHtml(l.time || '') + '</div>' +
           '<div class="log-main"><div class="name">' + escapeHtml(l.foodName || '未命名') + '</div>' +
           '<div class="sub">' + escapeHtml(sub) + '</div></div>' +
-          '<div class="log-macros"><span class="p">P ' + round1(l.protein) + '</span>' +
+          '<div class="log-macros"><span class="k">' + Math.round(l.cal || 0) + 'kcal</span>' +
+          '<span class="p">P ' + round1(l.protein) + '</span>' +
           '<span class="f">F ' + round1(l.fat) + '</span>' +
-          '<span class="s">S ' + round1(sVal) + '</span>' +
-          '<span class="k">' + Math.round(l.cal || 0) + 'kcal</span></div>' +
+          '<span class="s">S ' + round1(sVal) + '</span></div>' +
           '</div>';
 
         // 一般瀏覽模式（不是編輯／刪除／組成一餐勾選中）才提供左滑刪除；
@@ -2816,7 +2841,7 @@
           '</div>';
       }
 
-      // 一整餐（同一個 groupId 的多筆紀錄）：顯示加總的 P/F/S/熱量，
+      // 一整餐（同一個 groupId 的多筆紀錄）：顯示加總的熱量/P/F/S，
       // 預設直接展開顯示子項目，不用預設收起來再點一下才看得到；
       // 使用者若手動收合過，狀態才會記在 state.expandedGroups 裡（值為 false）。
       function isGroupExpanded(groupId) {
@@ -2853,10 +2878,10 @@
           '<div class="log-time">' + escapeHtml(earliestTime || '') + '</div>' +
           '<div class="log-main"><div class="name">這一餐<span class="meal-count-badge">' + items.length + ' 項</span></div>' +
           '<div class="sub">' + escapeHtml(namesPreview) + '</div></div>' +
-          '<div class="log-macros"><span class="p">P ' + round1(totals.protein) + '</span>' +
+          '<div class="log-macros"><span class="k">' + Math.round(totals.cal) + 'kcal</span>' +
+          '<span class="p">P ' + round1(totals.protein) + '</span>' +
           '<span class="f">F ' + round1(totals.fat) + '</span>' +
-          '<span class="s">S ' + round1(totals.sugar) + '</span>' +
-          '<span class="k">' + Math.round(totals.cal) + 'kcal</span></div>' +
+          '<span class="s">S ' + round1(totals.sugar) + '</span></div>' +
           '<span class="group-chev">▾</span>' +
           '</div>';
 
@@ -2935,7 +2960,7 @@
 
       var WEEKDAY_SHORT = ['日', '一', '二', '三', '四', '五', '六'];
 
-      // 近 7 天趨勢：每天一欄，欄內 4 條精簡進度條（蛋白質、脂肪、糖、熱量）
+      // 近 7 天趨勢：每天一欄，欄內 4 條精簡進度條（熱量、蛋白質、脂肪、糖）
       function renderWeekDotsGrid() {
         var el = document.getElementById('weekDotsGrid');
         if (!el) return;
@@ -2958,17 +2983,17 @@
 
         var dayCols = data.map(function (d) {
           var noData = !d.hasData;
+          var cBar = bar(d.cal, goals.cal, true, noData, '熱量', 'var(--cal)');
           var pBar = bar(d.protein, goals.protein, false, noData, '蛋白質', 'var(--protein)');
           var fBar = bar(d.fat, goals.fat, true, noData, '脂肪', 'var(--fat)');
           var sBar = bar(d.sugar, sugarGoal, true, noData, '糖', 'var(--carb)');
-          var cBar = bar(d.cal, goals.cal, true, noData, '熱量', 'var(--cal)');
 
           var dt = new Date(d.date + 'T00:00:00');
           var wd = WEEKDAY_SHORT[dt.getDay()];
           var isToday = d.date === today;
           var colCls = 'week-day-col' + (isToday ? ' is-today' : '');
 
-          return '<div class="' + colCls + '">' + pBar + fBar + sBar + cBar +
+          return '<div class="' + colCls + '">' + cBar + pBar + fBar + sBar +
             '<div class="day-label">' + wd + '</div>' +
             '</div>';
         }).join('');
@@ -3048,8 +3073,8 @@
         }
         el.innerHTML = list.map(function (f) {
           var catBadge = categoryBadges(f);
-          var stats = '<b>蛋白</b>' + round1(per100Value(f, 'protein')) + 'g · <b>脂肪</b>' + round1(per100Value(f, 'fat')) +
-            'g · <b>熱量</b>' + Math.round(per100Value(f, 'cal')) + 'kcal · <b>糖</b>' + round1(per100Value(f, 'sugar')) +
+          var stats = '<b>熱量</b>' + Math.round(per100Value(f, 'cal')) + 'kcal · <b>蛋白</b>' + round1(per100Value(f, 'protein')) +
+            'g · <b>脂肪</b>' + round1(per100Value(f, 'fat')) + 'g · <b>糖</b>' + round1(per100Value(f, 'sugar')) +
             'g · <b>100g≈</b>' + round1(per100Servings(f)) + '份';
           return '<div class="food-row" data-food-id="' + escapeHtml(f.id) + '">' +
             '<div class="frow-top"><span class="fname">' + escapeHtml(f.name) + catBadge + '</span></div>' +
@@ -3293,9 +3318,10 @@
       function renderFoodRow(f) {
         var d = foodDisplayRow(f);
         var catBadge = categoryBadges(f);
+        var stockBadge = f.outOfStock ? '<em class="fstock">缺貨中</em>' : '';
         var deleteMode = state.foodMode === 'delete';
         var checked = deleteMode && state.foodDeleteSelected.indexOf(f.id) > -1;
-        var rowCls = 'food-row' + (deleteMode ? ' selectable-row' : '') + (checked ? ' picked' : '');
+        var rowCls = 'food-row' + (deleteMode ? ' selectable-row' : '') + (checked ? ' picked' : '') + (f.outOfStock ? ' out-of-stock' : '');
         var tail = deleteMode
           ? '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span></span>'
           : '';
@@ -3303,7 +3329,7 @@
           'g · <b>脂肪</b>' + d.fat + 'g · <b>糖</b>' + d.sugar + 'g · <b>共</b>' + d.servings + '份';
         var rowHtml = '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
           '<div class="frow-top">' +
-          '<span class="fname">' + escapeHtml(f.name) + catBadge + '</span>' +
+          '<span class="fname">' + escapeHtml(f.name) + catBadge + stockBadge + '</span>' +
           tail +
           '</div>' +
           '<div class="fstats" title="' + escapeHtml(d.baseTitle || '') + '">' + stats + '</div>' +
@@ -3337,7 +3363,8 @@
         var q = (document.getElementById('foodSearch').value || '').trim().toLowerCase();
         var cat = state.pickerCategoryFilter;
         var list = state.foods.filter(function (f) {
-          return (!q || f.name.toLowerCase().indexOf(q) > -1) &&
+          return !f.outOfStock &&
+            (!q || f.name.toLowerCase().indexOf(q) > -1) &&
             (!cat || hasFoodCategory(f, cat));
         });
         renderPickerCategoryChips();
@@ -3569,6 +3596,7 @@
         ['fName', 'fProtein', 'fFat', 'fSugar', 'fCal'].forEach(function (id) { document.getElementById(id).value = ''; });
         document.getElementById('fBase').value = 100;
         document.getElementById('fServings').value = 1;
+        document.getElementById('fOutOfStock').checked = false;
         setFCategory('');
         document.getElementById('fCategoryNewRow').style.display = 'none';
         document.getElementById('fCategoryNewInput').value = '';
@@ -3601,9 +3629,9 @@
         var fat = Number(document.getElementById('fFat').value) || 0;
         var sugar = Number(document.getElementById('fSugar').value) || 0;
         var cal = Number(document.getElementById('fCal').value) || 0;
-        el.textContent = '整包共 ' + round1(base * servings) + 'g，蛋白質 ' + round1(protein * servings) +
-          'g、脂肪 ' + round1(fat * servings) + 'g、糖 ' + round1(sugar * servings) +
-          'g、熱量 ' + Math.round(cal * servings) + 'kcal（＝一份 × 總份數）。';
+        el.textContent = '整包共 ' + round1(base * servings) + 'g，熱量 ' + Math.round(cal * servings) +
+          'kcal、蛋白質 ' + round1(protein * servings) + 'g、脂肪 ' + round1(fat * servings) +
+          'g、糖 ' + round1(sugar * servings) + 'g（＝一份 × 總份數）。';
       }
 
       // 編輯食材固定底部面板專用的整包預覽，邏輯跟 updateFoodPackagePreview 一致，
@@ -3621,9 +3649,9 @@
         var fat = Number(document.getElementById('feFat').value) || 0;
         var sugar = Number(document.getElementById('feSugar').value) || 0;
         var cal = Number(document.getElementById('feCal').value) || 0;
-        el.textContent = '整包共 ' + round1(base * servings) + 'g，蛋白質 ' + round1(protein * servings) +
-          'g、脂肪 ' + round1(fat * servings) + 'g、糖 ' + round1(sugar * servings) +
-          'g、熱量 ' + Math.round(cal * servings) + 'kcal（＝一份 × 總份數）。';
+        el.textContent = '整包共 ' + round1(base * servings) + 'g，熱量 ' + Math.round(cal * servings) +
+          'kcal、蛋白質 ' + round1(protein * servings) + 'g、脂肪 ' + round1(fat * servings) +
+          'g、糖 ' + round1(sugar * servings) + 'g（＝一份 × 總份數）。';
       }
 
       // ---------- event wiring ----------
@@ -3832,13 +3860,13 @@
         var rows = state.manualBatch.map(function (it, idx) {
           return '<div class="batch-row" data-manual-idx="' + idx + '">' +
             '<div class="field"><label>' + escapeHtml(it.name) + '</label>' +
-            '<p class="hint" style="margin:2px 0 0;">P ' + round1(it.protein) + 'g · F ' + round1(it.fat) + 'g · 糖 ' + round1(it.sugar) + 'g · ' + Math.round(it.cal) + ' kcal</p></div>' +
+            '<p class="hint" style="margin:2px 0 0;">' + Math.round(it.cal) + ' kcal · P ' + round1(it.protein) + 'g · F ' + round1(it.fat) + 'g · 糖 ' + round1(it.sugar) + 'g</p></div>' +
             '<button type="button" class="btn-danger" data-manual-remove="' + idx + '">移除</button>' +
             '</div>';
         }).join('');
-        el.innerHTML = '<p class="hint" style="margin:0 0 6px;">已加入清單 <b>' + state.manualBatch.length + '</b> 項，合計 P ' +
-          round1(totals.protein) + 'g · F ' + round1(totals.fat) + 'g · 糖 ' + round1(totals.sugar) + 'g · ' + Math.round(totals.cal) +
-          ' kcal，送出時會合併成一餐。</p>' + rows;
+        el.innerHTML = '<p class="hint" style="margin:0 0 6px;">已加入清單 <b>' + state.manualBatch.length + '</b> 項，合計 ' +
+          Math.round(totals.cal) + ' kcal · P ' + round1(totals.protein) + 'g · F ' + round1(totals.fat) + 'g · 糖 ' + round1(totals.sugar) +
+          'g，送出時會合併成一餐。</p>' + rows;
         refreshGoalPreview();
       }
 
@@ -4294,6 +4322,7 @@
         document.getElementById('feFat').value = foodRawNutrient(food, 'fat');
         document.getElementById('feSugar').value = foodRawNutrient(food, 'sugar');
         document.getElementById('feCal').value = foodRawNutrient(food, 'cal');
+        document.getElementById('feOutOfStock').checked = !!food.outOfStock;
         setFECategory(foodCategories(food));
         document.getElementById('feCategoryNewRow').style.display = 'none';
         document.getElementById('feCategoryNewInput').value = '';
@@ -4354,6 +4383,7 @@
             fat: document.getElementById('feFat').value,
             sugar: document.getElementById('feSugar').value,
             cal: document.getElementById('feCal').value,
+            outOfStock: document.getElementById('feOutOfStock').checked,
           }, state.editingFoodId, state.feCategorySelected);
 
           if (result.error) { alert(result.error); return; }
@@ -4573,6 +4603,7 @@
             fat: document.getElementById('fFat').value,
             sugar: document.getElementById('fSugar').value,
             cal: document.getElementById('fCal').value,
+            outOfStock: document.getElementById('fOutOfStock').checked,
           }, null, state.fCategorySelected);
 
           if (result.error) { alert(result.error); return; }
