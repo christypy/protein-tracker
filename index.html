@@ -1012,6 +1012,76 @@
       color: #fff;
     }
 
+    /* ---- 雙人分配：新增這一餐時，可以選擇同時記錄給 A、B 兩人 ---- */
+    .dual-person-box {
+      border: 1px solid var(--line);
+      background: var(--protein-tint);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin: 0 0 12px;
+    }
+
+    .dual-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .dual-toggle input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--protein-dark);
+      flex: none;
+    }
+
+    .dual-mode-chips {
+      margin: 8px 0 0;
+    }
+
+    .dual-split-note {
+      font-size: 11px;
+      color: var(--ink-soft);
+      margin: 6px 0 0;
+    }
+
+    .batch-row .dual-b-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .batch-row .dual-b-label {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-weight: 700;
+      flex: none;
+      min-width: 56px;
+    }
+
+    .batch-row .dual-b-wrap input {
+      font-family: var(--font-body);
+      font-size: 13px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--paper);
+      color: var(--ink);
+      width: 90px;
+      flex: none;
+    }
+
+    .batch-row .qty-wrap .dual-a-label {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
     .recommend-badge {
       display:inline-block;
       margin-right:6px;
@@ -1831,6 +1901,17 @@
           <div class="sheet-body">
             <p class="hint" style="margin:0 0 10px;">面板會固定在畫面下方，選其他食材時不用捲動找它；每一項都可以自由切換「輸入份數」或「輸入克數」，兩邊會自動互相換算——例如半份就填
               0.5、三份就填 3。</p>
+            <div class="dual-person-box" id="dualPersonBox">
+              <label class="dual-toggle">
+                <input type="checkbox" id="dualPersonToggle">
+                <span>同時記錄給 A、B 兩人</span>
+              </label>
+              <div class="qty-mode-chips dual-mode-chips" id="dualModeChips" style="display:none;">
+                <button type="button" class="qty-mode-btn active" data-dual-mode="even">兩人均分</button>
+                <button type="button" class="qty-mode-btn" data-dual-mode="custom">各自不同份量</button>
+              </div>
+              <p class="dual-split-note" id="dualModeHint" style="display:none;"></p>
+            </div>
             <div id="batchList"></div>
           </div>
           <div class="sheet-footer">
@@ -1853,6 +1934,12 @@
         </div>
         <div class="sheet-body">
           <p class="hint" style="margin:0 0 10px;">食材庫裡找不到的品項可以直接輸入熱量／蛋白質／脂肪／糖；一餐有好幾樣手動輸入的東西時，先逐項按「加入清單」，最後按「加入紀錄」會自動合併成一餐一起計算。</p>
+          <div class="dual-person-box" id="manualDualPersonBox">
+            <label class="dual-toggle">
+              <input type="checkbox" id="manualDualPersonToggle">
+              <span>這一餐兩人均分（A、B 各記錄一半營養）</span>
+            </label>
+          </div>
           <div id="manualBatchList"></div>
           <div class="row">
             <div class="field">
@@ -2204,7 +2291,11 @@
         editingLogId: null,
 
         logCombineMode: false,
-        logCombineSelected: []
+        logCombineSelected: [],
+
+        dualPerson: false,
+        dualMode: 'even',
+        manualDualPerson: false
       };
 
       function defaultGoalsSet() {
@@ -2214,6 +2305,16 @@
       }
       function activeProfile() {
         return (state.settings.profile && PROFILES[state.settings.profile]) ? state.settings.profile : 'A';
+      }
+      // 「同時記錄給兩人」功能只在剛好有兩個身份（A／B）時才有意義：
+      // 回傳「目前身份以外的另一個人」。
+      function otherProfile() {
+        var p = activeProfile();
+        var other = PROFILE_ORDER.filter(function (k) { return k !== p; })[0];
+        return other || p;
+      }
+      function canDualPerson() {
+        return PROFILE_ORDER.length === 2;
       }
       function currentGoals() {
         var p = activeProfile();
@@ -3383,6 +3484,30 @@
         renderBatchList();
       }
 
+      function renderDualPersonBox() {
+        var box = document.getElementById('dualPersonBox');
+        if (!box) return;
+        var toggle = document.getElementById('dualPersonToggle');
+        var chips = document.getElementById('dualModeChips');
+        var hint = document.getElementById('dualModeHint');
+        if (!canDualPerson()) { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        toggle.checked = !!state.dualPerson;
+        chips.style.display = state.dualPerson ? 'flex' : 'none';
+        Array.prototype.forEach.call(chips.querySelectorAll('[data-dual-mode]'), function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-dual-mode') === state.dualMode);
+        });
+        if (state.dualPerson) {
+          hint.style.display = 'block';
+          var pA = PROFILES[activeProfile()].name, pB = PROFILES[otherProfile()].name;
+          hint.textContent = (state.dualMode === 'even')
+            ? ('填入的份數／克數會當成「兩人合計」，送出時自動對半分給 ' + pA + ' 與 ' + pB + '。')
+            : ('可以分別填入 ' + pA + ' 與 ' + pB + ' 各自要吃的份量，食材內容一樣，份量各自獨立調整。');
+        } else {
+          hint.style.display = 'none';
+        }
+      }
+
       function renderBatchList() {
         var wrap = document.getElementById('pickerDetail');
         var el = document.getElementById('batchList');
@@ -3400,6 +3525,11 @@
         wrap.classList.toggle('collapsed', !!state.pickerSheetCollapsed);
         if (countEl) countEl.textContent = state.batch.length;
         if (toggleBtn) toggleBtn.textContent = state.pickerSheetCollapsed ? '展開 ▴' : '收合 ▾';
+        renderDualPersonBox();
+        var dual = canDualPerson() && state.dualPerson;
+        var dualMode = state.dualMode;
+        var pA = dual ? PROFILES[activeProfile()].name : '';
+        var pB = dual ? PROFILES[otherProfile()].name : '';
         el.innerHTML = state.batch.map(function (b) {
           var food = state.foods.find(function (f) { return f.id === b.foodId; });
           if (!food) return '';
@@ -3412,6 +3542,23 @@
           var qtyHtml = (mode === 'g')
             ? ('<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + id + '"><span class="qty-unit">g</span>')
             : ('<input type="number" min="0" step="any" value="' + servingsVal + '" data-batch-servings="' + id + '"><span class="qty-unit">份（1 份 = ' + base + 'g）</span>');
+
+          var dualExtraHtml = '';
+          if (dual && dualMode === 'even') {
+            var half = round1((b.grams || 0) / 2);
+            var mh = computeMacros(food, half);
+            dualExtraHtml = '<p class="dual-split-note">均分後 ' + pA + '／' + pB + ' 各得約 ' + half + 'g（P' + mh.protein + ' F' + mh.fat + ' S' + mh.sugar + ' · ' + mh.cal + 'kcal）</p>';
+          } else if (dual && dualMode === 'custom') {
+            var gramsB = (b.gramsB !== undefined && b.gramsB !== null) ? b.gramsB : b.grams;
+            var mB = computeMacros(food, gramsB);
+            qtyHtml = '<span class="dual-a-label">' + escapeHtml(pA) + '</span>' + qtyHtml;
+            dualExtraHtml = '<div class="dual-b-wrap">' +
+              '<span class="dual-b-label">' + escapeHtml(pB) + '</span>' +
+              '<input type="number" min="0" step="any" value="' + gramsB + '" data-batch-grams-b="' + id + '"><span class="qty-unit">g</span>' +
+              '</div>' +
+              '<p class="dual-split-note">' + escapeHtml(pB) + '：P' + mB.protein + ' F' + mB.fat + ' S' + mB.sugar + ' · ' + mB.cal + 'kcal</p>';
+          }
+
           return '<div class="batch-row" data-batch-row="' + id + '">' +
             '<div class="field">' +
             '<label>' + escapeHtml(food.name) + '</label>' +
@@ -3421,12 +3568,15 @@
             '<button type="button" class="qty-mode-btn' + (mode === 'g' ? ' active' : '') + '" data-batch-id="' + id + '" data-batch-mode="g">輸入克數</button>' +
             '</div>' +
             '<div class="qty-wrap">' + qtyHtml + '</div>' +
+            dualExtraHtml +
             '</div>' +
             '<div class="preview" data-batch-preview="' + id + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
             '<button type="button" class="btn-danger" data-batch-remove="' + id + '">移除</button>' +
             '</div>';
         }).join('');
-        document.getElementById('batchAddBtn').textContent = '全部加入紀錄（' + state.batch.length + ' 項）';
+        document.getElementById('batchAddBtn').textContent = dual
+          ? ('分別加入 ' + pA + '、' + pB + ' 的紀錄（' + state.batch.length + ' 項）')
+          : ('全部加入紀錄（' + state.batch.length + ' 項）');
         refreshGoalPreview();
       }
 
@@ -3546,7 +3696,9 @@
       async function addLog(entry) {
         entry.date = state.currentDate;
         entry.time = nowTime();
-        entry.person = activeProfile();
+        // 一般情況下紀錄一律歸給目前身份；但「同時記錄給兩人」功能會在呼叫前
+        // 就先指定好 entry.person（A 或 B），這裡要保留、不能覆蓋掉。
+        if (!entry.person) entry.person = activeProfile();
         entry.id = uid('l');
         state.logs.push(entry);
         await persistLogsAndRender();
@@ -3752,7 +3904,36 @@
           }
         });
 
+        document.getElementById('dualPersonToggle').addEventListener('change', function (e) {
+          state.dualPerson = !!e.target.checked;
+          renderBatchList();
+        });
+        document.getElementById('dualModeChips').addEventListener('click', function (e) {
+          var btn = e.target.closest('[data-dual-mode]');
+          if (!btn) return;
+          state.dualMode = btn.getAttribute('data-dual-mode');
+          renderBatchList();
+        });
+
         document.getElementById('batchList').addEventListener('input', function (e) {
+          var gramsBInput = e.target.closest('[data-batch-grams-b]');
+          if (gramsBInput) {
+            var idB = gramsBInput.getAttribute('data-batch-grams-b');
+            var bB = state.batch.find(function (x) { return x.foodId === idB; });
+            var foodB = state.foods.find(function (f) { return f.id === idB; });
+            if (!bB || !foodB) return;
+            bB.gramsB = Number(gramsBInput.value) || 0;
+            // 只更新這一列「另一人份量」的即時預覽文字，不整包重畫，
+            // 避免輸入到一半時輸入框失焦、游標跳掉。
+            var rowB = document.querySelector('[data-batch-row="' + idB + '"]');
+            var noteB = rowB ? rowB.querySelector('.dual-split-note') : null;
+            if (noteB) {
+              var mB = computeMacros(foodB, bB.gramsB);
+              noteB.textContent = PROFILES[otherProfile()].name + '：P' + mB.protein + ' F' + mB.fat + ' S' + mB.sugar + ' · ' + mB.cal + 'kcal';
+            }
+            return;
+          }
+
           var gramsInput = e.target.closest('[data-batch-grams]');
           var servingsInput = e.target.closest('[data-batch-servings]');
           if (!gramsInput && !servingsInput) return;
@@ -3772,6 +3953,18 @@
           var m = computeMacros(food, b.grams);
           var prev = document.querySelector('[data-batch-preview="' + id + '"]');
           if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
+          if (state.dualPerson && state.dualMode === 'even') {
+            // 均分模式下畫面上的份量代表「兩人合計」，數字一變，下面
+            // 「均分後各得多少」的提示文字也要跟著即時更新。
+            var row = document.querySelector('[data-batch-row="' + id + '"]');
+            var note = row ? row.querySelector('.dual-split-note') : null;
+            if (note) {
+              var half = round1((b.grams || 0) / 2);
+              var mh = computeMacros(food, half);
+              var pA = PROFILES[activeProfile()].name, pB = PROFILES[otherProfile()].name;
+              note.textContent = '均分後 ' + pA + '／' + pB + ' 各得約 ' + half + 'g（P' + mh.protein + ' F' + mh.fat + ' S' + mh.sugar + ' · ' + mh.cal + 'kcal）';
+            }
+          }
           refreshGoalPreview();
         });
 
@@ -3809,19 +4002,63 @@
           if (!state.batch.length) return;
           var items = state.batch.slice();
           state.batch = [];
+
+          if (canDualPerson() && state.dualPerson) {
+            // 「同時記錄給兩人」：同一份食材清單，拆成兩份分別記到 A、B 身上——
+            // 均分模式把畫面上填的份量當「兩人合計」對半分；各自份量模式則是
+            // 兩人各自輸入自己要吃的克數，食材內容相同、份量各自獨立。
+            var personA = activeProfile(), personB = otherProfile();
+            var dualMode = state.dualMode;
+            var groupIdA = items.length > 1 ? uid('m') : null;
+            var groupIdB = items.length > 1 ? uid('m') : null;
+            for (var i = 0; i < items.length; i++) {
+              var it = items[i];
+              var food = state.foods.find(function (f) { return f.id === it.foodId; });
+              if (!food) continue;
+              var gA, gB;
+              if (dualMode === 'even') {
+                var half = round1((it.grams || 0) / 2);
+                gA = half; gB = half;
+              } else {
+                gA = it.grams;
+                gB = (it.gramsB !== undefined && it.gramsB !== null) ? it.gramsB : it.grams;
+              }
+              if (gA && gA > 0) {
+                var mA = computeMacros(food, gA);
+                var entryA = {
+                  type: 'selected', foodId: food.id, foodName: food.name, grams: gA, unit: food.unit || 'g',
+                  protein: mA.protein, fat: mA.fat, sugar: mA.sugar, cal: mA.cal, person: personA
+                };
+                if (groupIdA) entryA.groupId = groupIdA;
+                await addLog(entryA);
+              }
+              if (gB && gB > 0) {
+                var mB = computeMacros(food, gB);
+                var entryB = {
+                  type: 'selected', foodId: food.id, foodName: food.name, grams: gB, unit: food.unit || 'g',
+                  protein: mB.protein, fat: mB.fat, sugar: mB.sugar, cal: mB.cal, person: personB
+                };
+                if (groupIdB) entryB.groupId = groupIdB;
+                await addLog(entryB);
+              }
+            }
+            renderPickerList();
+            return;
+          }
+
           // 一次選了兩樣以上食材時，這批一起送出的紀錄共用一個 groupId，
           // 「今日紀錄」會把它們自動包成一張「這一餐」卡片方便看加總。
           var groupId = items.length > 1 ? uid('m') : null;
-          for (var i = 0; i < items.length; i++) {
-            var food = state.foods.find(function (f) { return f.id === items[i].foodId; });
-            if (!food || !items[i].grams || items[i].grams <= 0) continue;
-            var m = computeMacros(food, items[i].grams);
-            var entry = {
-              type: 'selected', foodId: food.id, foodName: food.name, grams: items[i].grams, unit: food.unit || 'g',
-              protein: m.protein, fat: m.fat, sugar: m.sugar, cal: m.cal
+          for (var i2 = 0; i2 < items.length; i2++) {
+            var food2 = state.foods.find(function (f) { return f.id === items[i2].foodId; });
+            if (!food2 || !items[i2].grams || items[i2].grams <= 0) continue;
+            var m2 = computeMacros(food2, items[i2].grams);
+            var entry2 = {
+              type: 'selected', foodId: food2.id, foodName: food2.name, grams: items[i2].grams, unit: food2.unit || 'g',
+              protein: m2.protein, fat: m2.fat, sugar: m2.sugar, cal: m2.cal
             };
-            if (groupId) entry.groupId = groupId;
-            await addLog(entry);
+            if (groupId) entry2.groupId = groupId;
+            await addLog(entry2);
           }
           renderPickerList();
         });
@@ -3897,6 +4134,16 @@
         });
         document.getElementById('manualCloseBtn').addEventListener('click', closeManualSheet);
 
+        var manualDualBox = document.getElementById('manualDualPersonBox');
+        if (manualDualBox) manualDualBox.style.display = canDualPerson() ? 'block' : 'none';
+        var manualDualToggle = document.getElementById('manualDualPersonToggle');
+        if (manualDualToggle) {
+          manualDualToggle.checked = !!state.manualDualPerson;
+          manualDualToggle.addEventListener('change', function (e) {
+            state.manualDualPerson = !!e.target.checked;
+          });
+        }
+
         // 表單邊填邊更新「今日目標」預覽，不用等按下「加入清單／加入紀錄」。
         ['manualProtein', 'manualFat', 'manualSugar', 'manualCal'].forEach(function (id) {
           document.getElementById(id).addEventListener('input', refreshGoalPreview);
@@ -3933,6 +4180,28 @@
           clearManualForm();
           renderManualBatchList();
           closeManualSheet();
+
+          if (canDualPerson() && state.manualDualPerson) {
+            // 手動輸入的品項沒有「食材克數」可以換算，均分模式下直接把每項
+            // 營養素都對半分給 A、B 兩人，內容（名稱）維持一樣。
+            var personA = activeProfile(), personB = otherProfile();
+            var groupIdA = items.length > 1 ? uid('m') : null;
+            var groupIdB = items.length > 1 ? uid('m') : null;
+            for (var iD = 0; iD < items.length; iD++) {
+              var itD = items[iD];
+              var half = {
+                protein: round1(itD.protein / 2), fat: round1(itD.fat / 2),
+                sugar: round1(itD.sugar / 2), cal: Math.round(itD.cal / 2)
+              };
+              var entryA = { type: 'manual', foodId: null, foodName: itD.name, grams: null, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personA };
+              if (groupIdA) entryA.groupId = groupIdA;
+              await addLog(entryA);
+              var entryB = { type: 'manual', foodId: null, foodName: itD.name, grams: null, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personB };
+              if (groupIdB) entryB.groupId = groupIdB;
+              await addLog(entryB);
+            }
+            return;
+          }
 
           var groupId = items.length > 1 ? uid('m') : null;
           for (var i = 0; i < items.length; i++) {
