@@ -306,6 +306,21 @@
       font-size: 14.5px;
     }
 
+    .both-protein-goals {
+      margin-top: 3px;
+      font-family: var(--font-num);
+      font-size: 11.5px;
+      color: var(--ink-soft);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .both-protein-goals b {
+      color: var(--protein-dark);
+      font-weight: 700;
+    }
+
     .goal-section-body {
       padding-top: 12px;
     }
@@ -1837,6 +1852,7 @@
       <div class="section-head goal-head">
         <div class="goal-head-text">
           <span class="goal-head-title">今日目標 · <b id="profileDesc"></b></span>
+          <div class="both-protein-goals" id="bothProteinGoals"></div>
         </div>
       </div>
       <div class="section-body goal-section-body">
@@ -2317,7 +2333,9 @@
         return PROFILE_ORDER.length === 2;
       }
       function currentGoals() {
-        var p = activeProfile();
+        return goalsFor(activeProfile());
+      }
+      function goalsFor(p) {
         if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
         if (!state.settings.goals[p]) state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
         return state.settings.goals[p];
@@ -2856,6 +2874,16 @@
             escapeHtml(prof.name + '　' + prof.desc) + '">' + escapeHtml(prof.name) + '</button>';
         }).join('');
         document.getElementById('profileDesc').textContent = PROFILES[p].desc;
+
+        // 不管目前是哪個身份，都直接顯示兩人今日的蛋白質目標，
+        // 不用切換身份分頁才能對照彼此的目標。
+        var bothEl = document.getElementById('bothProteinGoals');
+        if (bothEl) {
+          bothEl.innerHTML = PROFILE_ORDER.map(function (k) {
+            var g = goalsFor(k);
+            return PROFILES[k].name + ' 蛋白質目標 <b>' + g.protein + 'g</b>';
+          }).join('　');
+        }
       }
 
       function dominantMacroClass(protein, fat, sugar) {
