@@ -2707,10 +2707,15 @@
       }
 
       function logsForCurrentDate() {
-        var p = activeProfile();
+        return logsForDateAndPerson(activeProfile());
+      }
+      function logsForDateAndPerson(p) {
         var list = state.logs.filter(function (l) { return l.date === state.currentDate && (l.person || 'A') === p; });
         list.sort(function (a, b) { return (a.time || '').localeCompare(b.time || ''); });
         return list;
+      }
+      function proteinTotalForPerson(p) {
+        return logsForDateAndPerson(p).reduce(function (sum, l) { return sum + (Number(l.protein) || 0); }, 0);
       }
 
       function renderDateNav() {
@@ -2875,13 +2880,17 @@
         }).join('');
         document.getElementById('profileDesc').textContent = PROFILES[p].desc;
 
-        // 不管目前是哪個身份，都直接顯示兩人今日的蛋白質目標，
-        // 不用切換身份分頁才能對照彼此的目標。
+        // 不管目前是哪個身份，都直接顯示兩人今日「剩餘可攝取蛋白質」，
+        // 不用切換身份分頁才能對照彼此還差多少蛋白質。
         var bothEl = document.getElementById('bothProteinGoals');
         if (bothEl) {
           bothEl.innerHTML = PROFILE_ORDER.map(function (k) {
             var g = goalsFor(k);
-            return PROFILES[k].name + ' 蛋白質目標 <b>' + g.protein + 'g</b>';
+            var intake = proteinTotalForPerson(k);
+            var left = round1(g.protein - intake);
+            var reached = left <= 0 && g.protein > 0;
+            var text = reached ? '已達標 ✓' : ('剩餘 ' + left + 'g');
+            return PROFILES[k].name + ' 蛋白質 <b>' + text + '</b>';
           }).join('　');
         }
       }
