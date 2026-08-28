@@ -260,6 +260,25 @@
       to { transform: rotate(360deg); }
     }
 
+    /* ---- 底下功能（食材列表／資料同步設定）的懸浮快速捲動按鈕：固定貼在
+       畫面右下角，跟右上角的身份切換／同步按鈕分開放，避免疊在一起，
+       捲動、開啟任何底部面板時都還在。 ---- */
+    .bottom-jump-col {
+      position: fixed;
+      right: 10px;
+      bottom: 16px;
+      z-index: 55;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    @media (min-width: 680px) {
+      .bottom-jump-col {
+        right: calc(50vw - 320px + 10px);
+      }
+    }
+
     .app-top-spacer {
       height: 12px;
     }
@@ -1844,6 +1863,13 @@
         <button type="button" class="sync-float-btn" id="syncFloatBtn" title="立即重新同步" style="display:none;">⟳</button>
         <div id="profileTabs" style="display:contents;"></div>
       </div>
+      <!-- 【本次新增】底下「食材列表」「資料同步設定」這兩張卡片原本要一路
+           滑到頁面最下面才會看到，現在額外做兩顆固定在畫面右下角的懸浮按鈕，
+           點了就直接展開＋平滑捲動過去，不用再手動一直往下滑。 -->
+      <div class="bottom-jump-col" id="bottomJumpCol">
+        <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="跳到食材列表">🍱</button>
+        <button type="button" class="sync-float-btn" id="jumpSettingsBtn" title="跳到資料同步設定">⚙️</button>
+      </div>
     </div>
 
     <!-- 1. 今日目標：一律展開顯示、不能收合；用精簡長條圖取代大進度環，
@@ -2819,8 +2845,10 @@
           return '<div class="goal-compact-bar"><span style="width:' + clamped.toFixed(0) + '%;background:' + color + ';"></span>' + pendingSeg + '</div>';
         }
 
-        function pendingNote(pendingAmt, unit) {
-          return pendingAmt > 0 ? ('<span class="gc-pending-note">＋這一餐 ' + round1(pendingAmt) + unit + '</span>') : '';
+        // 使用者要求「今日目標」卡片不要顯示「＋這一餐 加多少」這行文字說明，
+        // 下面長條圖上疊加的淺色虛線段（pendingSeg）仍保留，維持視覺化的預覽效果。
+        function pendingNote() {
+          return '';
         }
 
         // 每個指標一律同時顯示「攝取」與「剩餘」兩個數值，不用再切換或用推算的，
@@ -2868,6 +2896,13 @@
         var el = document.getElementById('remainGrid');
         if (!el) return;
         el.innerHTML = buildGoalCompactHtml(totals, goals, pending);
+        // 「現在可以吃什麼」的預算是根據今天已攝取的量、目標值算出來的，
+        // 這兩個數字只要一變（新增/刪除紀錄、調整目標、挑選這一餐的食材、
+        // 手動輸入這一餐等）就會走到這裡（renderHero／refreshGoalPreview
+        // 都會呼叫 renderProgressGrid），所以在這個共同的節點上順便重畫
+        // 「現在可以吃什麼」，讓它跟著整個系統的任何變動即時更新，
+        // 不用每個會影響到它的地方都額外呼叫一次。
+        renderSnackNow();
       }
 
       function renderProfileTabs() {
@@ -3841,6 +3876,25 @@
         el.textContent = '整包共 ' + round1(base * servings) + 'g，熱量 ' + Math.round(cal * servings) +
           'kcal、蛋白質 ' + round1(protein * servings) + 'g、脂肪 ' + round1(fat * servings) +
           'g、糖 ' + round1(sugar * servings) + 'g（＝一份 × 總份數）。';
+      }
+
+      // 【本次新增】右下角兩顆懸浮按鈕：點了直接展開對應卡片（如果原本是收合的）
+      // 再平滑捲動過去，不用再一路手動滑到頁面最下面。
+      function wireBottomJumpButtons() {
+        function jumpTo(sectionId, focusId) {
+          var sec = document.getElementById(sectionId);
+          if (!sec) return;
+          sec.classList.remove('collapsed');
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (focusId) {
+            var focusEl = document.getElementById(focusId);
+            if (focusEl) setTimeout(function () { focusEl.focus(); }, 350);
+          }
+        }
+        var foodBtn = document.getElementById('jumpFoodListBtn');
+        if (foodBtn) foodBtn.addEventListener('click', function () { jumpTo('secFoodList'); });
+        var settingsBtn = document.getElementById('jumpSettingsBtn');
+        if (settingsBtn) settingsBtn.addEventListener('click', function () { jumpTo('secSettings'); });
       }
 
       // ---------- event wiring ----------
@@ -5011,6 +5065,7 @@
         wireFoodTable();
         wireSettings();
         wireSnackNow();
+        wireBottomJumpButtons();
 
         renderAll();
 

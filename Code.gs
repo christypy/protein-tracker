@@ -32,7 +32,16 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v12-meal-groups';
+var APP_BACKEND_VERSION = 'v13-delete-fix';
+// 【v13 新增】deleteFood() 修好「食材刪不掉」的問題：以前比對到第一筆符合的
+// id 就刪除、馬上結束，如果同一個 id 因故在表格裡留下不只一列（例如同步時
+// 按太快、或曾經同步失敗又重試），只會刪掉其中一列，另一列還在，重新整理
+// 後那項食材就會像沒刪掉一樣又跑出來。現在改成用寬鬆比對（去頭尾空白、
+// 轉成字串再比）把所有符合的列一次刪光。
+// 另外新增 renameBrownRiceToGermRice() 一次性工具函式，可以在 Apps Script
+// 編輯器手動執行，把「糙米飯」這個食材與過去所有「今日紀錄」裡吃過
+// 「糙米飯」的歷史紀錄，一起改名成「黃金胚芽」，不需要透過刪除（也就不受
+// 上面那個 bug 影響），也保留原本的食材 id 與既有設定。
 // 【v7 新增】Foods / Logs 都新增了 unit 欄位（例如 g、顆、盒、碗）。
 // 舊試算表沒有這欄時，ensureHeaders() 會自動補上，不需要手動搬移；
 // 讀取舊資料時 unit 欄位若是空的，一律視為 'g'。
@@ -406,16 +415,28 @@ function updateFood(payload) {
   return { error: 'food not found' };
 }
 
+// 【修復】以前這裡比對到「第一筆」符合的 id 就刪除、馬上 return，如果同一個
+// id 因為之前同步時的競爭情況（例如按太快、或曾經同步失敗又重試）在表格裡
+// 留下不只一列，就只會刪掉其中一列，另一列還在，重新整理後那項食材就會
+// 「陰魂不散」地又出現。現在改成：用寬鬆比對（去除頭尾空白、轉成字串再比）
+// 把所有符合的列「全部」刪除（從最後一列往前刪，避免刪除時 index 位移），
+// 才不會再有殘留的重複列。
 function deleteFood(payload) {
   var sheet = getFoodsSheet();
   var map = headerIndexMap(sheet);
   var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][map['id']] === payload.id) {
+  var targetId = String(payload.id == null ? '' : payload.id).trim();
+  var deletedCount = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowId = String(data[i][map['id']] == null ? '' : data[i][map['id']]).trim();
+    if (rowId === targetId) {
       sheet.deleteRow(i + 1);
-      SpreadsheetApp.flush();
-      return { success: true };
+      deletedCount++;
     }
+  }
+  if (deletedCount > 0) {
+    SpreadsheetApp.flush();
+    return { success: true, deletedCount: deletedCount };
   }
   return { error: 'food not found' };
 }
@@ -510,4 +531,52 @@ function migrateHeaders() {
   getFoodsSheet();
   getLogsSheet();
   return 'done';
+}
+
+/**
+ * 【本次新增】手動修復小工具：把「糙米飯」這個食材、以及「今日紀錄」裡
+ * 過去所有吃「糙米飯」的紀錄，統一改名成「黃金胚芽」。
+ *
+ * 使用方式：在 Apps Script 編輯器上方的函式下拉選單選
+ * renameBrownRiceToGermRice，按「執行」跑一次即可，不需要透過網頁前端。
+ *
+ * 這個做法直接把 Foods 分頁裡名字是「糙米飯」的那一列改名，而不是先刪除
+ * 再新增——這樣就不會受到「刪除食材」目前這個 bug 影響（如果同一個 id
+ * 在表格裡意外留下重複列，單純刪除可能只刪掉其中一列，改名則沒有這個問題），
+ * 也保留了這項食材原本的 id、既有的每份克數／營養設定，不用重新輸入。
+ * Logs 分頁裡舊的「今日紀錄」是各自存了當時吃的 foodName 文字快照，
+ * 所以要另外把 foodName 是「糙米飯」的每一列，也一起改成「黃金胚芽」，
+ * 之後「今日紀錄」畫面上看到的歷史紀錄才會跟著顯示新名字。
+ * 如果你想改別的食材名稱，把下面兩個字串換掉即可。
+ */
+function renameBrownRiceToGermRice() {
+  return renameFoodEverywhere('糙米飯', '黃金胚芽');
+}
+
+function renameFoodEverywhere(oldName, newName) {
+  var renamedFoods = renameInSheet(getFoodsSheet(), 'name', oldName, newName);
+  var renamedLogs = renameInSheet(getLogsSheet(), 'foodName', oldName, newName);
+  return { renamedFoods: renamedFoods, renamedLogs: renamedLogs };
+}
+
+function renameInSheet(sheet, columnName, oldValue, newValue) {
+  var map = headerIndexMap(sheet);
+  if (!map.hasOwnProperty(columnName)) return 0;
+  var col = map[columnName] + 1;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var range = sheet.getRange(2, col, lastRow - 1, 1);
+  var values = range.getValues();
+  var changed = 0;
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0]).trim() === oldValue) {
+      values[i][0] = newValue;
+      changed++;
+    }
+  }
+  if (changed > 0) {
+    range.setValues(values);
+    SpreadsheetApp.flush();
+  }
+  return changed;
 }
