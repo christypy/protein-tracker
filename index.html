@@ -1574,6 +1574,12 @@
       color: var(--fat);
     }
 
+    .snack-multi-check {
+      flex: none;
+      width: 18px;
+      height: 18px;
+    }
+
     .snack-over-badge {
       display: inline-block;
       font-size: 10px;
@@ -2056,6 +2062,11 @@
           <div class="row">
             <div class="field"><label>名稱</label><input type="text" id="leName" placeholder="例如：雞胸肉 / 外食便當"></div>
           </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>日期</label><input type="date" id="leDate"></div>
+            <div class="field"><label>身份</label><select id="lePerson"></select></div>
+          </div>
+          <p class="hint" style="margin:4px 0 0;">改日期或身份，儲存後這筆紀錄就會移到對應的那一天／那個人底下（原本的畫面會看不到它，屬正常現象）。</p>
           <div class="row" id="leGramsRow" style="margin-top:8px;display:none;">
             <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
           </div>
@@ -2094,6 +2105,23 @@
               value="700"></div>
         </div>
         <div class="status-msg" id="snackBudgetSummary"></div>
+
+        <div class="snack-manual-check" style="margin:4px 0 12px;padding:10px;border:1px solid var(--line, #ddd);border-radius:10px;">
+          <p class="hint" style="margin:0 0 8px;">想吃的東西不在食材庫也可以：手動輸入熱量／脂肪／糖，馬上看現在吃會不會超標（不會加入紀錄）。</p>
+          <div class="row">
+            <div class="field"><label>熱量 (kcal)</label><input type="number" id="snackCheckCal" min="0" step="1" placeholder="0"></div>
+            <div class="field"><label>脂肪 (g)</label><input type="number" id="snackCheckFat" min="0" step="0.1" placeholder="0"></div>
+            <div class="field"><label>糖 (g)</label><input type="number" id="snackCheckSugar" min="0" step="0.1" placeholder="0"></div>
+          </div>
+          <div class="status-msg" id="snackCheckResult"></div>
+        </div>
+
+        <div class="list-toolbar">
+          <button type="button" class="tool-btn mode-combine" id="snackMultiToggle">勾選多樣一起吃</button>
+        </div>
+        <p class="select-hint" id="snackMultiHint" style="display:none;">勾選想一起吃的幾樣零食，系統會把現在剩餘的額度平均分配給勾選的每一項，算出各自最多能吃幾克，加起來才不會超標。</p>
+        <div class="snack-multi-result" id="snackMultiResult" style="display:none;"></div>
+
         <div class="snack-list" id="snackFoodList"></div>
       </div>
     </div>
@@ -2318,6 +2346,8 @@
         manualBatch: [],
         pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
+        snackMultiMode: false,
+        snackMultiSelected: [],
         foodCategoryFilter: '',
         pickerCategoryFilter: '',
         expandedGroups: {},
@@ -2690,6 +2720,32 @@
           });
         }
         return Math.max(0, maxG);
+      }
+
+      // 純函式：一次吃「多樣」零食時，把目前剩餘的預算（熱量／脂肪／糖）平均
+      // 分配給每一樣勾選的食材，各自算出在自己的那一份額度裡最多能吃幾克。
+      // 用「平均分配」而不是各自獨立計算（各自獨立算會各自都用到「全部」剩餘額度，
+      // 加起來一定會超標），這樣勾選的幾樣食材「全部吃完」時，加總起來剛好還在
+      // 今天剩餘的額度之內，不會超標。
+      function computeMultiSnackAllocation(foods, budget) {
+        var n = (foods || []).length;
+        if (!n) return [];
+        var shareBudget = {
+          totals: budget.totals,
+          goals: budget.goals,
+          sugarGoal: budget.sugarGoal,
+          dinnerReserve: budget.dinnerReserve,
+          deductDinner: budget.deductDinner,
+          calAvailableNow: budget.calAvailableNow / n,
+          fatLeft: budget.fatLeft / n,
+          sugarLeft: budget.sugarLeft / n
+        };
+        return foods.map(function (f) {
+          var maxG = maxGramsForFood(f, shareBudget);
+          var grams = Math.round(maxG * 10) / 10;
+          var m = grams > 0 ? computeMacros(f, grams) : { cal: 0, fat: 0, sugar: 0, protein: 0 };
+          return { food: f, grams: grams, macros: m };
+        });
       }
 
       // 從「食材表單」的原始輸入值組出要送進 state.foods / 試算表的食材物件。
@@ -3307,9 +3363,12 @@
         }
         summaryEl.textContent = summaryText;
 
+        evaluateSnackManualCheck(budget);
+
         var foods = snackCategoryFoods();
         if (!foods.length) {
           listEl.innerHTML = '<div class="empty">目前沒有符合條件的「零食」食材。請到下方「食材庫管理」新增食材。</div>';
+          renderSnackMultiResult(budget);
           return;
         }
 
@@ -3341,7 +3400,7 @@
         // 預設只顯示前 SNACK_PREVIEW_COUNT 項推薦，避免項目一多整張卡片要一直往下滑；
         // 想看完整清單可以按「顯示全部」展開，收合狀態記在 state.snackShowAll。
         var SNACK_PREVIEW_COUNT = 4;
-        var showAll = !!state.snackShowAll || ranked.length <= SNACK_PREVIEW_COUNT;
+        var showAll = !!state.snackShowAll || !!state.snackMultiMode || ranked.length <= SNACK_PREVIEW_COUNT;
         var visible = showAll ? ranked : ranked.slice(0, SNACK_PREVIEW_COUNT);
 
         var itemsHtml = visible.map(function (r, index) {
@@ -3354,7 +3413,12 @@
             else overNote = '<span class="snack-over-badge">糖會超標</span>';
           }
           var servingText = noBudget ? '0 份' : round1(r.suggestedServings) + ' 份/共 ' + round1(r.totalServings) + ' 份';
+          var checkboxHtml = state.snackMultiMode
+            ? '<input type="checkbox" class="snack-multi-check" data-food-id="' + escapeHtml(f.id) + '"' +
+              (state.snackMultiSelected.indexOf(f.id) > -1 ? ' checked' : '') + '>'
+            : '';
           return '<div class="snack-item' + (noBudget ? ' no-budget' : '') + (overLimit ? ' over-limit' : '') + '">' +
+            checkboxHtml +
             '<div class="snack-main">' +
             '<div class="name">' + (index === 0 ? '<span class="recommend-badge">優先推薦</span>' : '') + escapeHtml(f.name) + overNote + '</div>' +
             '<div class="sub">P ' + round1(m.protein) + 'g · F ' + round1(m.fat) + 'g · 糖 ' + round1(m.sugar) + 'g</div>' +
@@ -3376,6 +3440,104 @@
         }
 
         listEl.innerHTML = itemsHtml + moreHtml;
+
+        renderSnackMultiResult(budget);
+      }
+
+      // 手動輸入熱量／脂肪／糖，即時算出現在吃這個量會不會超標（不加入紀錄，
+      // 純粹試算），跟「現在可以吃什麼」用的是同一份剩餘額度（budget）。
+      function evaluateSnackManualCheck(budget) {
+        var el = document.getElementById('snackCheckResult');
+        if (!el) return;
+        var calEl = document.getElementById('snackCheckCal');
+        var fatEl = document.getElementById('snackCheckFat');
+        var sugarEl = document.getElementById('snackCheckSugar');
+        if (!calEl || !fatEl || !sugarEl) return;
+
+        var calVal = Number(calEl.value) || 0;
+        var fatVal = Number(fatEl.value) || 0;
+        var sugarVal = Number(sugarEl.value) || 0;
+
+        if (!calVal && !fatVal && !sugarVal) {
+          el.textContent = '';
+          el.className = 'status-msg';
+          return;
+        }
+
+        var overCal = calVal > 0 && calVal > budget.calAvailableNow;
+        var overFat = fatVal > 0 && fatVal > budget.fatLeft;
+        var overSugar = sugarVal > 0 && sugarVal > budget.sugarLeft;
+        // 沒勾選「先預留晚餐份量」時，脂肪／糖只提醒不強制擋，跟下面食材清單的
+        // overFat / overSugar 標示邏輯一致。
+        var problems = [];
+        if (overCal) problems.push('熱量超標約 ' + Math.round(calVal - budget.calAvailableNow) + ' kcal');
+        if (overFat) problems.push('脂肪' + (budget.deductDinner ? '超標' : '會超標') + '約 ' + round1(fatVal - budget.fatLeft) + ' g');
+        if (overSugar) problems.push('糖' + (budget.deductDinner ? '超標' : '會超標') + '約 ' + round1(sugarVal - budget.sugarLeft) + ' g');
+
+        if (overCal || (budget.deductDinner && (overFat || overSugar))) {
+          el.textContent = '⚠️ ' + problems.join('、') + '，建議減量或先不要吃。';
+          el.className = 'status-msg err';
+        } else if (problems.length) {
+          el.textContent = '⚠️ ' + problems.join('、') + '（僅供參考，未預留晚餐份量所以不強制擋）。';
+          el.className = 'status-msg err';
+        } else {
+          el.textContent = '✅ 在額度內，可以吃！吃完之後熱量還剩約 ' + Math.round(budget.calAvailableNow - calVal) +
+            ' kcal、脂肪還剩約 ' + round1(budget.fatLeft - fatVal) + ' g、糖還剩約 ' + round1(budget.sugarLeft - sugarVal) + ' g。';
+          el.className = 'status-msg ok';
+        }
+      }
+
+      // 「勾選多樣一起吃」的結果面板：把 state.snackMultiSelected 對應的食材，
+      // 用 computeMultiSnackAllocation 平均分配剩餘額度，列出每一樣各自最多
+      // 能吃幾克，以及全部一起吃的加總（加總必定落在剩餘額度之內）。
+      function renderSnackMultiResult(budget) {
+        var box = document.getElementById('snackMultiResult');
+        var hint = document.getElementById('snackMultiHint');
+        if (!box) return;
+
+        if (!state.snackMultiMode) {
+          box.style.display = 'none';
+          if (hint) hint.style.display = 'none';
+          return;
+        }
+        if (hint) hint.style.display = 'block';
+
+        var selectedFoods = (state.snackMultiSelected || [])
+          .map(function (id) { return state.foods.find(function (f) { return f.id === id; }); })
+          .filter(Boolean);
+
+        if (!selectedFoods.length) {
+          box.style.display = 'block';
+          box.innerHTML = '<div class="hint" style="margin:0;">還沒勾選任何項目，勾選下面清單裡想一起吃的幾樣零食就會顯示分配結果。</div>';
+          return;
+        }
+
+        var allocation = computeMultiSnackAllocation(selectedFoods, budget);
+        var totals = allocation.reduce(function (acc, a) {
+          acc.protein += a.macros.protein; acc.fat += a.macros.fat;
+          acc.sugar += a.macros.sugar; acc.cal += a.macros.cal;
+          return acc;
+        }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
+
+        var rowsHtml = allocation.map(function (a) {
+          var noBudget = a.grams <= 0;
+          return '<div class="snack-item' + (noBudget ? ' no-budget' : '') + '">' +
+            '<div class="snack-main">' +
+            '<div class="name">' + escapeHtml(a.food.name) + '</div>' +
+            '<div class="sub">P ' + round1(a.macros.protein) + 'g · F ' + round1(a.macros.fat) + 'g · 糖 ' + round1(a.macros.sugar) + 'g</div>' +
+            '</div>' +
+            '<div class="snack-amount">' +
+            '<div class="grams-line' + (noBudget ? ' zero' : '') + '">' + (noBudget ? '目前 0g' : ('可吃 ' + a.grams + 'g')) +
+            (noBudget ? '' : '<span class="kcal">約' + Math.round(a.macros.cal) + 'kcal</span>') + '</div>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+
+        box.style.display = 'block';
+        box.innerHTML = '<p class="hint" style="margin:0 0 8px;">已勾選 ' + selectedFoods.length + ' 樣，額度平均分配後：</p>' +
+          rowsHtml +
+          '<div class="status-msg ok" style="margin-top:8px;">全部一起吃合計：熱量約 ' + Math.round(totals.cal) +
+          ' kcal・蛋白質 ' + round1(totals.protein) + 'g・脂肪 ' + round1(totals.fat) + 'g・糖 ' + round1(totals.sugar) + 'g。</div>';
       }
 
       function usedCategories() {
@@ -4567,6 +4729,17 @@
         wireLogEditForm();
       }
 
+      // 把 PROFILE_ORDER 填進「編輯這筆紀錄」的身份下拉選單，選項名稱直接沿用
+      // PROFILES 裡設定的 name（例如「150」「177」），之後若新增/改身份設定，
+      // 這裡不用另外改動。
+      function populateLePersonOptions() {
+        var sel = document.getElementById('lePerson');
+        if (!sel) return;
+        sel.innerHTML = PROFILE_ORDER.map(function (key) {
+          return '<option value="' + key + '">' + escapeHtml(PROFILES[key].name) + '</option>';
+        }).join('');
+      }
+
       function loadLogIntoForm(log) {
         state.editingLogId = log.id;
         var sVal = log.sugar !== undefined ? log.sugar : (log.carb || 0);
@@ -4578,6 +4751,9 @@
         document.getElementById('leFat').value = round1(log.fat);
         document.getElementById('leSugar').value = round1(sVal);
         document.getElementById('leCal').value = Math.round(log.cal || 0);
+        document.getElementById('leDate').value = log.date || state.currentDate;
+        populateLePersonOptions();
+        document.getElementById('lePerson').value = log.person || 'A';
 
         var gRow = document.getElementById('leGramsRow');
         var lockedHint = document.getElementById('leLockedHint');
@@ -4628,6 +4804,12 @@
 
           var food = log.foodId ? state.foods.find(function (f) { return f.id === log.foodId; }) : null;
           var isLinked = !!(log.foodId && food);
+
+          var newDate = document.getElementById('leDate').value;
+          if (!newDate) { alert('請選擇日期'); return; }
+          var newPerson = document.getElementById('lePerson').value || 'A';
+          log.date = newDate;
+          log.person = newPerson;
 
           if (isLinked) {
             var g = Number(document.getElementById('leGrams').value);
@@ -4985,8 +5167,36 @@
         var listEl = document.getElementById('snackFoodList');
         if (listEl) {
           listEl.addEventListener('click', function (e) {
-            if (!e.target.closest('#snackShowMoreBtn')) return;
-            state.snackShowAll = !state.snackShowAll;
+            if (e.target.closest('#snackShowMoreBtn')) {
+              state.snackShowAll = !state.snackShowAll;
+              renderSnackNow();
+              return;
+            }
+            var checkbox = e.target.closest('.snack-multi-check');
+            if (checkbox) {
+              var foodId = checkbox.getAttribute('data-food-id');
+              var idx = state.snackMultiSelected.indexOf(foodId);
+              if (checkbox.checked && idx === -1) state.snackMultiSelected.push(foodId);
+              if (!checkbox.checked && idx > -1) state.snackMultiSelected.splice(idx, 1);
+              renderSnackNow();
+            }
+          });
+        }
+
+        // 手動輸入熱量／脂肪／糖：邊打字邊即時試算是否超標。
+        ['snackCheckCal', 'snackCheckFat', 'snackCheckSugar'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.addEventListener('input', renderSnackNow);
+        });
+
+        // 「勾選多樣一起吃」開關：切換後清空目前的勾選，避免殘留上次的選擇。
+        var multiToggle = document.getElementById('snackMultiToggle');
+        if (multiToggle) {
+          multiToggle.addEventListener('click', function () {
+            state.snackMultiMode = !state.snackMultiMode;
+            state.snackMultiSelected = [];
+            multiToggle.classList.toggle('on', state.snackMultiMode);
+            multiToggle.textContent = state.snackMultiMode ? '取消勾選多樣' : '勾選多樣一起吃';
             renderSnackNow();
           });
         }

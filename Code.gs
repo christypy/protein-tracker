@@ -495,6 +495,8 @@ function updateLog(payload) {
         }
         sheet.getRange(rowNum, map['groupId'] + 1).setValue(payload.groupId || '');
       }
+      if (payload.date !== undefined) sheet.getRange(rowNum, map['date'] + 1).setValue(payload.date);
+      if (payload.person !== undefined) sheet.getRange(rowNum, map['person'] + 1).setValue(payload.person || 'A');
       if (payload.foodName !== undefined) sheet.getRange(rowNum, map['foodName'] + 1).setValue(payload.foodName);
       if (payload.grams !== undefined) sheet.getRange(rowNum, map['grams'] + 1).setValue(payload.grams == null ? '' : payload.grams);
       if (payload.protein !== undefined) sheet.getRange(rowNum, map['protein'] + 1).setValue(Number(payload.protein) || 0);
