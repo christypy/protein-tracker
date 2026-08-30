@@ -639,7 +639,8 @@
     }
 
     input[type=text],
-    input[type=number] {
+    input[type=number],
+    input[type=date] {
       font-family: var(--font-body);
       font-size: 14px;
       padding: 9px 10px;
@@ -648,6 +649,24 @@
       background: var(--paper);
       color: var(--ink);
       width: 100%;
+    }
+
+    input[type=date] {
+      font-family: var(--font-num);
+      color-scheme: light;
+    }
+
+    input[type=date]::-webkit-calendar-picker-indicator {
+      opacity: 0.5;
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 3px;
+      transition: opacity .15s, background .15s;
+    }
+
+    input[type=date]::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+      background: var(--protein-tint);
     }
 
     input:focus {
@@ -1755,7 +1774,7 @@
       text-decoration: underline;
     }
 
-    /* ---- 編輯這一餐／拆散這一餐 ---- */
+    /* ---- 拆散這一餐 ---- */
     .meal-sub-actions {
       display: flex;
       justify-content: flex-end;
@@ -1870,11 +1889,12 @@
         <button type="button" class="sync-float-btn" id="syncFloatBtn" title="立即重新同步" style="display:none;">⟳</button>
         <div id="profileTabs" style="display:contents;"></div>
       </div>
-      <!-- 【本次新增】固定在畫面右下角的懸浮按鈕：左邊這顆是「新增食材」快速
-           入口，不管目前捲到哪裡、「食材列表」卡片是收合還是展開，按一下就
-           直接打開新增食材面板（跟卡片標題列的「＋新增食材」是同一套邏輯），
-           不用先找到／展開食材列表卡片才能新增。右邊維持「跳到資料同步設定」。 -->
+      <!-- 【本次新增】固定在畫面右下角的懸浮按鈕：三顆由上到下分別是「新增這一
+           餐」（直接打開手動輸入這一餐面板）、「新增食材」（直接打開新增食材
+           面板）、「跳到資料同步設定」，不管目前捲到哪裡都能直接用，不用先找到
+           對應的卡片。 -->
       <div class="bottom-jump-col" id="bottomJumpCol">
+        <button type="button" class="sync-float-btn" id="jumpAddMealBtn" title="新增這一餐">🍽️</button>
         <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="新增食材">➕</button>
         <button type="button" class="sync-float-btn" id="jumpSettingsBtn" title="跳到資料同步設定">⚙️</button>
       </div>
@@ -2037,7 +2057,7 @@
         <button type="button" class="tool-btn" id="logCombineToggle">組成一餐</button>
         <button type="button" class="tool-btn" id="logDeleteToggle">刪除</button>
       </div>
-      <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄（一次一筆）</p>
+      <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄；點「這一餐」整組可一次改整餐的日期／身份，點裡面單一項目則只編輯該項目本身</p>
       <p class="select-hint mode-combine" id="logCombineHint" style="display:none;">勾選至少 2 筆想合併成一餐的紀錄（也可以直接勾選「這一餐」整組，把它跟其他筆再合併在一起）</p>
       <div class="select-bar" id="logSelectBar" style="display:none;">
         <span id="logSelectCount">已選 0 筆</span>
@@ -2089,7 +2109,8 @@
         </div>
       </div>
 
-      <!-- 【本次新增】編輯整餐：點「這一餐」子項目列表下方的「編輯這一餐」打開，
+      <!-- 【本次調整】編輯整餐：不再是「這一餐」子項目下方的獨立按鈕，改成整合
+           進上面的「編輯」模式——按下「編輯」後點「這一餐」整組標頭就會打開，
            一次把整批（同一個 groupId）紀錄的日期／身份一起改掉，不用逐筆進入
            「編輯這筆紀錄」重複改 N 次；熱量／蛋白質等每一項的數值不受影響。 -->
       <div class="food-detail" id="groupEditBox" style="display:none;">
@@ -3145,9 +3166,7 @@
         var subList = expanded
           ? '<div class="meal-sub-list">' + items.map(function (l) { return renderLogRow(l, 'sub-item'); }).join('') +
             (selection ? '' : '<div class="meal-sub-actions">' +
-              '<button type="button" class="btn-mini" data-edit-group="' + escapeHtml(groupId) + '">編輯這一餐</button>' +
-              '<button type="button" class="btn-mini cancel" data-ungroup="' + escapeHtml(groupId) + '">拆散這一餐</button>' +
-              '</div>') +
+              '<button type="button" class="btn-mini cancel" data-ungroup="' + escapeHtml(groupId) + '">拆散這一餐</button></div>') +
             '</div>'
           : '';
 
@@ -4073,9 +4092,9 @@
           'g、糖 ' + round1(sugar * servings) + 'g（＝一份 × 總份數）。';
       }
 
-      // 【本次新增】右下角懸浮按鈕：左邊「新增食材」不再只是捲動過去，而是直接
-      // 打開新增食材面板（面板本身固定貼在畫面底部，不需要先捲到食材列表卡片
-      // 才看得到）；右邊「跳到資料同步設定」維持展開＋平滑捲動的舊行為。
+      // 【本次新增】右下角懸浮按鈕：「新增這一餐」「新增食材」都不再只是捲動
+      // 過去，而是直接打開對應的固定面板（面板本身固定貼在畫面底部，不需要先
+      // 捲到那張卡片才看得到）；「跳到資料同步設定」維持展開＋平滑捲動的舊行為。
       function wireBottomJumpButtons() {
         function jumpTo(sectionId, focusId) {
           var sec = document.getElementById(sectionId);
@@ -4087,6 +4106,8 @@
             if (focusEl) setTimeout(function () { focusEl.focus(); }, 350);
           }
         }
+        var addMealBtn = document.getElementById('jumpAddMealBtn');
+        if (addMealBtn) addMealBtn.addEventListener('click', function () { openManualSheet(); });
         var foodBtn = document.getElementById('jumpFoodListBtn');
         if (foodBtn) foodBtn.addEventListener('click', function () { openFoodAddSheet(); });
         var settingsBtn = document.getElementById('jumpSettingsBtn');
@@ -4655,12 +4676,6 @@
         wireLogSwipe(listEl);
 
         listEl.addEventListener('click', function (e) {
-          var editGroupBtn = e.target.closest('[data-edit-group]');
-          if (editGroupBtn) {
-            openMealGroupEdit(editGroupBtn.getAttribute('data-edit-group'));
-            return;
-          }
-
           var ungroupBtn = e.target.closest('[data-ungroup]');
           if (ungroupBtn) {
             ungroupMeal(ungroupBtn.getAttribute('data-ungroup'));
@@ -4681,7 +4696,9 @@
           var selection = activeLogSelection(); // 刪除模式或組成一餐模式，共用勾選外觀
 
           // 「這一餐」的整組標頭：一般模式下點一下展開/收合子項目；
-          // 勾選模式（刪除／組成一餐）下點一下等於「整組全選／全不選」。
+          // 勾選模式（刪除／組成一餐）下點一下等於「整組全選／全不選」；
+          // 【本次調整】「編輯」模式下點一下＝直接打開「編輯這一餐」，把整組
+          // 一次改日期／身份（想改單一項目本身的數值，展開後點該子項目即可）。
           var groupId = row.getAttribute('data-group-toggle');
           if (groupId) {
             if (selection) {
@@ -4695,6 +4712,11 @@
               } else {
                 subIds.forEach(function (sid) { if (selection.indexOf(sid) === -1) selection.push(sid); });
               }
+            } else if (state.logEditMode) {
+              state.logEditMode = false;
+              openMealGroupEdit(groupId);
+              renderLogList();
+              return;
             } else {
               state.expandedGroups[groupId] = !isGroupExpanded(groupId);
             }
@@ -4833,8 +4855,9 @@
         }).join('');
       }
 
-      // 打開「編輯這一餐」面板：帶入這一組目前的日期／身份當預設值（取第一筆），
-      // 開啟前先收掉其他固定面板（單筆編輯／手動輸入），避免同時疊在畫面下方。
+      // 打開「編輯這一餐」面板：由「編輯」模式下點「這一餐」整組標頭觸發，
+      // 帶入這一組目前的日期／身份當預設值（取第一筆）；開啟前先收掉其他固定
+      // 面板（單筆編輯／手動輸入），避免同時疊在畫面下方。
       function openMealGroupEdit(groupId) {
         var items = state.logs.filter(function (l) { return l.groupId === groupId; });
         if (!items.length) return;
