@@ -1755,10 +1755,11 @@
       text-decoration: underline;
     }
 
-    /* ---- 拆散這一餐 ---- */
+    /* ---- 編輯這一餐／拆散這一餐 ---- */
     .meal-sub-actions {
       display: flex;
       justify-content: flex-end;
+      gap: 4px;
       padding: 2px 0 6px;
     }
 
@@ -1869,11 +1870,12 @@
         <button type="button" class="sync-float-btn" id="syncFloatBtn" title="立即重新同步" style="display:none;">⟳</button>
         <div id="profileTabs" style="display:contents;"></div>
       </div>
-      <!-- 【本次新增】底下「食材列表」「資料同步設定」這兩張卡片原本要一路
-           滑到頁面最下面才會看到，現在額外做兩顆固定在畫面右下角的懸浮按鈕，
-           點了就直接展開＋平滑捲動過去，不用再手動一直往下滑。 -->
+      <!-- 【本次新增】固定在畫面右下角的懸浮按鈕：左邊這顆是「新增食材」快速
+           入口，不管目前捲到哪裡、「食材列表」卡片是收合還是展開，按一下就
+           直接打開新增食材面板（跟卡片標題列的「＋新增食材」是同一套邏輯），
+           不用先找到／展開食材列表卡片才能新增。右邊維持「跳到資料同步設定」。 -->
       <div class="bottom-jump-col" id="bottomJumpCol">
-        <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="跳到食材列表">🍱</button>
+        <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="新增食材">➕</button>
         <button type="button" class="sync-float-btn" id="jumpSettingsBtn" title="跳到資料同步設定">⚙️</button>
       </div>
     </div>
@@ -2083,6 +2085,30 @@
           <div class="btn-row">
             <button class="btn btn-ghost" id="leCancelBtn">取消</button>
             <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 【本次新增】編輯整餐：點「這一餐」子項目列表下方的「編輯這一餐」打開，
+           一次把整批（同一個 groupId）紀錄的日期／身份一起改掉，不用逐筆進入
+           「編輯這筆紀錄」重複改 N 次；熱量／蛋白質等每一項的數值不受影響。 -->
+      <div class="food-detail" id="groupEditBox" style="display:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">編輯這一餐</span>
+          <button type="button" class="sheet-toggle" id="geCloseBtn">✕ 關閉</button>
+        </div>
+        <div class="sheet-body">
+          <p class="hint" style="margin:0 0 10px;">這一餐目前共 <b id="geItemCount">0</b> 項紀錄。改日期或身份，儲存後這一整餐（全部項目）會一起移到對應的那一天／那個人底下（原本的畫面會看不到它，屬正常現象）。</p>
+          <div class="row">
+            <div class="field"><label>日期</label><input type="date" id="geDate"></div>
+            <div class="field"><label>身份</label><select id="gePerson"></select></div>
+          </div>
+        </div>
+        <div class="sheet-footer">
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="geCancelBtn">取消</button>
+            <button class="btn btn-primary" id="geSaveBtn">儲存修改（整餐）</button>
           </div>
         </div>
       </div>
@@ -2361,6 +2387,8 @@
 
         logEditMode: false,
         editingLogId: null,
+
+        editingGroupId: null,
 
         logCombineMode: false,
         logCombineSelected: [],
@@ -3116,7 +3144,10 @@
 
         var subList = expanded
           ? '<div class="meal-sub-list">' + items.map(function (l) { return renderLogRow(l, 'sub-item'); }).join('') +
-            (selection ? '' : '<div class="meal-sub-actions"><button type="button" class="btn-mini cancel" data-ungroup="' + escapeHtml(groupId) + '">拆散這一餐</button></div>') +
+            (selection ? '' : '<div class="meal-sub-actions">' +
+              '<button type="button" class="btn-mini" data-edit-group="' + escapeHtml(groupId) + '">編輯這一餐</button>' +
+              '<button type="button" class="btn-mini cancel" data-ungroup="' + escapeHtml(groupId) + '">拆散這一餐</button>' +
+              '</div>') +
             '</div>'
           : '';
 
@@ -3995,6 +4026,8 @@
         clearFoodEditForm();
         clearFoodForm();
         closeManualSheet();
+        clearLogEditForm();
+        closeMealGroupEdit();
         document.getElementById('foodAddBox').style.display = 'flex';
       }
 
@@ -4040,8 +4073,9 @@
           'g、糖 ' + round1(sugar * servings) + 'g（＝一份 × 總份數）。';
       }
 
-      // 【本次新增】右下角兩顆懸浮按鈕：點了直接展開對應卡片（如果原本是收合的）
-      // 再平滑捲動過去，不用再一路手動滑到頁面最下面。
+      // 【本次新增】右下角懸浮按鈕：左邊「新增食材」不再只是捲動過去，而是直接
+      // 打開新增食材面板（面板本身固定貼在畫面底部，不需要先捲到食材列表卡片
+      // 才看得到）；右邊「跳到資料同步設定」維持展開＋平滑捲動的舊行為。
       function wireBottomJumpButtons() {
         function jumpTo(sectionId, focusId) {
           var sec = document.getElementById(sectionId);
@@ -4054,7 +4088,7 @@
           }
         }
         var foodBtn = document.getElementById('jumpFoodListBtn');
-        if (foodBtn) foodBtn.addEventListener('click', function () { jumpTo('secFoodList'); });
+        if (foodBtn) foodBtn.addEventListener('click', function () { openFoodAddSheet(); });
         var settingsBtn = document.getElementById('jumpSettingsBtn');
         if (settingsBtn) settingsBtn.addEventListener('click', function () { jumpTo('secSettings'); });
       }
@@ -4369,6 +4403,7 @@
         if (foodAddBox) foodAddBox.style.display = 'none';
         if (foodEditBox) foodEditBox.style.display = 'none';
         if (logEditBox) logEditBox.style.display = 'none';
+        closeMealGroupEdit();
         document.getElementById('manualAddBox').style.display = 'flex';
         refreshGoalPreview();
       }
@@ -4474,6 +4509,7 @@
         state.logCombineMode = false;
         state.logCombineSelected = [];
         clearLogEditForm();
+        closeMealGroupEdit();
       }
 
       // 把選取到的多筆紀錄合併成一餐（共用一個 groupId）。
@@ -4619,6 +4655,12 @@
         wireLogSwipe(listEl);
 
         listEl.addEventListener('click', function (e) {
+          var editGroupBtn = e.target.closest('[data-edit-group]');
+          if (editGroupBtn) {
+            openMealGroupEdit(editGroupBtn.getAttribute('data-edit-group'));
+            return;
+          }
+
           var ungroupBtn = e.target.closest('[data-ungroup]');
           if (ungroupBtn) {
             ungroupMeal(ungroupBtn.getAttribute('data-ungroup'));
@@ -4727,6 +4769,7 @@
         });
 
         wireLogEditForm();
+        wireGroupEditForm();
       }
 
       // 把 PROFILE_ORDER 填進「編輯這筆紀錄」的身份下拉選單，選項名稱直接沿用
@@ -4771,12 +4814,77 @@
           document.getElementById('leGrams').value = '';
         }
         closeManualSheet();
+        closeMealGroupEdit();
         document.getElementById('logEditBox').style.display = 'flex';
       }
 
       function clearLogEditForm() {
         state.editingLogId = null;
         document.getElementById('logEditBox').style.display = 'none';
+      }
+
+      // 【本次新增】編輯整餐（同一個 groupId 的所有紀錄）：身份下拉選單跟單筆
+      // 編輯共用同一份 PROFILE_ORDER／PROFILES 設定，選項名稱一致。
+      function populateGePersonOptions() {
+        var sel = document.getElementById('gePerson');
+        if (!sel) return;
+        sel.innerHTML = PROFILE_ORDER.map(function (key) {
+          return '<option value="' + key + '">' + escapeHtml(PROFILES[key].name) + '</option>';
+        }).join('');
+      }
+
+      // 打開「編輯這一餐」面板：帶入這一組目前的日期／身份當預設值（取第一筆），
+      // 開啟前先收掉其他固定面板（單筆編輯／手動輸入），避免同時疊在畫面下方。
+      function openMealGroupEdit(groupId) {
+        var items = state.logs.filter(function (l) { return l.groupId === groupId; });
+        if (!items.length) return;
+        state.editingGroupId = groupId;
+        document.getElementById('geItemCount').textContent = items.length;
+        document.getElementById('geDate').value = items[0].date || state.currentDate;
+        populateGePersonOptions();
+        document.getElementById('gePerson').value = items[0].person || 'A';
+        clearLogEditForm();
+        closeManualSheet();
+        document.getElementById('groupEditBox').style.display = 'flex';
+      }
+
+      function closeMealGroupEdit() {
+        state.editingGroupId = null;
+        document.getElementById('groupEditBox').style.display = 'none';
+      }
+
+      // 把整批（同一個 groupId）紀錄一起改成新的日期／身份，
+      // 每一筆的熱量／蛋白質／脂肪／糖數值都不變，只搬動歸屬的日期跟人。
+      function wireGroupEditForm() {
+        document.getElementById('geCancelBtn').addEventListener('click', closeMealGroupEdit);
+        document.getElementById('geCloseBtn').addEventListener('click', closeMealGroupEdit);
+
+        document.getElementById('geSaveBtn').addEventListener('click', async function () {
+          if (!state.editingGroupId) return;
+          var groupId = state.editingGroupId;
+          var items = state.logs.filter(function (l) { return l.groupId === groupId; });
+          if (!items.length) { closeMealGroupEdit(); return; }
+
+          var newDate = document.getElementById('geDate').value;
+          if (!newDate) { alert('請選擇日期'); return; }
+          var newPerson = document.getElementById('gePerson').value || 'A';
+
+          items.forEach(function (l) {
+            l.date = newDate;
+            l.person = newPerson;
+          });
+
+          closeMealGroupEdit();
+          await persistLogsAndRender();
+
+          if (hasSheet()) {
+            items.forEach(function (l) {
+              sheetPost('updateLog', l).catch(function (e) {
+                setSheetStatus('整餐更新同步失敗：' + e.message, 'err');
+              });
+            });
+          }
+        });
       }
 
       function wireLogEditForm() {
