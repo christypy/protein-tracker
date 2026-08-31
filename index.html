@@ -1986,12 +1986,8 @@
           </div>
           <div class="sheet-footer">
             <div class="goal-compact" id="batchTotalBox" style="display:none;margin-bottom:10px;"></div>
-            <div class="row" id="batchSaveFoodRow" style="display:none;margin:0 0 10px;gap:8px;align-items:flex-end;">
-              <div class="field" style="flex:1;">
-                <label>存成新食材的名稱</label>
-                <input type="text" id="batchSaveFoodName" placeholder="例如：番茄炒蛋一人份">
-              </div>
-              <button type="button" class="btn btn-ghost" id="batchSaveFoodBtn" style="flex:none;">＋ 存成新食材</button>
+            <div class="btn-row" id="batchSaveFoodRow" style="display:none;">
+              <button type="button" class="btn btn-ghost" id="batchSaveFoodBtn">＋ 存成新食材</button>
             </div>
             <div class="btn-row">
               <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
@@ -2046,16 +2042,51 @@
         </div>
         <div class="sheet-footer">
           <div class="goal-compact" id="manualTotalBox" style="display:none;margin-bottom:10px;"></div>
-          <div class="row" id="manualSaveFoodRow" style="display:none;margin:0 0 10px;gap:8px;align-items:flex-end;">
-            <div class="field" style="flex:1;">
-              <label>存成新食材的名稱</label>
-              <input type="text" id="manualSaveFoodName" placeholder="例如：番茄炒蛋一人份">
-            </div>
-            <button type="button" class="btn btn-ghost" id="manualSaveFoodBtn" style="flex:none;">＋ 存成新食材</button>
+          <div class="btn-row" id="manualSaveFoodRow" style="display:none;">
+            <button type="button" class="btn btn-ghost" id="manualSaveFoodBtn">＋ 存成新食材</button>
           </div>
           <div class="btn-row">
             <button class="btn btn-ghost" id="manualAddItemBtn">加入清單 ＋</button>
             <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 存成新食材：把「新增這一餐」目前算出來的總量，依填寫的「總份量」自動
+           拆算成「每份」的熱量／蛋白質／脂肪／糖，一次就完成儲存（不用另外預留、
+           也不用再多按一次確認）；儲存成功後，這一餐視為已處理完畢，選的食材／
+           手動輸入內容都會清空，如果還想記錄到「今日紀錄」，請直接重新挑選一次。 -->
+      <div class="food-detail" id="mealSaveFoodBox" style="display:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">存成新食材</span>
+          <button type="button" class="sheet-toggle" id="mealSaveFoodCloseBtn">✕ 關閉</button>
+        </div>
+        <div class="sheet-body">
+          <p class="hint" id="mealSaveFoodSummary" style="margin:0 0 10px;"></p>
+          <div class="row">
+            <div class="field"><label>食材名稱</label><input type="text" id="mealSaveFoodName" placeholder="例如：番茄炒蛋"></div>
+          </div>
+          <div class="base-unit-row" style="margin-top:8px;">
+            <div class="field field-base"><label>這一餐總重量 (g)</label><input type="number" id="mealSaveFoodTotalGrams" min="0" step="any"></div>
+            <div class="field field-unit"><label>總份量（分成幾份）</label><input type="number" id="mealSaveFoodServings" value="1" min="0.01" step="any"></div>
+          </div>
+          <p class="hint" id="mealSaveFoodPreview" style="margin:6px 0 0;"></p>
+
+          <div class="field" style="margin-top:8px;">
+            <label>類型（可複選）</label>
+            <div class="chip-scroll" id="mealSaveFoodCategoryChips"></div>
+            <div class="chip-new-row" id="mealSaveFoodCategoryNewRow" style="display:none;">
+              <input type="text" id="mealSaveFoodCategoryNewInput" placeholder="輸入新類型名稱，例如：主食">
+              <button type="button" class="btn btn-ghost" id="mealSaveFoodCategoryNewConfirm">加入</button>
+            </div>
+            <input type="hidden" id="mealSaveFoodCategory" value="">
+          </div>
+        </div>
+        <div class="sheet-footer">
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="mealSaveFoodCancelBtn">取消</button>
+            <button class="btn btn-primary" id="mealSaveFoodConfirmBtn">儲存新食材</button>
           </div>
         </div>
       </div>
@@ -2405,6 +2436,7 @@
         editingFoodId: null,
         fCategorySelected: [],
         feCategorySelected: [],
+        mealSaveFoodCategorySelected: [],
         batch: [],
         manualBatch: [],
         pickerSheetCollapsed: false,
@@ -2972,44 +3004,146 @@
         });
       }
 
-      // 把「這一餐」目前的合計（跟上面顯示的數字是同一份，來自 pendingMealTotals()）
-      // 存成食材庫裡一筆新食材，方便之後直接從「新增這一餐」挑選、不用每次重新
-      // 組合。這一步完全獨立於「全部加入紀錄」／「加入紀錄」：存成食材之後，
-      // state.batch／state.manualBatch 都不會被清空，這一餐要不要真的記錄到
-      // 「今日紀錄」還是由使用者自己決定，需要才按、不需要就不會存。
-      // 直接沿用既有的 addFood()，新食材一樣會存到本機、也會跟其他食材一樣
-      // 同步進 Google 試算表（如果有連線的話），不用另外做一套儲存機制。
-      async function saveThisMealAsFood(nameInputId) {
+      // 「＋ 存成新食材」按鈕（不管是從食材批次或手動輸入面板點的）都打開同一個
+      // 固定在畫面下方的彈跳面板：先把目前這一餐的總重量／總份量／類型準備好，
+      // 使用者確認或調整「總份量」之後，各項數值會自動依份量拆算成「每份」的量，
+      // 按「儲存新食材」才會真的寫進食材庫。
+      function openMealSaveFoodBox() {
         var totals = pendingMealTotals();
         if (!(totals.protein || totals.fat || totals.sugar || totals.cal)) {
           alert('請先加入食材或填寫營養數值');
           return;
         }
-        var nameEl = document.getElementById(nameInputId);
-        var name = (nameEl && nameEl.value ? nameEl.value.trim() : '');
+        state._mealSaveFoodTotals = totals;
+        state.mealSaveFoodCategorySelected = [];
+
+        var totalGrams = (state.batch || []).reduce(function (sum, b) { return sum + (Number(b.grams) || 0); }, 0);
+        document.getElementById('mealSaveFoodName').value = '';
+        document.getElementById('mealSaveFoodTotalGrams').value = totalGrams > 0 ? round1(totalGrams) : '';
+        document.getElementById('mealSaveFoodServings').value = 1;
+        document.getElementById('mealSaveFoodSummary').textContent =
+          '這一餐目前合計：' + Math.round(totals.cal) + ' kcal · 蛋白質 ' + round1(totals.protein) + 'g · 脂肪 ' + round1(totals.fat) + 'g · 糖 ' + round1(totals.sugar) + 'g';
+        renderMealSaveFoodCategoryChips();
+        updateMealSaveFoodPreview();
+        closeManualSheet();
+        document.getElementById('mealSaveFoodBox').style.display = 'flex';
+      }
+
+      function closeMealSaveFoodBox() {
+        document.getElementById('mealSaveFoodBox').style.display = 'none';
+      }
+
+      function renderMealSaveFoodCategoryChips() {
+        var wrap = document.getElementById('mealSaveFoodCategoryChips');
+        if (!wrap) return;
+        var cats = usedCategories();
+        var sel = state.mealSaveFoodCategorySelected || [];
+        var html = cats.map(function (c) {
+          var active = sel.indexOf(c) > -1;
+          return '<button type="button" class="chip' + (active ? ' active' : '') + '" data-mealfcat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+        }).join('');
+        html += '<button type="button" class="chip chip-add" id="mealSaveFoodCategoryAddChip">＋ 新增類型</button>';
+        wrap.innerHTML = html;
+        document.getElementById('mealSaveFoodCategory').value = sel.join('、');
+      }
+
+      function toggleMealSaveFoodCategory(val) {
+        var c = String(val || '').trim();
+        if (!c) return;
+        var cats = state.mealSaveFoodCategorySelected || [];
+        var idx = cats.indexOf(c);
+        if (idx > -1) cats.splice(idx, 1); else cats.push(c);
+        state.mealSaveFoodCategorySelected = cats;
+        renderMealSaveFoodCategoryChips();
+      }
+
+      // 依「總重量」／「總份量」即時算出「每份」的克數與熱量／蛋白質／脂肪／糖，
+      // 例如整鍋這一餐可以分 2～3 份，填 2 或 3 就會自動把總量拆成每份的量，
+      // 之後這筆新食材的「一份」就是拆算後的量，不是整鍋的量。
+      function updateMealSaveFoodPreview() {
+        var previewEl = document.getElementById('mealSaveFoodPreview');
+        if (!previewEl) return;
+        var totals = state._mealSaveFoodTotals || pendingMealTotals();
+        var totalGrams = Number(document.getElementById('mealSaveFoodTotalGrams').value) || 0;
+        var servings = Number(document.getElementById('mealSaveFoodServings').value) || 1;
+        if (servings <= 0) servings = 1;
+        var perGrams = totalGrams > 0 ? round1(totalGrams / servings) : 0;
+        var perCal = Math.round((Number(totals.cal) || 0) / servings);
+        var perProtein = round1((Number(totals.protein) || 0) / servings);
+        var perFat = round1((Number(totals.fat) || 0) / servings);
+        var perSugar = round1((Number(totals.sugar) || 0) / servings);
+        previewEl.textContent = '拆成 ' + servings + ' 份後，每份' + (perGrams ? ('約 ' + perGrams + 'g，') : '') +
+          '熱量 ' + perCal + 'kcal、蛋白質 ' + perProtein + 'g、脂肪 ' + perFat + 'g、糖 ' + perSugar + 'g。';
+      }
+
+      // 存成新食材：一按「儲存新食材」就直接完成寫入食材庫（跟其他食材一樣存
+      // 本機、有連線也會同步到 Google 試算表），不用另外再確認一次；同時視為
+      // 這一餐已經處理完畢，把 state.batch／state.manualBatch 都清空，
+      // 如果還想把這一餐記錄到「今日紀錄」，需要重新挑選食材再送出一次。
+      async function confirmMealSaveFood() {
+        var totals = state._mealSaveFoodTotals || pendingMealTotals();
+        var name = (document.getElementById('mealSaveFoodName').value || '').trim();
         if (!name) { alert('請先填寫要存成的食材名稱'); return; }
 
-        // 以這一餐目前選的食材「總重量」當作新食材的「一份」克數，這樣之後從
-        // 食材庫挑到這一份時，換算克數／份數的邏輯（computeMacros）能直接沿用；
-        // 如果都是手動輸入、沒有克數可加總，就以「1 份＝這次填的量」處理。
-        var totalGrams = (state.batch || []).reduce(function (sum, b) { return sum + (Number(b.grams) || 0); }, 0);
-        var base = totalGrams > 0 ? round1(totalGrams) : 100;
+        var totalGrams = Number(document.getElementById('mealSaveFoodTotalGrams').value) || 0;
+        var servings = Number(document.getElementById('mealSaveFoodServings').value) || 1;
+        if (servings <= 0) servings = 1;
+        var perGrams = totalGrams > 0 ? round1(totalGrams / servings) : 100;
 
         var food = {
           name: name,
-          base: base,
+          base: perGrams,
           unit: 'g',
-          servings: 1,
-          categories: [],
+          servings: servings,
+          categories: (state.mealSaveFoodCategorySelected || []).slice(),
           outOfStock: false,
-          protein100: round1(totals.protein),
-          fat100: round1(totals.fat),
-          sugar100: round1(totals.sugar),
-          cal100: Math.round(totals.cal)
+          protein100: round1((Number(totals.protein) || 0) / servings),
+          fat100: round1((Number(totals.fat) || 0) / servings),
+          sugar100: round1((Number(totals.sugar) || 0) / servings),
+          cal100: Math.round((Number(totals.cal) || 0) / servings)
         };
         await addFood(food);
-        if (nameEl) nameEl.value = '';
+
+        // 存成新食材就代表這一餐已經處理完畢，不用再預留著等後續操作。
+        state.batch = [];
+        state.manualBatch = [];
+        clearManualForm();
+        renderManualBatchList();
+        renderPickerList();
+
+        closeMealSaveFoodBox();
         alert('已存成新食材「' + name + '」，之後可以直接在上面的清單搜尋到它。');
+      }
+
+      function wireMealSaveFoodBox() {
+        document.getElementById('mealSaveFoodCloseBtn').addEventListener('click', closeMealSaveFoodBox);
+        document.getElementById('mealSaveFoodCancelBtn').addEventListener('click', closeMealSaveFoodBox);
+        document.getElementById('mealSaveFoodConfirmBtn').addEventListener('click', confirmMealSaveFood);
+
+        ['mealSaveFoodTotalGrams', 'mealSaveFoodServings'].forEach(function (id) {
+          document.getElementById(id).addEventListener('input', updateMealSaveFoodPreview);
+        });
+
+        document.getElementById('mealSaveFoodCategoryChips').addEventListener('click', function (e) {
+          var chip = e.target.closest('[data-mealfcat]');
+          if (chip) { toggleMealSaveFoodCategory(chip.getAttribute('data-mealfcat')); return; }
+          if (e.target.closest('#mealSaveFoodCategoryAddChip')) {
+            var row = document.getElementById('mealSaveFoodCategoryNewRow');
+            row.style.display = (row.style.display === 'none' ? 'flex' : 'none');
+          }
+        });
+        document.getElementById('mealSaveFoodCategoryNewConfirm').addEventListener('click', function () {
+          var input = document.getElementById('mealSaveFoodCategoryNewInput');
+          var v = input.value.trim();
+          if (v) {
+            if ((state.mealSaveFoodCategorySelected || []).indexOf(v) === -1) {
+              state.mealSaveFoodCategorySelected.push(v);
+              renderMealSaveFoodCategoryChips();
+            }
+            input.value = '';
+            document.getElementById('mealSaveFoodCategoryNewRow').style.display = 'none';
+          }
+        });
       }
 
       // 精簡長條圖：蛋白質（達標即可）用一般顏色，脂肪／糖／熱量（不要超標）
@@ -4391,7 +4525,7 @@
         });
 
         document.getElementById('batchSaveFoodBtn').addEventListener('click', function () {
-          saveThisMealAsFood('batchSaveFoodName');
+          openMealSaveFoodBox();
         });
 
         document.getElementById('batchAddBtn').addEventListener('click', async function () {
@@ -4513,6 +4647,7 @@
         if (foodEditBox) foodEditBox.style.display = 'none';
         if (logEditBox) logEditBox.style.display = 'none';
         closeMealGroupEdit();
+        closeMealSaveFoodBox();
         document.getElementById('manualAddBox').style.display = 'flex';
         refreshGoalPreview();
       }
@@ -4547,7 +4682,7 @@
         });
 
         document.getElementById('manualSaveFoodBtn').addEventListener('click', function () {
-          saveThisMealAsFood('manualSaveFoodName');
+          openMealSaveFoodBox();
         });
 
         document.getElementById('manualBatchList').addEventListener('click', function (e) {
@@ -5496,6 +5631,7 @@
         wireManual();
         wireLogList();
         wireFoodTable();
+        wireMealSaveFoodBox();
         wireSettings();
         wireSnackNow();
         wireBottomJumpButtons();
