@@ -582,3 +582,107 @@ function renameInSheet(sheet, columnName, oldValue, newValue) {
   }
   return changed;
 }
+
+/**
+ * 【本次新增】手動修復小工具：直接在試算表這一端把「糙米飯」這個食材、
+ * 以及「澱粉」這個分類標籤，徹底清乾淨。
+ *
+ * 背景：前端已經加了「刪除食材時記一份 tombstone（我確實刪過的 id 清單），
+ * 同步時排除這些 id」的修復，理論上之後用 App 裡「刪除食材」按鈕刪掉的東西
+ * 不會再自己跑回來。但如果某一台裝置/瀏覽器分頁的本機快取，是在套用這個
+ * 修復「之前」就已經把「糙米飯」記下來、且從來沒有點過「刪除食材」（單純
+ * 編輯試算表、或用舊版前端刪過），那台裝置的本機清單裡就沒有對應的
+ * tombstone 紀錄——下次那台裝置一連上試算表，還是會把「本機有、試算表沒有」
+ * 的「糙米飯」誤判成「還沒同步的新資料」，自動又補傳回試算表一次。
+ * 這個小工具直接在試算表原始資料這端做「終結」處理，不透過前端、也不受
+ * 任何一台裝置的本機快取影響：
+ *   1) 把 Foods 分頁裡名字是「糙米飯」的每一列（不只比對 id，比對「名字」，
+ *      這樣不管過去復活過幾次、累積了幾個不同 id 的重複列，都會一次殺光）
+ *      整列刪除。
+ *   2) 把「澱粉」這個分類標籤，從 Foods 分頁的 category／categories 欄位
+ *      整個移除（只拿掉這個分類文字，不會動到食材本身的其他資料；如果某個
+ *      食材除了「澱粉」還有別的分類，只會把「澱粉」拿掉，其他分類不受影響）。
+ *
+ * 使用方式：在 Apps Script 編輯器上方的函式下拉選單選
+ * purgeBrownRiceFoodAndStarchCategory，按「執行」跑一次即可。
+ * 這個工具只動 Foods 分頁，不會刪除 Logs 分頁裡過去吃「糙米飯」的歷史紀錄
+ * ——那些紀錄本身是你已經吃過的事實，只是紀錄裡存的食材名稱文字快照，
+ * 不影響「糙米飯」不會再出現在食材庫、也不會再被拿來新增紀錄。
+ * 如果你也想清掉別的食材／分類，把下面兩個字串換掉即可；不需要用到的那個
+ * （例如只想刪食材、不想動分類）可以把對應那一行呼叫拿掉或把參數傳空字串。
+ */
+function purgeBrownRiceFoodAndStarchCategory() {
+  var deletedFoodRows = deleteFoodsByName('糙米飯');
+  var strippedCategoryFrom = removeCategoryEverywhere('澱粉');
+  return { deletedFoodRows: deletedFoodRows, strippedCategoryFrom: strippedCategoryFrom };
+}
+
+// 依「名字」（而不是 id）刪除 Foods 分頁裡所有符合的列——同一個名字不管
+// 因為過去的同步/復活問題累積了幾個不同 id 的重複列，這裡一律當作同一種
+// 食材，全部刪光，才不會殺了一個 id 卻漏掉另一個 id 的重複列。
+function deleteFoodsByName(name) {
+  var sheet = getFoodsSheet();
+  var map = headerIndexMap(sheet);
+  var data = sheet.getDataRange().getValues();
+  var target = String(name == null ? '' : name).trim();
+  if (!target) return 0;
+  var deleted = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowName = String(data[i][map['name']] == null ? '' : data[i][map['name']]).trim();
+    if (rowName === target) {
+      sheet.deleteRow(i + 1);
+      deleted++;
+    }
+  }
+  if (deleted > 0) SpreadsheetApp.flush();
+  return deleted;
+}
+
+// 把某個分類標籤從 Foods 分頁的 category（單一）／categories（多選，用「、」
+// 分隔）兩個欄位裡整個拿掉。只移除這個分類文字本身，其餘分類、其餘欄位資料
+// 都不會被動到；如果某個食材原本只有這一個分類，該欄位會變成空字串
+// （代表這個食材現在沒有分類），不會連食材本身一起刪掉。
+function removeCategoryEverywhere(categoryName) {
+  var target = String(categoryName == null ? '' : categoryName).trim();
+  if (!target) return 0;
+  var sheet = getFoodsSheet();
+  var map = headerIndexMap(sheet);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var changed = 0;
+
+  if (map.hasOwnProperty('categories')) {
+    var range = sheet.getRange(2, map['categories'] + 1, lastRow - 1, 1);
+    var values = range.getValues();
+    var anyChanged = false;
+    for (var i = 0; i < values.length; i++) {
+      var raw = String(values[i][0] || '');
+      if (!raw) continue;
+      var parts = raw.split('、').map(function (s) { return s.trim(); }).filter(Boolean);
+      var idx = parts.indexOf(target);
+      if (idx > -1) {
+        parts.splice(idx, 1);
+        values[i][0] = parts.join('、');
+        changed++;
+        anyChanged = true;
+      }
+    }
+    if (anyChanged) range.setValues(values);
+  }
+
+  if (map.hasOwnProperty('category')) {
+    var range2 = sheet.getRange(2, map['category'] + 1, lastRow - 1, 1);
+    var values2 = range2.getValues();
+    var anyChanged2 = false;
+    for (var j = 0; j < values2.length; j++) {
+      if (String(values2[j][0] || '').trim() === target) {
+        values2[j][0] = '';
+        anyChanged2 = true;
+      }
+    }
+    if (anyChanged2) range2.setValues(values2);
+  }
+
+  if (changed > 0) SpreadsheetApp.flush();
+  return changed;
+}

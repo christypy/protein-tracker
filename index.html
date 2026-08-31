@@ -2464,7 +2464,19 @@
 
         dualPerson: false,
         dualMode: 'even',
-        manualDualPerson: false
+        manualDualPerson: false,
+
+        // 「刪掉的東西又跑回來」的真正原因：這個 App 本機會快取一份食材／紀錄
+        // 清單，如果某台裝置或某個分頁在刪除當下沒有同步到（例如離線、或
+        // 分頁本來就開著沒重新整理），它手上還留著刪除前的舊清單；之後只要
+        // 那台裝置重新連上試算表，就會把「試算表沒有、但本機還有」的項目
+        // 誤判成「這是還沒同步上去的新資料」，自動又補傳回試算表一次——
+        // 刪掉的食材因此像陰魂不散一樣一直跑回來。
+        // 修法：本機額外記一份「我自己確實刪過的 id」清單（tombstone），
+        // 同步、合併資料時一律把這些 id 排除在外，不管試算表或其他裝置的
+        // 舊快取裡還有沒有，都不會再被誤判成「待補傳」而復活。
+        deletedFoodIds: [],
+        deletedLogIds: []
       };
 
       function defaultGoalsSet() {
@@ -2558,10 +2570,38 @@
             }
           });
         } catch (e) { state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() }; }
+        try {
+          var dfi = await storeGetRaw('deletedFoodIds');
+          state.deletedFoodIds = dfi ? JSON.parse(dfi) : [];
+        } catch (e) { state.deletedFoodIds = []; }
+        try {
+          var dli = await storeGetRaw('deletedLogIds');
+          state.deletedLogIds = dli ? JSON.parse(dli) : [];
+        } catch (e) { state.deletedLogIds = []; }
       }
       async function saveLocalFoods() { await storeSetRaw('foods', JSON.stringify(state.foods)); }
       async function saveLocalLogs() { await storeSetRaw('logs', JSON.stringify(state.logs)); }
       async function saveLocalSettings() { await storeSetRaw('settings', JSON.stringify(state.settings)); }
+
+      // tombstone 清單只要「夠用」就好，不需要真的無限成長——沒事先把陣列
+      // 長度上限抓在 500，超過時只留最新刪除的那些，避免本機儲存空間被
+      // 這份紀錄慢慢吃光。
+      var TOMBSTONE_LIMIT = 500;
+      function pushDeletedIds(list, ids) {
+        ids.forEach(function (id) {
+          if (id && list.indexOf(id) === -1) list.push(id);
+        });
+        if (list.length > TOMBSTONE_LIMIT) list.splice(0, list.length - TOMBSTONE_LIMIT);
+        return list;
+      }
+      async function markFoodsDeleted(ids) {
+        pushDeletedIds(state.deletedFoodIds, ids);
+        await storeSetRaw('deletedFoodIds', JSON.stringify(state.deletedFoodIds));
+      }
+      async function markLogsDeleted(ids) {
+        pushDeletedIds(state.deletedLogIds, ids);
+        await storeSetRaw('deletedLogIds', JSON.stringify(state.deletedLogIds));
+      }
 
       // ---------- Google Sheet sync ----------
       function hasSheet() { return !!(state.settings.sheetUrl && state.settings.sheetUrl.trim()); }
@@ -2585,10 +2625,12 @@
         return data;
       }
 
-      function mergeById(remoteList, localList) {
+      function mergeById(remoteList, localList, deletedIds) {
+        var deletedSet = {};
+        (deletedIds || []).forEach(function (id) { deletedSet[id] = true; });
         var map = {};
-        (remoteList || []).forEach(function (x) { if (x && x.id) map[x.id] = x; });
-        (localList || []).forEach(function (x) { if (x && x.id && !map.hasOwnProperty(x.id)) map[x.id] = x; });
+        (remoteList || []).forEach(function (x) { if (x && x.id && !deletedSet[x.id]) map[x.id] = x; });
+        (localList || []).forEach(function (x) { if (x && x.id && !map.hasOwnProperty(x.id) && !deletedSet[x.id]) map[x.id] = x; });
         return Object.keys(map).map(function (k) { return map[k]; });
       }
 
@@ -2596,10 +2638,15 @@
       // 雲端其實沒更新」的根本原因——某次 addLog/addFood 的 POST 送出失敗（例如手機
       // 訊號不穩），本機還是照樣把資料存下來、畫面照常顯示這一餐，但試算表那邊
       // 從來沒收到。過去唯一的線索只有當下那次失敗的提示訊息，一旦被滑過去就找不回來了。
-      function findUnsynced(remoteList, localList) {
+      // deletedIds（tombstone）裡的 id 一律排除：這些是使用者自己刪掉的東西，
+      // 試算表沒有是正常、預期的結果，不是「還沒同步成功」，不該被這裡誤判、
+      // 自動又補傳回試算表讓刪掉的東西重新出現。
+      function findUnsynced(remoteList, localList, deletedIds) {
         var remoteIds = {};
         (remoteList || []).forEach(function (x) { if (x && x.id) remoteIds[x.id] = true; });
-        return (localList || []).filter(function (x) { return x && x.id && !remoteIds[x.id]; });
+        var deletedSet = {};
+        (deletedIds || []).forEach(function (id) { deletedSet[id] = true; });
+        return (localList || []).filter(function (x) { return x && x.id && !remoteIds[x.id] && !deletedSet[x.id]; });
       }
 
       // 把「本機有、試算表沒有」的資料重新送一次。addFood 這邊試算表會沿用原本的 id
@@ -2635,12 +2682,12 @@
         var label = document.getElementById('syncLabel');
         try {
           var data = await sheetGet();
-          var pendingFoods = findUnsynced(data.foods, state.foods);
-          var pendingLogs = findUnsynced(data.logs, state.logs);
+          var pendingFoods = findUnsynced(data.foods, state.foods, state.deletedFoodIds);
+          var pendingLogs = findUnsynced(data.logs, state.logs, state.deletedLogIds);
 
-          state.foods = mergeById(data.foods, state.foods);
+          state.foods = mergeById(data.foods, state.foods, state.deletedFoodIds);
           migrateFoodCategories();
-          state.logs = mergeById(data.logs, state.logs);
+          state.logs = mergeById(data.logs, state.logs, state.deletedLogIds);
           await saveLocalFoods();
           await saveLocalLogs();
 
@@ -4268,6 +4315,7 @@
         if (state.selectedFoodId === id) state.selectedFoodId = null;
         if (state.editingFoodId === id) clearFoodEditForm();
         state.batch = state.batch.filter(function (b) { return b.foodId !== id; });
+        await markFoodsDeleted([id]);
         await persistFoodsAndRender();
 
         if (hasSheet()) {
@@ -4287,6 +4335,7 @@
         if (state.selectedFoodId && idSet[state.selectedFoodId]) state.selectedFoodId = null;
         if (state.editingFoodId && idSet[state.editingFoodId]) clearFoodEditForm();
         state.batch = state.batch.filter(function (b) { return !idSet[b.foodId]; });
+        await markFoodsDeleted(ids);
         await persistFoodsAndRender();
 
         if (hasSheet()) {
@@ -4322,6 +4371,7 @@
 
       async function deleteLog(id) {
         state.logs = state.logs.filter(function (l) { return l.id !== id; });
+        await markLogsDeleted([id]);
         await persistLogsAndRender();
 
         if (hasSheet()) {
@@ -4336,6 +4386,7 @@
         var idSet = {};
         ids.forEach(function (id) { idSet[id] = true; });
         state.logs = state.logs.filter(function (l) { return !idSet[l.id]; });
+        await markLogsDeleted(ids);
         await persistLogsAndRender();
 
         if (hasSheet()) {
@@ -5773,6 +5824,7 @@
           foodTotalServings: foodTotalServings,
           per100Value: per100Value,
           mergeById: mergeById,
+          findUnsynced: findUnsynced,
           fmtDate: fmtDate,
           uid: uid,
           computeSnackBudget: computeSnackBudget,
