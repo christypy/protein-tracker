@@ -2908,6 +2908,11 @@
       // 現在送出這一餐，還會剩多少」，不用等按下「全部加入紀錄」才更新。
       function pendingMealTotals() {
         var totals = { protein: 0, fat: 0, sugar: 0, cal: 0 };
+        // 「同時記錄給兩人」＋「各自不同份量」時，畫面上的克數欄位只代表 A 的
+        // 份量，B 的份量另外記在 b.gramsB；這一餐真正的合計要把兩人都算進去，
+        // 不然勾選後合計會少算 B 的部分。均分模式下欄位本來就是「兩人合計」，
+        // 不需要額外處理。
+        var dualCustom = canDualPerson() && state.dualPerson && state.dualMode === 'custom';
         (state.batch || []).forEach(function (b) {
           var food = state.foods.find(function (f) { return f.id === b.foodId; });
           if (!food || !b.grams) return;
@@ -2916,6 +2921,16 @@
           totals.fat += Number(m.fat) || 0;
           totals.sugar += Number(m.sugar) || 0;
           totals.cal += Number(m.cal) || 0;
+          if (dualCustom) {
+            var gramsB = (b.gramsB !== undefined && b.gramsB !== null) ? b.gramsB : b.grams;
+            if (gramsB) {
+              var mB = computeMacros(food, gramsB);
+              totals.protein += Number(mB.protein) || 0;
+              totals.fat += Number(mB.fat) || 0;
+              totals.sugar += Number(mB.sugar) || 0;
+              totals.cal += Number(mB.cal) || 0;
+            }
+          }
         });
         (state.manualBatch || []).forEach(function (it) {
           totals.protein += Number(it.protein) || 0;
@@ -4432,6 +4447,8 @@
 
         document.getElementById('dualPersonToggle').addEventListener('change', function (e) {
           state.dualPerson = !!e.target.checked;
+          // renderBatchList() 結尾會呼叫 refreshGoalPreview()，勾選/取消勾選
+          // 「同時記錄給兩人」後這一餐合計就會照新的合計方式立即重算。
           renderBatchList();
         });
         document.getElementById('dualModeChips').addEventListener('click', function (e) {
@@ -4457,6 +4474,9 @@
               var mB = computeMacros(foodB, bB.gramsB);
               noteB.textContent = PROFILES[otherProfile()].name + '：P' + mB.protein + ' F' + mB.fat + ' S' + mB.sugar + ' · ' + mB.cal + 'kcal';
             }
+            // B 的份量會另外算進「這一餐合計」（見 pendingMealTotals 的
+            // dualCustom 分支），所以這裡也要即時刷新合計數字。
+            refreshGoalPreview();
             return;
           }
 
