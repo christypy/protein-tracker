@@ -2135,6 +2135,46 @@
       </div>
     </div>
 
+    <!-- 食譜熱量試算：用食材庫現有的食材，直接輸入克數就即時看到這份食譜（或這一餐）
+         的蛋白質、脂肪、糖、熱量合計。純試算，跟「新增這一餐」共用同一套食材資料與
+         計算邏輯（computeMacros），但完全獨立於 state.batch，不會寫進「今日紀錄」，
+         也不需要等存檔才看得到數字——邊選食材、邊改克數就即時更新合計。只有按下方
+         「儲存為食譜」才會真的存起來，方便之後直接套用同一份食譜。 -->
+    <div class="section collapsed" id="secRecipe">
+      <div class="section-head" data-toggle="secRecipe">
+        <h2>🧮 食譜熱量試算</h2>
+        <span class="chev">▾</span>
+      </div>
+      <div class="section-body">
+        <p class="hint">從食材庫挑選食材、填入克數，下面會即時算出這份食譜（或這一餐）的蛋白質、脂肪、糖與熱量合計——純試算，不會記到「今日紀錄」；確定要留著以後重複使用，再按「儲存為食譜」。</p>
+
+        <div class="search-wrap">
+          <input type="text" id="recipeFoodSearch" placeholder="搜尋食材，例如：雞胸肉">
+        </div>
+        <div class="food-list" id="recipePickerList"></div>
+
+        <div id="recipeBatchList" style="margin-top:10px;"></div>
+
+        <div class="goal-compact" id="recipeTotalBox" style="display:none;margin-top:14px;"></div>
+
+        <div class="row" style="margin-top:14px;">
+          <div class="field">
+            <label>食譜名稱（儲存時填，選填）</label>
+            <input type="text" id="recipeName" placeholder="例如：番茄炒蛋一人份">
+          </div>
+        </div>
+        <div class="btn-row" style="justify-content:space-between;margin-top:8px;">
+          <button class="btn btn-ghost" id="recipeClearBtn">清空重算</button>
+          <button class="btn btn-primary" id="recipeSaveBtn">儲存為食譜（供日後使用）</button>
+        </div>
+
+        <div id="savedRecipesWrap" style="margin-top:18px;">
+          <p class="chip-field-label">已儲存的食譜</p>
+          <div id="savedRecipesList"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- 4. 現在可以吃什麼（零食類別，扣掉晚餐預留熱量後還能吃多少） -->
     <div class="section collapsed" id="secSnackNow">
       <div class="section-head" data-toggle="secSnackNow">
@@ -2391,6 +2431,8 @@
         feCategorySelected: [],
         batch: [],
         manualBatch: [],
+        recipes: [],
+        recipeBatch: [],
         pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
         snackMultiMode: false,
@@ -2492,6 +2534,10 @@
           state.logs = l ? JSON.parse(l) : [];
         } catch (e) { state.logs = []; }
         try {
+          var rc = await storeGetRaw('recipes');
+          state.recipes = rc ? JSON.parse(rc) : [];
+        } catch (e) { state.recipes = []; }
+        try {
           var s = await storeGetRaw('settings');
           if (s) {
             state.settings = JSON.parse(s);
@@ -2513,6 +2559,10 @@
       }
       async function saveLocalFoods() { await storeSetRaw('foods', JSON.stringify(state.foods)); }
       async function saveLocalLogs() { await storeSetRaw('logs', JSON.stringify(state.logs)); }
+      // 食譜庫目前只存在本機（不同步到 Google 試算表）：食譜試算本來就是「邊算邊看，
+      // 不一定要留下來」的工具，只有明確按「儲存為食譜」才會寫進這裡，跟會自動同步
+      // 的食材／今日紀錄用途不同，所以刻意保持單純、不牽動 sheetPost 同步機制。
+      async function saveLocalRecipes() { await storeSetRaw('recipes', JSON.stringify(state.recipes)); }
       async function saveLocalSettings() { await storeSetRaw('settings', JSON.stringify(state.settings)); }
 
       // ---------- Google Sheet sync ----------
@@ -2697,6 +2747,28 @@
 
       function estimateCalories(protein, fat, sugar) {
         return Math.round((Number(protein) || 0) * 4 + (Number(fat) || 0) * 9 + (Number(sugar) || 0) * 4);
+      }
+
+      // ---------- 食譜熱量試算：跟「新增這一餐」共用 computeMacros() 的換算邏輯，
+      // 但完全獨立於 state.batch／state.logs，純粹加總「目前清單裡」的品項，
+      // 不寫入任何紀錄，方便邊選食材、邊改克數就即時看到這份食譜的合計。 ----------
+      function computeRecipeTotals(items) {
+        var totals = { protein: 0, fat: 0, sugar: 0, cal: 0 };
+        (items || []).forEach(function (b) {
+          var food = state.foods.find(function (f) { return f.id === b.foodId; });
+          if (!food || !b.grams) return;
+          var m = computeMacros(food, b.grams);
+          totals.protein += Number(m.protein) || 0;
+          totals.fat += Number(m.fat) || 0;
+          totals.sugar += Number(m.sugar) || 0;
+          totals.cal += Number(m.cal) || 0;
+        });
+        return {
+          protein: round1(totals.protein),
+          fat: round1(totals.fat),
+          sugar: round1(totals.sugar),
+          cal: Math.round(totals.cal)
+        };
       }
 
       // ---------- 現在可以吃什麼（零食／，扣掉晚餐預留熱量） ----------
@@ -3768,6 +3840,86 @@
         renderBatchList();
       }
 
+      function renderRecipePickerList() {
+        var el = document.getElementById('recipePickerList');
+        if (!el) return;
+        var searchEl = document.getElementById('recipeFoodSearch');
+        var q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+        var list = state.foods.filter(function (f) {
+          return !f.outOfStock && (!q || f.name.toLowerCase().indexOf(q) > -1);
+        });
+        if (!list.length) {
+          el.innerHTML = '<div class="empty">' + (state.foods.length ? '找不到符合的食材。' : '食材庫是空的，先到「食材列表」新增食材。') + '</div>';
+        } else {
+          el.innerHTML = list.map(function (f) {
+            var inBatch = state.recipeBatch.some(function (b) { return b.foodId === f.id; });
+            return '<div class="food-chip' + (inBatch ? ' selected' : '') + '" data-recipe-pick="' + escapeHtml(f.id) + '">' +
+              '<span class="fname">' + escapeHtml(f.name) + '</span>' +
+              '<span class="fmacro">每份' + (f.base || 100) + 'g</span>' +
+              '</div>';
+          }).join('');
+        }
+        renderRecipeBatchList();
+      }
+
+      // 每一列都是「這份食譜目前加了什麼、各自幾克」，邊改克數（input 事件）就即時
+      // 重算該列與下方合計，不用等按任何送出／儲存按鈕才看得到數字。
+      function renderRecipeBatchList() {
+        var el = document.getElementById('recipeBatchList');
+        var totalBox = document.getElementById('recipeTotalBox');
+        if (!el) return;
+        if (!state.recipeBatch.length) {
+          el.innerHTML = '<p class="hint" style="margin:6px 0 0;">還沒選食材，上面點一下要用的食材就會出現在這裡填克數。</p>';
+          if (totalBox) totalBox.style.display = 'none';
+          return;
+        }
+        el.innerHTML = state.recipeBatch.map(function (b) {
+          var food = state.foods.find(function (f) { return f.id === b.foodId; });
+          if (!food) return '';
+          var m = computeMacros(food, b.grams);
+          var id = escapeHtml(b.foodId);
+          return '<div class="batch-row" data-recipe-row="' + id + '">' +
+            '<div class="field">' +
+            '<label>' + escapeHtml(food.name) + '</label>' +
+            '<div class="qty-wrap"><input type="number" min="0" step="any" value="' + b.grams + '" data-recipe-grams="' + id + '"><span class="qty-unit">g</span></div>' +
+            '</div>' +
+            '<div class="preview">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
+            '<button type="button" class="btn-danger" data-recipe-remove="' + id + '">移除</button>' +
+            '</div>';
+        }).join('');
+
+        var totals = computeRecipeTotals(state.recipeBatch);
+        if (totalBox) {
+          totalBox.style.display = 'grid';
+          totalBox.innerHTML =
+            '<div class="goal-compact-item"><div class="gc-label">合計熱量</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + totals.cal + '<small>kcal</small></span></div></div>' +
+            '<div class="goal-compact-item"><div class="gc-label">蛋白質</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + totals.protein + '<small>g</small></span></div></div>' +
+            '<div class="goal-compact-item"><div class="gc-label">脂肪</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + totals.fat + '<small>g</small></span></div></div>' +
+            '<div class="goal-compact-item"><div class="gc-label">糖</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + totals.sugar + '<small>g</small></span></div></div>';
+        }
+      }
+
+      function renderSavedRecipesList() {
+        var el = document.getElementById('savedRecipesList');
+        if (!el) return;
+        if (!state.recipes.length) {
+          el.innerHTML = '<p class="hint" style="margin:0;">目前還沒有儲存的食譜，試算好之後按「儲存為食譜」就會出現在這裡。</p>';
+          return;
+        }
+        el.innerHTML = state.recipes.slice().reverse().map(function (r) {
+          var t = r.totals || {};
+          return '<div class="batch-row" data-recipe-saved="' + escapeHtml(r.id) + '">' +
+            '<div class="field">' +
+            '<label>' + escapeHtml(r.name || '未命名食譜') + '</label>' +
+            '<span class="batch-servings-info">' + (r.ingredients || []).length + ' 項食材</span>' +
+            '</div>' +
+            '<div class="preview">P' + (t.protein || 0) + ' F' + (t.fat || 0) + ' S' + (t.sugar || 0) + ' · ' + (t.cal || 0) + 'kcal</div>' +
+            '<button type="button" class="btn btn-ghost" data-recipe-load="' + escapeHtml(r.id) + '">載入</button>' +
+            '<button type="button" class="btn-danger" data-recipe-delete="' + escapeHtml(r.id) + '">刪除</button>' +
+            '</div>';
+        }).join('');
+      }
+
       function renderDualPersonBox() {
         var box = document.getElementById('dualPersonBox');
         if (!box) return;
@@ -3870,6 +4022,7 @@
         renderLogList();
         renderFoodTable();
         renderPickerList();
+        renderRecipePickerList();
         renderSnackNow();
       }
 
@@ -5288,6 +5441,113 @@
         wireFoodEditForm();
       }
 
+      // 食譜熱量試算的事件都掛在固定的外層容器上（事件委派），這樣清單、批次列表
+      // 每次重畫（renderRecipePickerList / renderRecipeBatchList）之後不會失效。
+      function wireRecipeSection() {
+        var searchEl = document.getElementById('recipeFoodSearch');
+        if (searchEl) searchEl.addEventListener('input', renderRecipePickerList);
+
+        var pickerEl = document.getElementById('recipePickerList');
+        if (pickerEl) {
+          pickerEl.addEventListener('click', function (e) {
+            var chip = e.target.closest('[data-recipe-pick]');
+            if (!chip) return;
+            var foodId = chip.getAttribute('data-recipe-pick');
+            var existing = state.recipeBatch.some(function (b) { return b.foodId === foodId; });
+            if (existing) {
+              state.recipeBatch = state.recipeBatch.filter(function (b) { return b.foodId !== foodId; });
+            } else {
+              var food = state.foods.find(function (f) { return f.id === foodId; });
+              state.recipeBatch.push({ foodId: foodId, grams: foodBaseGrams(food) || 100 });
+            }
+            renderRecipePickerList();
+          });
+        }
+
+        var batchEl = document.getElementById('recipeBatchList');
+        if (batchEl) {
+          // 改克數：邊打字邊即時重算該列與下方合計，不用等按任何按鈕。
+          batchEl.addEventListener('input', function (e) {
+            var input = e.target.closest('[data-recipe-grams]');
+            if (!input) return;
+            var foodId = input.getAttribute('data-recipe-grams');
+            var item = state.recipeBatch.find(function (b) { return b.foodId === foodId; });
+            if (!item) return;
+            item.grams = Number(input.value) || 0;
+            renderRecipeBatchList();
+          });
+          batchEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-recipe-remove]');
+            if (!btn) return;
+            var foodId = btn.getAttribute('data-recipe-remove');
+            state.recipeBatch = state.recipeBatch.filter(function (b) { return b.foodId !== foodId; });
+            renderRecipePickerList();
+          });
+        }
+
+        var clearBtn = document.getElementById('recipeClearBtn');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', function () {
+            state.recipeBatch = [];
+            var nameEl = document.getElementById('recipeName');
+            if (nameEl) nameEl.value = '';
+            renderRecipePickerList();
+          });
+        }
+
+        // 「儲存為食譜」是唯一會真的寫進 state.recipes／本機儲存的動作；在這之前
+        // 不管選了多少食材、改了多少次克數，都只存在 state.recipeBatch（記憶體裡的
+        // 暫時清單），重新整理頁面就會消失，不會誤留下不完整的紀錄。
+        var saveBtn = document.getElementById('recipeSaveBtn');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', async function () {
+            if (!state.recipeBatch.length) { alert('請先從上面加入至少一項食材，再儲存食譜'); return; }
+            var nameEl = document.getElementById('recipeName');
+            var name = (nameEl && nameEl.value ? nameEl.value.trim() : '') || '未命名食譜';
+            var totals = computeRecipeTotals(state.recipeBatch);
+            var ingredients = state.recipeBatch.map(function (b) {
+              var food = state.foods.find(function (f) { return f.id === b.foodId; });
+              return { foodId: b.foodId, name: food ? food.name : '', grams: b.grams };
+            });
+            var recipe = { id: uid('r'), name: name, ingredients: ingredients, totals: totals, createdAt: new Date().toISOString() };
+            state.recipes.push(recipe);
+            await saveLocalRecipes();
+            renderSavedRecipesList();
+            alert('已儲存食譜「' + name + '」，之後可以在下方「已儲存的食譜」按「載入」重新套用。');
+          });
+        }
+
+        var savedEl = document.getElementById('savedRecipesList');
+        if (savedEl) {
+          savedEl.addEventListener('click', async function (e) {
+            var loadBtn = e.target.closest('[data-recipe-load]');
+            if (loadBtn) {
+              var id = loadBtn.getAttribute('data-recipe-load');
+              var recipe = state.recipes.find(function (r) { return r.id === id; });
+              if (!recipe) return;
+              // 只載入食材庫裡目前還存在的品項，避免載入已被刪除的食材造成錯誤。
+              state.recipeBatch = (recipe.ingredients || [])
+                .filter(function (ing) { return state.foods.some(function (f) { return f.id === ing.foodId; }); })
+                .map(function (ing) { return { foodId: ing.foodId, grams: ing.grams }; });
+              var nameEl = document.getElementById('recipeName');
+              if (nameEl) nameEl.value = recipe.name || '';
+              renderRecipePickerList();
+              return;
+            }
+            var delBtn = e.target.closest('[data-recipe-delete]');
+            if (delBtn) {
+              var did = delBtn.getAttribute('data-recipe-delete');
+              if (!confirm('確定要刪除這個食譜嗎？（不會影響食材庫或今日紀錄）')) return;
+              state.recipes = state.recipes.filter(function (r) { return r.id !== did; });
+              await saveLocalRecipes();
+              renderSavedRecipesList();
+            }
+          });
+        }
+
+        renderSavedRecipesList();
+      }
+
       function wireSnackNow() {
         var maxInput = document.getElementById('snackDinnerMax');
         if (maxInput) maxInput.addEventListener('input', renderSnackNow);
@@ -5404,6 +5664,7 @@
         wireManual();
         wireLogList();
         wireFoodTable();
+        wireRecipeSection();
         wireSettings();
         wireSnackNow();
         wireBottomJumpButtons();
