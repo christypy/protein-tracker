@@ -1986,6 +1986,13 @@
           </div>
           <div class="sheet-footer">
             <div class="goal-compact" id="batchTotalBox" style="display:none;margin-bottom:10px;"></div>
+            <div class="row" id="batchSaveFoodRow" style="display:none;margin:0 0 10px;gap:8px;align-items:flex-end;">
+              <div class="field" style="flex:1;">
+                <label>存成新食材的名稱</label>
+                <input type="text" id="batchSaveFoodName" placeholder="例如：番茄炒蛋一人份">
+              </div>
+              <button type="button" class="btn btn-ghost" id="batchSaveFoodBtn" style="flex:none;">＋ 存成新食材</button>
+            </div>
             <div class="btn-row">
               <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
             </div>
@@ -2039,6 +2046,13 @@
         </div>
         <div class="sheet-footer">
           <div class="goal-compact" id="manualTotalBox" style="display:none;margin-bottom:10px;"></div>
+          <div class="row" id="manualSaveFoodRow" style="display:none;margin:0 0 10px;gap:8px;align-items:flex-end;">
+            <div class="field" style="flex:1;">
+              <label>存成新食材的名稱</label>
+              <input type="text" id="manualSaveFoodName" placeholder="例如：番茄炒蛋一人份">
+            </div>
+            <button type="button" class="btn btn-ghost" id="manualSaveFoodBtn" style="flex:none;">＋ 存成新食材</button>
+          </div>
           <div class="btn-row">
             <button class="btn btn-ghost" id="manualAddItemBtn">加入清單 ＋</button>
             <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
@@ -2952,6 +2966,50 @@
           box.style.display = html ? 'grid' : 'none';
           box.innerHTML = html;
         });
+        ['batchSaveFoodRow', 'manualSaveFoodRow'].forEach(function (id) {
+          var row = document.getElementById(id);
+          if (row) row.style.display = html ? 'flex' : 'none';
+        });
+      }
+
+      // 把「這一餐」目前的合計（跟上面顯示的數字是同一份，來自 pendingMealTotals()）
+      // 存成食材庫裡一筆新食材，方便之後直接從「新增這一餐」挑選、不用每次重新
+      // 組合。這一步完全獨立於「全部加入紀錄」／「加入紀錄」：存成食材之後，
+      // state.batch／state.manualBatch 都不會被清空，這一餐要不要真的記錄到
+      // 「今日紀錄」還是由使用者自己決定，需要才按、不需要就不會存。
+      // 直接沿用既有的 addFood()，新食材一樣會存到本機、也會跟其他食材一樣
+      // 同步進 Google 試算表（如果有連線的話），不用另外做一套儲存機制。
+      async function saveThisMealAsFood(nameInputId) {
+        var totals = pendingMealTotals();
+        if (!(totals.protein || totals.fat || totals.sugar || totals.cal)) {
+          alert('請先加入食材或填寫營養數值');
+          return;
+        }
+        var nameEl = document.getElementById(nameInputId);
+        var name = (nameEl && nameEl.value ? nameEl.value.trim() : '');
+        if (!name) { alert('請先填寫要存成的食材名稱'); return; }
+
+        // 以這一餐目前選的食材「總重量」當作新食材的「一份」克數，這樣之後從
+        // 食材庫挑到這一份時，換算克數／份數的邏輯（computeMacros）能直接沿用；
+        // 如果都是手動輸入、沒有克數可加總，就以「1 份＝這次填的量」處理。
+        var totalGrams = (state.batch || []).reduce(function (sum, b) { return sum + (Number(b.grams) || 0); }, 0);
+        var base = totalGrams > 0 ? round1(totalGrams) : 100;
+
+        var food = {
+          name: name,
+          base: base,
+          unit: 'g',
+          servings: 1,
+          categories: [],
+          outOfStock: false,
+          protein100: round1(totals.protein),
+          fat100: round1(totals.fat),
+          sugar100: round1(totals.sugar),
+          cal100: Math.round(totals.cal)
+        };
+        await addFood(food);
+        if (nameEl) nameEl.value = '';
+        alert('已存成新食材「' + name + '」，之後可以直接在上面的清單搜尋到它。');
       }
 
       // 精簡長條圖：蛋白質（達標即可）用一般顏色，脂肪／糖／熱量（不要超標）
@@ -4332,6 +4390,10 @@
           }
         });
 
+        document.getElementById('batchSaveFoodBtn').addEventListener('click', function () {
+          saveThisMealAsFood('batchSaveFoodName');
+        });
+
         document.getElementById('batchAddBtn').addEventListener('click', async function () {
           if (!state.batch.length) return;
           var items = state.batch.slice();
@@ -4482,6 +4544,10 @@
         // 表單邊填邊更新「今日目標」預覽，不用等按下「加入清單／加入紀錄」。
         ['manualProtein', 'manualFat', 'manualSugar', 'manualCal'].forEach(function (id) {
           document.getElementById(id).addEventListener('input', refreshGoalPreview);
+        });
+
+        document.getElementById('manualSaveFoodBtn').addEventListener('click', function () {
+          saveThisMealAsFood('manualSaveFoodName');
         });
 
         document.getElementById('manualBatchList').addEventListener('click', function (e) {
