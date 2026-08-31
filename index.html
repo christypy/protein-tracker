@@ -1974,7 +1974,7 @@
             <div class="dual-person-box" id="dualPersonBox">
               <label class="dual-toggle">
                 <input type="checkbox" id="dualPersonToggle">
-                <span>同時記錄給 A、B 兩人</span>
+                <span>同時記錄給兩人</span>
               </label>
               <div class="qty-mode-chips dual-mode-chips" id="dualModeChips" style="display:none;">
                 <button type="button" class="qty-mode-btn active" data-dual-mode="even">兩人均分</button>
@@ -2011,7 +2011,7 @@
           <div class="dual-person-box" id="manualDualPersonBox">
             <label class="dual-toggle">
               <input type="checkbox" id="manualDualPersonToggle">
-              <span>這一餐兩人均分（A、B 各記錄一半營養）</span>
+              <span>這一餐兩人均分（各記錄一半營養）</span>
             </label>
           </div>
           <div id="manualBatchList"></div>
@@ -2992,21 +2992,109 @@
         renderThisMealTotalBoxes();
       }
 
+      // 把一組營養總和轉成「這一餐合計」面板裡的 4 個小格子（熱量／蛋白質／
+      // 脂肪／糖）。calLabel 可以帶上「（一人）」「（150）」這類後綴，
+      // 讓使用者清楚這組數字對應的是誰。
+      function goalCompactItemsHtml(calLabel, totals) {
+        return '<div class="goal-compact-item"><div class="gc-label">' + escapeHtml(calLabel) + '</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + Math.round(totals.cal) + '<small>kcal</small></span></div></div>' +
+          '<div class="goal-compact-item"><div class="gc-label">蛋白質</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + round1(totals.protein) + '<small>g</small></span></div></div>' +
+          '<div class="goal-compact-item"><div class="gc-label">脂肪</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + round1(totals.fat) + '<small>g</small></span></div></div>' +
+          '<div class="goal-compact-item"><div class="gc-label">糖</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + round1(totals.sugar) + '<small>g</small></span></div></div>';
+      }
+
+      // 「同時記錄給兩人」勾選之後，這一餐送出時本來就會拆成兩筆各自的紀錄，
+      // 所以「這一餐合計」面板也要照實際會記到誰身上重新算——而不是繼續顯示
+      // 兩人加起來的份量。回傳 { a, b }：a 是目前身份會拿到的量、b 是另一人
+      // 會拿到的量；如果目前沒有勾選任何「同時記錄給兩人」，回傳 null，
+      // 呼叫端就會退回原本「這一餐（不分人）合計」的算法。
+      function pendingPersonMealTotals() {
+        if (!canDualPerson() || (!state.dualPerson && !state.manualDualPerson)) return null;
+        var a = { protein: 0, fat: 0, sugar: 0, cal: 0 };
+        var b = { protein: 0, fat: 0, sugar: 0, cal: 0 };
+        function add(t, m) {
+          t.protein += Number(m.protein) || 0;
+          t.fat += Number(m.fat) || 0;
+          t.sugar += Number(m.sugar) || 0;
+          t.cal += Number(m.cal) || 0;
+        }
+        (state.batch || []).forEach(function (bi) {
+          var food = state.foods.find(function (f) { return f.id === bi.foodId; });
+          if (!food || !bi.grams) return;
+          if (state.dualPerson) {
+            if (state.dualMode === 'even') {
+              var half = round1((bi.grams || 0) / 2);
+              var mh = computeMacros(food, half);
+              add(a, mh); add(b, mh);
+            } else {
+              var gA = bi.grams;
+              var gB = (bi.gramsB !== undefined && bi.gramsB !== null) ? bi.gramsB : bi.grams;
+              add(a, computeMacros(food, gA));
+              if (gB) add(b, computeMacros(food, gB));
+            }
+          } else {
+            // 這一段食材沒有勾選「同時記錄給兩人」，整份都只會記到目前身份。
+            add(a, computeMacros(food, bi.grams));
+          }
+        });
+
+        var manualItems = (state.manualBatch || []).slice();
+        var manualBox = document.getElementById('manualAddBox');
+        if (manualBox && manualBox.style.display !== 'none') {
+          var pField = document.getElementById('manualProtein');
+          var pVal = pField ? Number(pField.value) : 0;
+          if (pVal > 0) {
+            manualItems.push({
+              protein: pVal,
+              fat: Number(document.getElementById('manualFat').value) || 0,
+              sugar: Number(document.getElementById('manualSugar').value) || 0,
+              cal: document.getElementById('manualCal').value !== ''
+                ? (Number(document.getElementById('manualCal').value) || 0)
+                : estimateCalories(pVal, Number(document.getElementById('manualFat').value) || 0, Number(document.getElementById('manualSugar').value) || 0)
+            });
+          }
+        }
+        manualItems.forEach(function (it) {
+          if (state.manualDualPerson) {
+            var half2 = { protein: (Number(it.protein) || 0) / 2, fat: (Number(it.fat) || 0) / 2, sugar: (Number(it.sugar) || 0) / 2, cal: (Number(it.cal) || 0) / 2 };
+            add(a, half2); add(b, half2);
+          } else {
+            add(a, it);
+          }
+        });
+
+        return { a: a, b: b };
+      }
+
       // 「新增這一餐」邊加食材／邊改克數／邊填手動表單，就即時算出「這一餐」本身
       // 的合計（跟已經吃的、今天目標無關，純粹是這一次要加入的東西加起來多少）。
-      // 直接複用 pendingMealTotals()——它本來就已經把 state.batch、
-      // state.manualBatch、以及手動輸入表單「正在填但還沒送出」的那一列都算進去，
+      // 沒有勾選「同時記錄給兩人」時直接複用 pendingMealTotals()；一旦勾選了，
+      // 改用 pendingPersonMealTotals() 算出「實際會記到每個人身上」的量——
+      // 兩人份量一樣（均分模式，或各自都還沒調整）就顯示一組「一人」的合計，
+      // 兩人份量不同（各自不同份量、且真的填了不一樣的數字）才分開各顯示一組。
       // 一律要按「全部加入紀錄」／「加入紀錄」才會真的寫進「今日紀錄」，
       // 不按就什麼都不會儲存。這裡只是把同一份數字，多顯示一份在「新增這一餐」
       // 面板本身（batchTotalBox／manualTotalBox），不用另外跳去看「今日目標」卡片。
       function renderThisMealTotalBoxes() {
-        var totals = pendingMealTotals();
-        var html = (totals.protein || totals.fat || totals.sugar || totals.cal)
-          ? ('<div class="goal-compact-item"><div class="gc-label">這一餐合計熱量</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + Math.round(totals.cal) + '<small>kcal</small></span></div></div>' +
-            '<div class="goal-compact-item"><div class="gc-label">蛋白質</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + round1(totals.protein) + '<small>g</small></span></div></div>' +
-            '<div class="goal-compact-item"><div class="gc-label">脂肪</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + round1(totals.fat) + '<small>g</small></span></div></div>' +
-            '<div class="goal-compact-item"><div class="gc-label">糖</div><div class="gc-value"><span class="gc-line" style="font-family:var(--font-num);font-size:20px;">' + round1(totals.sugar) + '<small>g</small></span></div></div>')
-          : '';
+        var html = '';
+        var split = pendingPersonMealTotals();
+        if (split && (split.a.protein || split.a.fat || split.a.sugar || split.a.cal || split.b.protein || split.b.fat || split.b.sugar || split.b.cal)) {
+          var sameShare = Math.abs(split.a.cal - split.b.cal) < 0.05 &&
+            Math.abs(split.a.protein - split.b.protein) < 0.05 &&
+            Math.abs(split.a.fat - split.b.fat) < 0.05 &&
+            Math.abs(split.a.sugar - split.b.sugar) < 0.05;
+          if (sameShare) {
+            html = goalCompactItemsHtml('這一餐合計熱量（一人）', split.a);
+          } else {
+            var pA = PROFILES[activeProfile()].name, pB = PROFILES[otherProfile()].name;
+            html = goalCompactItemsHtml('這一餐合計熱量（' + pA + '）', split.a) +
+              goalCompactItemsHtml('這一餐合計熱量（' + pB + '）', split.b);
+          }
+        } else {
+          var totals = pendingMealTotals();
+          if (totals.protein || totals.fat || totals.sugar || totals.cal) {
+            html = goalCompactItemsHtml('這一餐合計熱量', totals);
+          }
+        }
         ['batchTotalBox', 'manualTotalBox'].forEach(function (id) {
           var box = document.getElementById(id);
           if (!box) return;
@@ -4693,6 +4781,8 @@
           manualDualToggle.checked = !!state.manualDualPerson;
           manualDualToggle.addEventListener('change', function (e) {
             state.manualDualPerson = !!e.target.checked;
+            // 勾選/取消勾選後「這一餐合計」要照新的分人方式立即重算。
+            refreshGoalPreview();
           });
         }
 
