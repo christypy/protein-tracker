@@ -32,7 +32,32 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v13-delete-fix';
+var APP_BACKEND_VERSION = 'v14-cross-device-delete-fix';
+// 【v14 新增】修「重新整理／立即重新同步會讓已刪除的食材、紀錄又跑出來，
+// 而且在試算表裡重複顯示」這個問題。根本原因有兩個，這版一次修掉：
+//
+// 1) 以前「這筆是不是已經被刪除」只記在刪除當下那一台裝置的本機（tombstone），
+//    試算表本身完全不知道。只要有任何一台裝置、或同一台裝置沒關掉的舊分頁，
+//    本機還留著早就被刪掉的食材／紀錄，它一重新整理或按「立即重新同步」，
+//    就會把「試算表上找不到」誤判成「我這筆還沒同步上去」，自動把它當成
+//    新資料補傳（addFood／addLog）回試算表——刪掉的東西因此陰魂不散地
+//    又跑回來。
+//    修法：新增一個 DeletedIds 分頁，deleteFood／deleteLog 時把 id 一併記錄
+//    在這裡，getData() 回傳時把這份清單也一起給前端；前端不論用哪一台裝置
+//    連上試算表，都會把伺服器端的刪除紀錄併進自己的本機 tombstone，之後
+//    自然不會再被誤判成「待補傳」。
+// 2) addFood／addLog 以前是「無條件 appendRow」，就算真的被誤判補傳了同一筆
+//    （同一個 id）也只會傻傻地在試算表多長一列出來，這就是你會在試算表
+//    看到兩列一模一樣資料的原因。
+//    修法：改成 upsert——寫入前先檢查試算表裡是不是已經有相同 id 的列，
+//    有的話直接更新那一列，不會再新增出重複列；沒有才新增一列。
+//    如此一來，就算前面第 1 點的情境仍然發生（例如舊版前端快取還沒更新），
+//    也不會再產生重複資料，最多只是把同一筆內容原地覆寫一次。
+// 另外 readFoods()／readLogs() 也加了一層防呆：讀取時如果試算表裡剛好還
+// 殘留著「同一個 id 出現兩次以上」的舊資料（例如這次修復之前就已經重複），
+// 一律只取第一筆，畫面上不會再顯示成兩筆一樣的紀錄；並提供
+// dedupeFoodsAndLogsSheets() 這個一次性工具，可以在 Apps Script 編輯器手動
+// 執行，把試算表裡「已經存在」的重複列直接清乾淨。
 // 【v13 新增】deleteFood() 修好「食材刪不掉」的問題：以前比對到第一筆符合的
 // id 就刪除、馬上結束，如果同一個 id 因故在表格裡留下不只一列（例如同步時
 // 按太快、或曾經同步失敗又重試），只會刪掉其中一列，另一列還在，重新整理
@@ -53,6 +78,16 @@ var APP_BACKEND_VERSION = 'v13-delete-fix';
 // 舊試算表仍保留 category 作為相容欄位，新增 categories 欄位後可讓同一食材同時屬於多個類別。
 // categories 在試算表中以「、」分隔，例如「肉類、低脂、高蛋白」；讀取舊資料時會把 category
 // 自動轉成單一元素的 categories 陣列。
+
+// 【v14 新增】伺服器端的「刪除紀錄」分頁：不管哪一台裝置刪除食材或紀錄，
+// 都會把 type（'food' 或 'log'）與 id 寫進這張表，getData() 會把這份清單
+// 回傳給所有連上來的裝置，讓「這筆已經被刪掉了」變成試算表這邊共同的
+// 事實，而不是只有刪除當下那一台裝置自己知道。
+var DELETED_SHEET_NAME = 'DeletedIds';
+var DELETED_HEADERS = ['type', 'id', 'deletedAt'];
+// 這份清單只要「夠用」就好，不需要無限成長，超過上限時只保留最新的部分，
+// 跟前端本機 tombstone 的 TOMBSTONE_LIMIT 概念一致。
+var DELETED_SHEET_LIMIT = 2000;
 
 function doGet(e) {
   var action = e.parameter.action;
@@ -98,6 +133,68 @@ function jsonResponse(obj) {
 
 function getFoodsSheet() { return getSheet(FOODS_SHEET_NAME, FOODS_HEADERS); }
 function getLogsSheet() { return getSheet(LOGS_SHEET_NAME, LOGS_HEADERS); }
+function getDeletedSheet() { return getSheet(DELETED_SHEET_NAME, DELETED_HEADERS); }
+
+// 把一批「已刪除」的 id 記進 DeletedIds 分頁。同一個 type+id 已經記錄過
+// 就不會重複再寫一次，避免使用者反覆刪同一筆（理論上不會發生，但保險起見）
+// 讓這張表無意義地一直變大。
+function recordDeletion(type, ids) {
+  if (!ids || !ids.length) return;
+  var sheet = getDeletedSheet();
+  var map = headerIndexMap(sheet);
+  var lastRow = sheet.getLastRow();
+  var existing = {};
+  if (lastRow > 1) {
+    var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+    for (var i = 0; i < data.length; i++) {
+      var key = String(data[i][map['type']]) + '|' + String(data[i][map['id']]);
+      existing[key] = true;
+    }
+  }
+  var now = new Date();
+  var rowsToAdd = [];
+  ids.forEach(function (id) {
+    var idStr = String(id == null ? '' : id).trim();
+    if (!idStr) return;
+    var key = type + '|' + idStr;
+    if (existing[key]) return;
+    existing[key] = true;
+    rowsToAdd.push([type, idStr, now]);
+  });
+  if (rowsToAdd.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, DELETED_HEADERS.length).setValues(rowsToAdd);
+    trimDeletedSheet(sheet);
+  }
+}
+
+// 保持 DeletedIds 分頁不要無限成長：超過上限時，只保留最新刪除的那些列。
+function trimDeletedSheet(sheet) {
+  var lastRow = sheet.getLastRow();
+  var dataRowCount = lastRow - 1;
+  if (dataRowCount <= DELETED_SHEET_LIMIT) return;
+  var removeCount = dataRowCount - DELETED_SHEET_LIMIT;
+  sheet.deleteRows(2, removeCount);
+}
+
+// 讀出某個 type（'food' 或 'log'）目前記錄到的所有已刪除 id，回傳給前端
+// 跟本機 tombstone 合併。
+function readDeletedIds(type) {
+  var sheet = getDeletedSheet();
+  var map = headerIndexMap(sheet);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var ids = [];
+  var seen = {};
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][map['type']]) !== type) continue;
+    var id = String(data[i][map['id']] == null ? '' : data[i][map['id']]).trim();
+    if (!id || seen[id]) continue;
+    seen[id] = true;
+    ids.push(id);
+  }
+  return ids;
+}
 
 // 這些欄位一定要用「純文字」格式儲存，否則 Google 試算表會自動把
 // "2026-08-13" 這種字串認成日期物件，讀回來的時候前端拿字串比對
@@ -224,10 +321,64 @@ function appendRowByHeader(sheet, headers, valuesObj) {
   sheet.appendRow(row);
 }
 
+// 【v14 新增】跟 appendRowByHeader 幾乎一樣，差別是寫入前會先檢查表格裡
+// 是不是已經有相同 id 的那一列：
+// - 有的話，直接原地覆寫那一列，不會再多新增一列出來。
+// - 沒有的話，才新增一列（行為跟 appendRowByHeader 完全一樣）。
+// 這是「就算前端的補傳判斷誤判、把同一筆資料重複送過來，試算表也不會
+// 生出重複列」的最後一道防線。idField 是這個 headers 裡代表 id 的欄位名稱
+// （目前 Foods／Logs 都叫 'id'）。
+function upsertRowByHeader(sheet, headers, idField, valuesObj) {
+  var map = headerIndexMap(sheet);
+  headers.forEach(function (h) {
+    if (!map.hasOwnProperty(h) && valuesObj.hasOwnProperty(h)) {
+      var newCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, newCol).setValue(h);
+      map[h] = newCol - 1;
+    }
+  });
+
+  var targetId = String(valuesObj[idField] == null ? '' : valuesObj[idField]).trim();
+  var existingRowNum = -1;
+  if (targetId && map.hasOwnProperty(idField)) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      var idCol = sheet.getRange(2, map[idField] + 1, lastRow - 1, 1).getValues();
+      for (var i = 0; i < idCol.length; i++) {
+        var rowId = String(idCol[i][0] == null ? '' : idCol[i][0]).trim();
+        if (rowId === targetId) { existingRowNum = i + 2; break; }
+      }
+    }
+  }
+
+  var lastCol = Math.max(sheet.getLastColumn(), headers.length);
+  var row = new Array(lastCol).fill('');
+  headers.forEach(function (h) {
+    if (map.hasOwnProperty(h) && valuesObj.hasOwnProperty(h)) {
+      row[map[h]] = valuesObj[h];
+    }
+  });
+
+  if (existingRowNum === -1) {
+    sheet.appendRow(row);
+  } else {
+    sheet.getRange(existingRowNum, 1, 1, row.length).setValues([row]);
+  }
+}
+
 // ---------- read ----------
 
 function getData() {
-  return { foods: readFoods(), logs: readLogs() };
+  return {
+    foods: readFoods(),
+    logs: readLogs(),
+    // 【v14 新增】把試算表這邊「大家共同知道的刪除紀錄」也回傳給前端，
+    // 讓任何一台裝置連上來都能學到「這些 id 已經被刪掉了」，不用只靠
+    // 自己本機那份 tombstone，才不會把別的裝置刪掉的東西誤判成新資料
+    // 又補傳回去。
+    deletedFoodIds: readDeletedIds('food'),
+    deletedLogIds: readDeletedIds('log')
+  };
 }
 
 function parseFoodCategories(value, legacyCategory) {
@@ -262,9 +413,17 @@ function readFoods() {
   var map = headerIndexMap(sheet);
   var rows = sheet.getDataRange().getValues();
   var foods = [];
+  var seenIds = {};
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[map['id']]) continue;
+    // 【v14 新增】防呆：如果試算表裡剛好還殘留著「同一個 id 出現不只一次」
+    // 的舊資料（例如這次修復之前就已經重複寫入），這裡只取第一筆，畫面上
+    // 就不會再顯示成一模一樣的兩筆。真正把試算表裡的重複列刪掉，
+    // 請手動執行 dedupeFoodsAndLogsSheets()。
+    var idKey = String(r[map['id']]);
+    if (seenIds[idKey]) continue;
+    seenIds[idKey] = true;
     foods.push({
       id: r[map['id']],
       name: r[map['name']],
@@ -304,9 +463,14 @@ function readLogs() {
   var rows = sheet.getDataRange().getValues();
   var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
   var logs = [];
+  var seenLogIds = {};
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[map['id']]) continue;
+    // 【v14 新增】跟 readFoods() 一樣的防呆：同一個 id 只取第一筆。
+    var logIdKey = String(r[map['id']]);
+    if (seenLogIds[logIdKey]) continue;
+    seenLogIds[logIdKey] = true;
     var gramsRaw = r[map['grams']];
     var orderRaw = map.hasOwnProperty('order') ? r[map['order']] : '';
     var logObj = {
@@ -344,7 +508,10 @@ function addFood(payload) {
   var sheet = getFoodsSheet();
   var id = payload.id || ('f_' + new Date().getTime());
   var sugarVal = payload.sugar100 !== undefined ? payload.sugar100 : payload.carb100;
-  appendRowByHeader(sheet, FOODS_HEADERS, {
+  // 【v14】改用 upsertRowByHeader：如果這個 id 在表格裡已經存在（例如前端
+  // 補傳邏輯誤判、把同一筆又送了一次），會直接原地覆寫，不會再多長出一列
+  // 重複資料。
+  upsertRowByHeader(sheet, FOODS_HEADERS, 'id', {
     id: id,
     name: payload.name || '',
     base: Number(payload.base) || 100,
@@ -435,6 +602,9 @@ function deleteFood(payload) {
     }
   }
   if (deletedCount > 0) {
+    // 【v14 新增】把這個 id 記進 DeletedIds 分頁，讓其他裝置下次連上試算表
+    // 時也能知道「這筆已經被刪掉了」，不會再把它當成自己漏同步的資料補傳。
+    recordDeletion('food', [targetId]);
     SpreadsheetApp.flush();
     return { success: true, deletedCount: deletedCount };
   }
@@ -443,9 +613,16 @@ function deleteFood(payload) {
 
 function addLog(payload) {
   var sheet = getLogsSheet();
-  var id = 'l_' + new Date().getTime();
+  // 【v14】以前這裡完全不理會前端送來的 id、永遠自己重新產生一個新的，
+  // 前端還得在收到回應後把本機那筆的 id 換成試算表回傳的 id，多一層容易
+  // 出錯的步驟（例如那次的回應剛好在網路不穩時遺失，前端就永遠以為
+  // 沒同步成功，下次補傳又用回原本的 id 送一次、變成兩筆內容一樣但 id
+  // 不同的重複紀錄）。現在改成：前端有帶 id 就沿用前端的 id，沒帶才自己
+  // 產生；同時改用 upsertRowByHeader，這樣同一個 id 不管被送幾次，
+  // 試算表裡永遠只會有一列，不會再重複。
+  var id = payload.id || ('l_' + new Date().getTime());
   var sugarVal = payload.sugar !== undefined ? payload.sugar : payload.carb;
-  appendRowByHeader(sheet, LOGS_HEADERS, {
+  upsertRowByHeader(sheet, LOGS_HEADERS, 'id', {
     id: id,
     person: payload.person || 'A',
     date: payload.date,
@@ -517,6 +694,8 @@ function deleteLog(payload) {
   for (var i = 1; i < data.length; i++) {
     if (data[i][map['id']] === payload.id) {
       sheet.deleteRow(i + 1);
+      // 【v14 新增】同 deleteFood，把這個 id 記進 DeletedIds 分頁。
+      recordDeletion('log', [payload.id]);
       SpreadsheetApp.flush();
       return { success: true };
     }
@@ -627,14 +806,22 @@ function deleteFoodsByName(name) {
   var target = String(name == null ? '' : name).trim();
   if (!target) return 0;
   var deleted = 0;
+  var deletedIds = [];
   for (var i = data.length - 1; i >= 1; i--) {
     var rowName = String(data[i][map['name']] == null ? '' : data[i][map['name']]).trim();
     if (rowName === target) {
+      var rowId = String(data[i][map['id']] == null ? '' : data[i][map['id']]).trim();
+      if (rowId) deletedIds.push(rowId);
       sheet.deleteRow(i + 1);
       deleted++;
     }
   }
-  if (deleted > 0) SpreadsheetApp.flush();
+  if (deleted > 0) {
+    // 【v14 新增】跟 deleteFood() 一樣，把刪掉的 id 記進 DeletedIds 分頁，
+    // 避免其他裝置的本機舊快取之後又把它當成新資料補傳回來。
+    if (deletedIds.length) recordDeletion('food', deletedIds);
+    SpreadsheetApp.flush();
+  }
   return deleted;
 }
 
@@ -685,4 +872,47 @@ function removeCategoryEverywhere(categoryName) {
 
   if (changed > 0) SpreadsheetApp.flush();
   return changed;
+}
+
+/**
+ * 【v14 新增】一次性清理工具：把 Foods／Logs 分頁裡「同一個 id 出現不只
+ * 一次」的重複列直接刪掉，只保留最先出現的那一列（其餘欄位資料不會被
+ * 改動，只是把多餘的重複列移除）。
+ *
+ * 這是用來清掉「這次修復之前」就已經因為補傳誤判而產生的重複資料
+ * （例如你貼的那兩列一模一樣的「糙米飯」）。修復之後，正常操作理論上
+ * 不會再產生新的重複列，這個工具只需要手動執行這一次即可。
+ *
+ * 使用方式：在 Apps Script 編輯器上方的函式下拉選單選
+ * dedupeFoodsAndLogsSheets，按「執行」跑一次即可。
+ */
+function dedupeFoodsAndLogsSheets() {
+  var removedFoods = dedupeSheetById(getFoodsSheet());
+  var removedLogs = dedupeSheetById(getLogsSheet());
+  return { removedFoodRows: removedFoods, removedLogRows: removedLogs };
+}
+
+function dedupeSheetById(sheet) {
+  var map = headerIndexMap(sheet);
+  if (!map.hasOwnProperty('id')) return 0;
+  var data = sheet.getDataRange().getValues();
+  var seen = {};
+  var rowsToDelete = [];
+  // 先由上往下掃過一遍，找出「第一次以外」的重複列該刪掉的實際列號，
+  // 這樣才能保證留下來的是最先出現的那一列。
+  for (var i = 1; i < data.length; i++) {
+    var idVal = String(data[i][map['id']] == null ? '' : data[i][map['id']]).trim();
+    if (!idVal) continue;
+    if (seen[idVal]) {
+      rowsToDelete.push(i + 1); // 試算表的實際列號（第 1 列是表頭）
+    } else {
+      seen[idVal] = true;
+    }
+  }
+  // 再由下往上刪，避免刪除當下讓還沒處理到的列號跟著位移跑掉。
+  for (var j = rowsToDelete.length - 1; j >= 0; j--) {
+    sheet.deleteRow(rowsToDelete[j]);
+  }
+  if (rowsToDelete.length > 0) SpreadsheetApp.flush();
+  return rowsToDelete.length;
 }

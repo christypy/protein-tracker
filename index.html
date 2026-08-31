@@ -2682,6 +2682,22 @@
         var label = document.getElementById('syncLabel');
         try {
           var data = await sheetGet();
+
+          // 【v14 新增】把試算表這邊「大家共同知道的刪除紀錄」併進本機的
+          // tombstone 清單。這是修「換一台裝置、或分頁本來就開著沒重新整理，
+          // 本機還留著已經在別的地方被刪除的食材／紀錄，一連上試算表反而
+          // 又把它當成新資料補傳回去」這個問題的關鍵一步：以前只有「刪除
+          // 那台裝置」自己知道被刪過，現在只要連得上試算表，任何一台裝置
+          // 都能學到這件事，之後就不會再被誤判成待補傳。
+          if (data.deletedFoodIds && data.deletedFoodIds.length) {
+            pushDeletedIds(state.deletedFoodIds, data.deletedFoodIds);
+            await storeSetRaw('deletedFoodIds', JSON.stringify(state.deletedFoodIds));
+          }
+          if (data.deletedLogIds && data.deletedLogIds.length) {
+            pushDeletedIds(state.deletedLogIds, data.deletedLogIds);
+            await storeSetRaw('deletedLogIds', JSON.stringify(state.deletedLogIds));
+          }
+
           var pendingFoods = findUnsynced(data.foods, state.foods, state.deletedFoodIds);
           var pendingLogs = findUnsynced(data.logs, state.logs, state.deletedLogIds);
 
