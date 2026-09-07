@@ -2443,6 +2443,13 @@
             <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/xxxx/exec">
           </div>
         </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field">
+            <label>同步密鑰（選填）</label>
+            <input type="text" id="sheetToken" placeholder="只有在後端有設定 SYNC_TOKEN 時才需要填">
+          </div>
+        </div>
+        <p class="hint" style="margin:4px 0 0;">如果你在 Apps Script 的指令碼屬性有設定 SYNC_TOKEN，這裡要填一模一樣的字串，網址才呼叫得通；沒有設定的話這欄留空即可，不影響原本的使用方式。</p>
         <div class="btn-row">
           <button class="btn btn-ghost" id="sheetClearBtn" style="margin-right:8px;">清除連結</button>
           <button class="btn btn-ghost" id="sheetResyncBtn" style="margin-right:8px;">立即重新同步</button>
@@ -2455,7 +2462,8 @@
           1. 建立一份 Google 試算表 → 上方選單「擴充功能」→「Apps Script」。<br>
           2. 貼上提供的 Code.gs 程式碼並儲存。<br>
           3. 右上角「部署」→「新增部署作業」→ 類型選「網頁應用程式」，執行身分「我」，誰能存取「任何人」。<br>
-          4. 複製部署後的網址，貼到上方欄位並儲存。
+          4. 複製部署後的網址，貼到上方欄位並儲存。<br>
+          5.（建議）到「專案設定」→「指令碼屬性」新增 SYNC_TOKEN，值自己隨便設一組不容易猜到的字串，並把同一組字串填進上面「同步密鑰」欄位，這樣就算網址外流，沒有這組密鑰也無法呼叫你的 API。
         </div>
       </div>
     </div>
@@ -2467,7 +2475,7 @@
     (function () {
       "use strict";
 
-      var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbwrP9mXcuIwY5XbF3VR5ID1J3_3f7R3eChfOO-lQKCtppoJZwhAXk0GLe3FUBi6LKix/exec";
+      var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzGD7QiTqm9KtJckFPZqwcAWlkJICHpQXPhZqZ67wQZyeH_obR0jlj-1bO9hYpbFsYU/exec";
 
       var PROFILES = {
         A: {
@@ -2610,10 +2618,11 @@
           if (s) {
             state.settings = JSON.parse(s);
           } else {
-            state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() };
+            state.settings = { sheetUrl: DEFAULT_SHEET_URL, token: '', profile: 'A', goals: defaultGoalsSet() };
             await storeSetRaw('settings', JSON.stringify(state.settings));
           }
           if (typeof state.settings.sheetUrl !== 'string') state.settings.sheetUrl = "";
+          if (typeof state.settings.token !== 'string') state.settings.token = "";
           if (!state.settings.profile || !PROFILES[state.settings.profile]) state.settings.profile = 'A';
           if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
           PROFILE_ORDER.forEach(function (k) {
@@ -2623,7 +2632,7 @@
               delete state.settings.goals[k].carb;
             }
           });
-        } catch (e) { state.settings = { sheetUrl: DEFAULT_SHEET_URL, profile: 'A', goals: defaultGoalsSet() }; }
+        } catch (e) { state.settings = { sheetUrl: DEFAULT_SHEET_URL, token: '', profile: 'A', goals: defaultGoalsSet() }; }
         try {
           var dfi = await storeGetRaw('deletedFoodIds');
           state.deletedFoodIds = dfi ? JSON.parse(dfi) : [];
@@ -2661,7 +2670,8 @@
       function hasSheet() { return !!(state.settings.sheetUrl && state.settings.sheetUrl.trim()); }
 
       async function sheetGet() {
-        var url = state.settings.sheetUrl.trim() + (state.settings.sheetUrl.includes('?') ? '&' : '?') + 'action=getData';
+        var url = state.settings.sheetUrl.trim() + (state.settings.sheetUrl.includes('?') ? '&' : '?') +
+          'action=getData&token=' + encodeURIComponent(state.settings.token || '');
         var res = await fetch(url, { method: 'GET' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var data = await res.json();
@@ -2671,7 +2681,7 @@
       async function sheetPost(action, payload) {
         var res = await fetch(state.settings.sheetUrl.trim(), {
           method: 'POST',
-          body: JSON.stringify({ action: action, payload: payload })
+          body: JSON.stringify({ action: action, payload: payload, token: state.settings.token || '' })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var data = await res.json();
@@ -5996,6 +6006,7 @@
 
       function wireSettings() {
         document.getElementById('sheetUrl').value = state.settings.sheetUrl || '';
+        document.getElementById('sheetToken').value = state.settings.token || '';
         document.getElementById('syncDot').addEventListener('click', function () {
           document.getElementById('secSettings').classList.remove('collapsed');
           document.getElementById('sheetUrl').focus();
@@ -6006,7 +6017,9 @@
 
         document.getElementById('sheetSaveBtn').addEventListener('click', async function () {
           var url = document.getElementById('sheetUrl').value.trim();
+          var token = document.getElementById('sheetToken').value.trim();
           state.settings.sheetUrl = url;
+          state.settings.token = token;
           await saveLocalSettings();
           if (!url) {
             setSheetStatus('已清除試算表連結，切換為純本機模式。', 'ok');
@@ -6021,7 +6034,9 @@
         document.getElementById('sheetResyncBtn').addEventListener('click', doManualResync);
         document.getElementById('sheetClearBtn').addEventListener('click', async function () {
           document.getElementById('sheetUrl').value = '';
+          document.getElementById('sheetToken').value = '';
           state.settings.sheetUrl = '';
+          state.settings.token = '';
           await saveLocalSettings();
           setSheetStatus('已清除試算表連結，切換為純本機模式。', 'ok');
           document.getElementById('syncDot').className = 'sync-dot';

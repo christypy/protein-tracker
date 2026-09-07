@@ -32,7 +32,7 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v15-nutrition-label-scan';
+var APP_BACKEND_VERSION = 'v16-sync-token-auth';
 // 【v14 新增】修「重新整理／立即重新同步會讓已刪除的食材、紀錄又跑出來，
 // 而且在試算表裡重複顯示」這個問題。根本原因有兩個，這版一次修掉：
 //
@@ -101,7 +101,28 @@ var DELETED_SHEET_LIMIT = 2000;
 var GEMINI_API_KEY_PROPERTY = 'GEMINI_API_KEY';
 var GEMINI_MODEL = 'gemini-2.0-flash';
 
+// 【v16 新增】簡單的「同步密鑰」驗證：因為 Apps Script 網頁應用程式的網址本身
+// 就是唯一的存取憑證（誰有網址就能呼叫 doGet／doPost），如果這個網址不小心被
+// 公開（例如寫死在放到公開 GitHub Pages 的 index.html 裡），任何人都能讀寫你
+// 的試算表、甚至濫用 recognizeNutritionLabel 把 Gemini 免費額度用光。
+// 加這一層驗證後，只有「指令碼屬性」裡設定的 SYNC_TOKEN 跟前端送過來的
+// token 完全相同時，才會處理請求；沒有設定 SYNC_TOKEN 的話則維持原本行為
+// （不驗證，向下相容，不會影響還沒設定這個保護的既有使用者）。
+// 設定方式：Apps Script 編輯器左側「專案設定」→「指令碼屬性」，新增一筆
+// 屬性名稱 SYNC_TOKEN，值自己隨便設一組不容易猜到的字串；接著在網頁前端
+// 「資料同步設定」的「同步密鑰」欄位填上同一組字串並儲存即可。
+var SYNC_TOKEN_PROPERTY = 'SYNC_TOKEN';
+
+function isAuthorized(token) {
+  var required = PropertiesService.getScriptProperties().getProperty(SYNC_TOKEN_PROPERTY);
+  if (!required) return true; // 沒設定密鑰＝維持原本不驗證的行為
+  return String(token || '') === required;
+}
+
 function doGet(e) {
+  if (!isAuthorized(e.parameter.token)) {
+    return jsonResponse({ error: '驗證失敗：同步密鑰不正確或未提供' });
+  }
   var action = e.parameter.action;
   if (action === 'getData') {
     return jsonResponse(getData());
@@ -115,6 +136,9 @@ function doPost(e) {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
     return jsonResponse({ error: 'invalid JSON body' });
+  }
+  if (!isAuthorized(body.token)) {
+    return jsonResponse({ error: '驗證失敗：同步密鑰不正確或未提供' });
   }
   var action = body.action;
   var payload = body.payload || {};
