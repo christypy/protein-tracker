@@ -1950,6 +1950,7 @@
     <div class="section" id="secAdd">
       <div class="section-head" data-toggle="secAdd">
         <h2>新增這一餐</h2>
+        <button type="button" class="btn btn-ghost head-btn" id="labelScanOpenBtn">📷 掃描標示</button>
         <button type="button" class="btn btn-primary head-btn" id="manualOpenBtn">✍️ 手動輸入</button>
         <span class="chev">▾</span>
       </div>
@@ -2048,6 +2049,59 @@
           <div class="btn-row">
             <button class="btn btn-ghost" id="manualAddItemBtn">加入清單 ＋</button>
             <button class="btn btn-primary" id="manualAddBtn">加入紀錄</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 【本次新增】上傳／拍攝營養標示：跟「手動輸入」一樣固定貼在畫面下方，
+           按標題列的「📷 掃描標示」打開面板。選好圖片後會自動送到後端（Apps
+           Script 呼叫 Gemini 辨識），把基礎一份克數、總份量、熱量、蛋白質、
+           脂肪、糖自動填進下面的欄位；辨識結果如果有誤，欄位都可以直接手動
+           修改，確認沒問題後按「確認送出」才會真的加進「今日紀錄」——辨識
+           本身不會自動送出。想順便存成食材庫的常用食材，勾選「同時存成新
+           食材」即可，之後就能直接從「新增這一餐」的食材清單挑選，不用每次
+           都重新掃描。 -->
+      <div class="food-detail" id="labelScanBox" style="display:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">營養標示辨識</span>
+          <button type="button" class="sheet-toggle" id="labelScanCloseBtn">✕ 關閉</button>
+        </div>
+        <div class="sheet-body">
+          <p class="hint" style="margin:0 0 10px;">拍照或上傳一張營養標示，會自動幫你把下面的欄位填好；填好之後可以直接修改，確認沒問題再按「確認送出」加進今日紀錄。</p>
+
+          <input type="file" id="labelImageInput" accept="image/*" capture="environment" style="display:none;">
+          <div class="btn-row" style="justify-content:flex-start;">
+            <button type="button" class="btn btn-ghost" id="labelImagePickBtn">🖼️ 選擇圖片／拍照</button>
+          </div>
+          <img id="labelImagePreview" style="display:none;max-width:100%;max-height:220px;border-radius:10px;margin-top:8px;object-fit:contain;">
+          <div class="status-msg" id="labelScanStatus" style="margin:8px 0 0;"></div>
+
+          <div class="row" style="margin-top:12px;">
+            <div class="field"><label>食材名稱（選填）</label><input type="text" id="labelName" placeholder="例如：無糖豆漿"></div>
+          </div>
+          <div class="base-unit-row" style="margin-top:8px;">
+            <div class="field field-base"><label>基礎一份克數 (g)</label><input type="number" id="labelBase" value="100" min="0.01" step="any"></div>
+            <div class="field field-unit"><label>總份量（整包含幾份）</label><input type="number" id="labelServings" value="1" min="0.01" step="any"></div>
+          </div>
+          <p class="hint" id="labelPackagePreview" style="margin:6px 0 0;"></p>
+
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>熱量 (kcal／每份)</label><input type="number" id="labelCal" min="0" step="1"></div>
+            <div class="field"><label>蛋白質 (g／每份)</label><input type="number" id="labelProtein" min="0" step="0.1"></div>
+            <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="labelFat" min="0" step="0.1"></div>
+            <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="labelSugar" min="0" step="0.1"></div>
+          </div>
+
+          <label for="labelSaveAsFoodToggle" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);">
+            <input type="checkbox" id="labelSaveAsFoodToggle" style="width:16px;height:16px;flex:none;">
+            同時存成新食材（之後可以直接從「新增這一餐」的食材清單挑選）
+          </label>
+        </div>
+        <div class="sheet-footer">
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="labelScanCancelBtn">取消</button>
+            <button class="btn btn-primary" id="labelScanConfirmBtn">確認送出</button>
           </div>
         </div>
       </div>
@@ -3192,6 +3246,7 @@
         renderMealSaveFoodCategoryChips();
         updateMealSaveFoodPreview();
         closeManualSheet();
+        closeLabelScanSheet();
         document.getElementById('mealSaveFoodBox').style.display = 'flex';
       }
 
@@ -4433,6 +4488,7 @@
         clearFoodEditForm();
         clearFoodForm();
         closeManualSheet();
+        closeLabelScanSheet();
         clearLogEditForm();
         closeMealGroupEdit();
         document.getElementById('foodAddBox').style.display = 'flex';
@@ -4823,6 +4879,7 @@
         if (logEditBox) logEditBox.style.display = 'none';
         closeMealGroupEdit();
         closeMealSaveFoodBox();
+        closeLabelScanSheet();
         document.getElementById('manualAddBox').style.display = 'flex';
         refreshGoalPreview();
       }
@@ -4830,6 +4887,179 @@
       function closeManualSheet() {
         document.getElementById('manualAddBox').style.display = 'none';
         refreshGoalPreview();
+      }
+
+      // 【本次新增】營養標示辨識面板：跟「手動輸入這一餐」共用同一種固定貼在
+      // 畫面下方的操作方式，開啟前一樣要先收起其他固定面板，避免同時疊在一起。
+      function resetLabelScanForm() {
+        document.getElementById('labelImageInput').value = '';
+        var preview = document.getElementById('labelImagePreview');
+        preview.style.display = 'none';
+        preview.src = '';
+        document.getElementById('labelScanStatus').textContent = '';
+        document.getElementById('labelName').value = '';
+        document.getElementById('labelBase').value = 100;
+        document.getElementById('labelServings').value = 1;
+        ['labelCal', 'labelProtein', 'labelFat', 'labelSugar'].forEach(function (id) {
+          document.getElementById(id).value = '';
+        });
+        document.getElementById('labelSaveAsFoodToggle').checked = false;
+        updateLabelPackagePreview();
+      }
+
+      function openLabelScanSheet() {
+        var foodAddBox = document.getElementById('foodAddBox');
+        var foodEditBox = document.getElementById('foodEditBox');
+        var logEditBox = document.getElementById('logEditBox');
+        if (foodAddBox) foodAddBox.style.display = 'none';
+        if (foodEditBox) foodEditBox.style.display = 'none';
+        if (logEditBox) logEditBox.style.display = 'none';
+        closeMealGroupEdit();
+        closeMealSaveFoodBox();
+        closeManualSheet();
+        resetLabelScanForm();
+        document.getElementById('labelScanBox').style.display = 'flex';
+      }
+
+      function closeLabelScanSheet() {
+        var box = document.getElementById('labelScanBox');
+        if (box) box.style.display = 'none';
+      }
+
+      function updateLabelPackagePreview() {
+        var el = document.getElementById('labelPackagePreview');
+        if (!el) return;
+        var base = Number(document.getElementById('labelBase').value);
+        var servings = Number(document.getElementById('labelServings').value);
+        if (!base || base <= 0 || !servings || servings <= 0) {
+          el.textContent = '';
+          return;
+        }
+        var protein = Number(document.getElementById('labelProtein').value) || 0;
+        var fat = Number(document.getElementById('labelFat').value) || 0;
+        var sugar = Number(document.getElementById('labelSugar').value) || 0;
+        var cal = Number(document.getElementById('labelCal').value) || 0;
+        el.textContent = '整包共 ' + round1(base * servings) + 'g，熱量 ' + Math.round(cal * servings) +
+          'kcal、蛋白質 ' + round1(protein * servings) + 'g、脂肪 ' + round1(fat * servings) +
+          'g、糖 ' + round1(sugar * servings) + 'g（＝一份 × 總份量，送出時會整包記錄成這一餐）。';
+      }
+
+      // 把使用者選的圖片檔案讀成純 base64（不含 data:...;base64, 前綴），
+      // 回傳一個 Promise，方便用 await 串接後面「送去後端辨識」的流程。
+      function readFileAsBase64(file) {
+        return new Promise(function (resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function () {
+            var result = String(reader.result || '');
+            var idx = result.indexOf(',');
+            resolve(idx === -1 ? result : result.substring(idx + 1));
+          };
+          reader.onerror = function () { reject(new Error('圖片讀取失敗')); };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // 選好圖片後自動送出辨識；辨識只負責「填欄位」，不會自動送出這一餐，
+      // 使用者確認／修改欄位內容後仍要自己按「確認送出」。
+      async function recognizeLabelImage(file) {
+        var statusEl = document.getElementById('labelScanStatus');
+        if (!hasSheet()) {
+          statusEl.textContent = '尚未設定 Google 試算表同步網址，辨識功能需要透過試算表後端執行，請先到下方「資料同步設定」連結試算表；也可以直接手動填寫下面的欄位。';
+          statusEl.className = 'status-msg err';
+          return;
+        }
+        statusEl.textContent = '辨識中，請稍候…';
+        statusEl.className = 'status-msg';
+        try {
+          var base64 = await readFileAsBase64(file);
+          var res = await sheetPost('recognizeNutritionLabel', { imageBase64: base64, mimeType: file.type || 'image/jpeg' });
+          if (res.name) document.getElementById('labelName').value = res.name;
+          document.getElementById('labelBase').value = res.base;
+          document.getElementById('labelServings').value = res.servings;
+          document.getElementById('labelCal').value = res.cal;
+          document.getElementById('labelProtein').value = res.protein;
+          document.getElementById('labelFat').value = res.fat;
+          document.getElementById('labelSugar').value = res.sugar;
+          updateLabelPackagePreview();
+          statusEl.textContent = '辨識完成，請確認每一格數字是否正確，有誤可以直接修改。';
+          statusEl.className = 'status-msg ok';
+        } catch (e) {
+          statusEl.textContent = '辨識失敗：' + e.message + '（可以直接手動填寫下面的欄位再送出）';
+          statusEl.className = 'status-msg err';
+        }
+      }
+
+      function wireLabelScan() {
+        document.getElementById('labelScanOpenBtn').addEventListener('click', function (e) {
+          e.stopPropagation();
+          openLabelScanSheet();
+        });
+        document.getElementById('labelScanCloseBtn').addEventListener('click', closeLabelScanSheet);
+        document.getElementById('labelScanCancelBtn').addEventListener('click', closeLabelScanSheet);
+
+        document.getElementById('labelImagePickBtn').addEventListener('click', function () {
+          document.getElementById('labelImageInput').click();
+        });
+        document.getElementById('labelImageInput').addEventListener('change', function (e) {
+          var file = e.target.files && e.target.files[0];
+          if (!file) return;
+          var preview = document.getElementById('labelImagePreview');
+          preview.src = URL.createObjectURL(file);
+          preview.style.display = 'block';
+          recognizeLabelImage(file);
+        });
+
+        ['labelBase', 'labelServings', 'labelCal', 'labelProtein', 'labelFat', 'labelSugar'].forEach(function (id) {
+          document.getElementById(id).addEventListener('input', updateLabelPackagePreview);
+        });
+
+        // 「確認送出」：把目前欄位（基礎克數 × 總份量）整包記錄成這一餐一筆
+        // 紀錄，等同於「這包／這份東西整個吃完了」；勾選「同時存成新食材」
+        // 的話，會先把這份資料存進食材庫，紀錄再連結到這個新食材，之後也能
+        // 直接從「新增這一餐」的食材清單挑選，不用每次重新掃描。
+        document.getElementById('labelScanConfirmBtn').addEventListener('click', async function () {
+          var name = document.getElementById('labelName').value.trim();
+          var base = Number(document.getElementById('labelBase').value);
+          var servings = Number(document.getElementById('labelServings').value) || 1;
+          var protein = Number(document.getElementById('labelProtein').value);
+          var fat = Number(document.getElementById('labelFat').value) || 0;
+          var sugar = Number(document.getElementById('labelSugar').value) || 0;
+          var calInput = document.getElementById('labelCal').value;
+
+          if (!base || base <= 0) { alert('請輸入有效的「基礎一份克數」'); return; }
+          if (isNaN(protein) || protein < 0) { alert('請輸入有效的蛋白質克數'); return; }
+          var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
+
+          var totalGrams = round1(base * servings);
+          var totalProtein = round1(protein * servings);
+          var totalFat = round1(fat * servings);
+          var totalSugar = round1(sugar * servings);
+          var totalCal = Math.round(cal * servings);
+
+          var saveAsFood = document.getElementById('labelSaveAsFoodToggle').checked;
+          var entry;
+
+          if (saveAsFood) {
+            var result = buildFoodPayload({
+              name: name || '掃描食材', base: base, servings: servings,
+              protein: protein, fat: fat, sugar: sugar, cal: cal
+            }, null, []);
+            if (result.error) { alert(result.error); return; }
+            await addFood(result.food);
+            entry = {
+              type: 'food', foodId: result.food.id, foodName: result.food.name,
+              grams: totalGrams, protein: totalProtein, fat: totalFat, sugar: totalSugar, cal: totalCal
+            };
+          } else {
+            entry = {
+              type: 'manual', foodId: null, foodName: name || '掃描食材',
+              grams: totalGrams, protein: totalProtein, fat: totalFat, sugar: totalSugar, cal: totalCal
+            };
+          }
+
+          await addLog(entry);
+          closeLabelScanSheet();
+        });
       }
 
       function wireManual() {
@@ -5240,6 +5470,7 @@
           document.getElementById('leGrams').value = '';
         }
         closeManualSheet();
+        closeLabelScanSheet();
         closeMealGroupEdit();
         document.getElementById('logEditBox').style.display = 'flex';
       }
@@ -5272,6 +5503,7 @@
         document.getElementById('gePerson').value = items[0].person || 'A';
         clearLogEditForm();
         closeManualSheet();
+        closeLabelScanSheet();
         document.getElementById('groupEditBox').style.display = 'flex';
       }
 
@@ -5391,6 +5623,7 @@
       function loadFoodIntoEditSheet(food) {
         closeFoodAddSheet();
         closeManualSheet();
+        closeLabelScanSheet();
         state.editingFoodId = food.id;
         document.getElementById('feName').value = food.name || '';
         document.getElementById('feBase').value = foodBaseGrams(food);
@@ -5806,6 +6039,7 @@
         wireGoalsBox();
         wirePicker();
         wireManual();
+        wireLabelScan();
         wireLogList();
         wireFoodTable();
         wireMealSaveFoodBox();

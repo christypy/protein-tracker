@@ -32,7 +32,7 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v14-cross-device-delete-fix';
+var APP_BACKEND_VERSION = 'v15-nutrition-label-scan';
 // 【v14 新增】修「重新整理／立即重新同步會讓已刪除的食材、紀錄又跑出來，
 // 而且在試算表裡重複顯示」這個問題。根本原因有兩個，這版一次修掉：
 //
@@ -89,6 +89,18 @@ var DELETED_HEADERS = ['type', 'id', 'deletedAt'];
 // 跟前端本機 tombstone 的 TOMBSTONE_LIMIT 概念一致。
 var DELETED_SHEET_LIMIT = 2000;
 
+// 【v15 新增】「上傳營養標示圖」自動辨識功能：前端「新增這一餐」面板可以拍照／
+// 上傳一張營養標示，送到這裡辨識成基礎克數、總份量、熱量、蛋白質、脂肪、糖，
+// 讓使用者不用自己一格一格看標示手動輸入。辨識是呼叫 Google Gemini 的多模態
+// API（Apps Script 本身就是 Google 帳號底下執行，用 Gemini 最省事，不需要另外
+// 申請、部署其他服務）。使用前必須先設定金鑰：
+//   Apps Script 編輯器左側「專案設定」→「指令碼屬性」，新增一筆
+//   屬性名稱 GEMINI_API_KEY，值貼上你在 https://aistudio.google.com/apikey
+//   申請到的 Gemini API 金鑰（有免費額度）。沒有設定金鑰時，這個功能會回傳
+//   清楚的錯誤訊息，不影響其他既有功能。
+var GEMINI_API_KEY_PROPERTY = 'GEMINI_API_KEY';
+var GEMINI_MODEL = 'gemini-2.0-flash';
+
 function doGet(e) {
   var action = e.parameter.action;
   if (action === 'getData') {
@@ -115,6 +127,7 @@ function doPost(e) {
       case 'addLog': result = addLog(payload); break;
       case 'updateLog': result = updateLog(payload); break;
       case 'deleteLog': result = deleteLog(payload); break;
+      case 'recognizeNutritionLabel': result = recognizeNutritionLabel(payload); break;
       default: result = { error: 'unknown action: ' + action };
     }
   } catch (err) {
@@ -701,6 +714,128 @@ function deleteLog(payload) {
     }
   }
   return { error: 'log not found' };
+}
+
+/**
+ * 【v15 新增】辨識營養標示照片：payload 需要 { imageBase64, mimeType }。
+ * imageBase64 是「不含」data:image/...;base64, 前綴的純 base64 字串，
+ * mimeType 例如 'image/jpeg'、'image/png'（前端讀取上傳檔案時的原始 MIME）。
+ *
+ * 回傳格式：
+ *   成功：{ success: true, name, base, servings, cal, protein, fat, sugar }
+ *     - base：標示上「每一份」的克數（找不到就預設 100）
+ *     - servings：這個包裝總共有幾份（找不到就預設 1）
+ *     - cal/protein/fat/sugar：都是「每一份」的量，跟食材庫「新增食材」表單
+ *       （基礎一份克數＋總份數＋每份營養）用的是同一套資料模型，前端可以
+ *       直接把這些值填進對應欄位，也可以直接勾選「存成新食材」整包存起來。
+ *   失敗：{ error: '...' }，前端會照樣顯示成同步失敗訊息，使用者仍然可以
+ *     手動把欄位填一填再送出，不會卡住整個流程。
+ */
+function recognizeNutritionLabel(payload) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPERTY);
+  if (!apiKey) {
+    return { error: '尚未設定辨識用的 API 金鑰。請到 Apps Script 編輯器「專案設定」→「指令碼屬性」，新增 GEMINI_API_KEY（到 https://aistudio.google.com/apikey 免費申請），設定好後再試一次。' };
+  }
+  var imageBase64 = payload && payload.imageBase64;
+  if (!imageBase64) return { error: '沒有收到圖片內容' };
+  // 前端如果不小心把完整的 data URL（data:image/jpeg;base64,xxxx）傳進來，
+  // 這裡順手把前綴拿掉，避免辨識服務收到多餘的內容而出錯。
+  var commaIdx = imageBase64.indexOf(',');
+  if (imageBase64.indexOf('base64,') !== -1 && commaIdx !== -1) {
+    imageBase64 = imageBase64.substring(commaIdx + 1);
+  }
+  var mimeType = payload.mimeType || 'image/jpeg';
+
+  var prompt = '這是一張食品「營養標示」照片。請仔細讀出上面的文字與數字，只回傳一個 JSON 物件，' +
+    '不要加任何說明文字、不要用 Markdown code block 包起來，格式如下：\n' +
+    '{"name": "食品名稱或品牌，讀不到就填空字串",' +
+    '"base": 每一份的克數（純數字，例如標示寫「每份30公克」就填30；如果沒有「每份」只有「每100公克」，就填100），' +
+    '"servings": 這個包裝總共有幾份（純數字，讀不到就填1），' +
+    '"cal": 每份熱量，單位大卡（純數字），' +
+    '"protein": 每份蛋白質，單位公克（純數字），' +
+    '"fat": 每份脂肪，單位公克（純數字，如果只有分「飽和脂肪」「反式脂肪」，這裡填總脂肪），' +
+    '"sugar": 每份糖，單位公克（純數字，通常在碳水化合物底下的「糖」）}\n' +
+    '所有數字欄位都只能填數字本身，不要包含單位文字或任何其他符號；完全讀不出來的數字欄位就填 0。';
+
+  var requestBody = {
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: imageBase64 } }
+      ]
+    }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+  };
+
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(apiKey);
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(requestBody),
+    muteHttpExceptions: true
+  };
+
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(url, options);
+  } catch (err) {
+    return { error: '呼叫辨識服務失敗：' + String(err) };
+  }
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  if (code < 200 || code >= 300) {
+    return { error: '辨識服務回傳錯誤（狀態碼 ' + code + '）：' + text.substring(0, 300) };
+  }
+
+  var data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    return { error: '無法解析辨識服務的回應' };
+  }
+
+  var candidateText = '';
+  try {
+    candidateText = data.candidates[0].content.parts[0].text;
+  } catch (e) {
+    return { error: '辨識服務沒有回傳可用的結果，圖片可能不清楚，請換一張再試' };
+  }
+
+  var parsed = parseJsonLoose(candidateText);
+  if (!parsed) {
+    return { error: '辨識結果不是有效的 JSON，圖片可能不清楚，請換一張再試' };
+  }
+
+  return {
+    success: true,
+    name: parsed.name ? String(parsed.name).trim() : '',
+    base: numOrDefault(parsed.base, 100),
+    servings: numOrDefault(parsed.servings, 1),
+    cal: numOrDefault(parsed.cal, 0),
+    protein: numOrDefault(parsed.protein, 0),
+    fat: numOrDefault(parsed.fat, 0),
+    sugar: numOrDefault(parsed.sugar, 0)
+  };
+}
+
+// 有些模型偶爾還是會不聽話地包一層 ```json ... ``` 或前後多幾個字，
+// 這裡多做一層防呆，把常見的 Markdown code fence 去掉再嘗試解析一次。
+function parseJsonLoose(text) {
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    var cleaned = String(text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
+function numOrDefault(v, fallback) {
+  var n = Number(v);
+  return isNaN(n) ? fallback : n;
 }
 
 /**
