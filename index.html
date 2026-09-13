@@ -2045,7 +2045,31 @@
               <input type="text" id="manualName" placeholder="例如：外食便當">
             </div>
           </div>
+
+          <!-- 【本次新增】AI 估算：食材庫裡沒有的食物，輸入名稱＋這次吃的克數，
+               按一下就呼叫後端（Gemini）幫忙估算這個克數大約有多少熱量／蛋白質／
+               脂肪／糖（是「糖」不是「碳水」），直接填進下面「直接輸入這次總量」
+               的四個欄位；只是估算值，填好之後都可以再自己微調，確認沒問題再送出。 -->
           <div class="row" style="margin-top:8px;">
+            <div class="field" style="flex:1;">
+              <label>這次吃的克數 (g，給 AI 估算用)</label>
+              <input type="number" id="aiEstimateGrams" min="0" step="any" placeholder="例如：150">
+            </div>
+            <div class="field" style="flex:none;align-self:flex-end;">
+              <button type="button" class="btn btn-ghost" id="aiEstimateBtn">🤖 AI 估算營養</button>
+            </div>
+          </div>
+          <p class="hint" style="margin:4px 0 0;">先填上面的「名稱」＋這裡的克數，AI 只是估算值（依常見食物資料庫知識推算），填好後仍可自行修改任何一格再送出。</p>
+          <div class="status-msg" id="aiEstimateStatus" style="margin:4px 0 0;"></div>
+
+          <p class="chip-field-label" style="margin-top:10px;">填寫方式</p>
+          <div class="qty-mode-chips" id="manualModeChips">
+            <button type="button" class="qty-mode-btn active" data-manual-mode="total">直接輸入這次總量</button>
+            <button type="button" class="qty-mode-btn" data-manual-mode="grams">克數＋每100g營養（自動換算）</button>
+          </div>
+
+          <!-- 模式一：直接輸入這次吃的總量（原本的行為，維持不變） -->
+          <div class="row" id="manualTotalFields" style="margin-top:8px;">
             <div class="field">
               <label>熱量 (kcal，選填)</label>
               <input type="number" id="manualCal" min="0" step="1">
@@ -2063,6 +2087,33 @@
               <input type="number" id="manualSugar" min="0" step="0.1">
             </div>
           </div>
+
+          <!-- 模式二：食物包裝／營養標示通常是「每100g」的數字，這裡填每100g的
+               熱量／蛋白質／脂肪／糖，再填這次實際吃的克數，會自動按比例換算
+               成這次吃的總量，不用自己拿計算機乘。注意欄位是「糖」不是「碳水」。 -->
+          <div class="row" id="manualGramsFields" style="margin-top:8px;display:none;">
+            <div class="field">
+              <label>這次吃的克數 (g)</label>
+              <input type="number" id="manualGrams" min="0" step="any" placeholder="例如：60">
+            </div>
+            <div class="field">
+              <label>每100g熱量 (kcal，選填)</label>
+              <input type="number" id="manualCal100" min="0" step="1">
+            </div>
+            <div class="field">
+              <label>每100g蛋白質 (g)</label>
+              <input type="number" id="manualProtein100" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label>每100g脂肪 (g，選填)</label>
+              <input type="number" id="manualFat100" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label>每100g糖（Sugar）(g，選填)</label>
+              <input type="number" id="manualSugar100" min="0" step="0.1">
+            </div>
+          </div>
+          <p class="hint" id="manualGramsPreview" style="display:none;margin:2px 0 0;"></p>
         </div>
         <div class="sheet-footer">
           <div class="goal-compact" id="manualTotalBox" style="display:none;margin-bottom:10px;"></div>
@@ -2528,6 +2579,7 @@
         mealSaveFoodCategorySelected: [],
         batch: [],
         manualBatch: [],
+        manualInputMode: 'total', // 'total'=直接輸入總量 / 'grams'=克數＋每100g自動換算
         pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
         snackMultiMode: false,
@@ -3096,14 +3148,12 @@
         // 只要蛋白質有填就先算進暫估總和，讓使用者邊填邊看剩餘額度。
         var manualBox = document.getElementById('manualAddBox');
         if (manualBox && manualBox.style.display !== 'none') {
-          var pField = document.getElementById('manualProtein');
-          var pVal = pField ? Number(pField.value) : 0;
-          if (pVal > 0) {
-            totals.protein += pVal;
-            totals.fat += Number(document.getElementById('manualFat').value) || 0;
-            totals.sugar += Number(document.getElementById('manualSugar').value) || 0;
-            var calVal = document.getElementById('manualCal').value;
-            totals.cal += calVal !== '' ? (Number(calVal) || 0) : estimateCalories(pVal, Number(document.getElementById('manualFat').value) || 0, Number(document.getElementById('manualSugar').value) || 0);
+          var pendingEntry = readManualFormEntry();
+          if (pendingEntry) {
+            totals.protein += Number(pendingEntry.protein) || 0;
+            totals.fat += Number(pendingEntry.fat) || 0;
+            totals.sugar += Number(pendingEntry.sugar) || 0;
+            totals.cal += Number(pendingEntry.cal) || 0;
           }
         }
         return totals;
@@ -3194,18 +3244,8 @@
         var manualItems = (state.manualBatch || []).slice();
         var manualBox = document.getElementById('manualAddBox');
         if (manualBox && manualBox.style.display !== 'none') {
-          var pField = document.getElementById('manualProtein');
-          var pVal = pField ? Number(pField.value) : 0;
-          if (pVal > 0) {
-            manualItems.push({
-              protein: pVal,
-              fat: Number(document.getElementById('manualFat').value) || 0,
-              sugar: Number(document.getElementById('manualSugar').value) || 0,
-              cal: document.getElementById('manualCal').value !== ''
-                ? (Number(document.getElementById('manualCal').value) || 0)
-                : estimateCalories(pVal, Number(document.getElementById('manualFat').value) || 0, Number(document.getElementById('manualSugar').value) || 0)
-            });
-          }
+          var pendingEntry2 = readManualFormEntry();
+          if (pendingEntry2) manualItems.push(pendingEntry2);
         }
         manualItems.forEach(function (it) {
           if (state.manualDualPerson) {
@@ -4897,6 +4937,7 @@
 
       // 讀出手動輸入表單目前填的內容；protein 沒有有效值時回傳 null（代表這一列還沒填）。
       function readManualFormEntry() {
+        if (state.manualInputMode === 'grams') return readManualGramsEntry();
         var protein = Number(document.getElementById('manualProtein').value);
         if (!protein || protein <= 0) return null;
         var name = document.getElementById('manualName').value.trim() || '手動紀錄';
@@ -4904,7 +4945,44 @@
         var sugar = Number(document.getElementById('manualSugar').value) || 0;
         var calInput = document.getElementById('manualCal').value;
         var cal = calInput !== '' ? Number(calInput) : estimateCalories(protein, fat, sugar);
-        return { name: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal) };
+        return { name: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal), grams: null };
+      }
+
+      // 「克數＋每100g營養」模式：把包裝上常見的「每100g」數字，依這次實際
+      // 吃的克數換算成這次吃的總量。蛋白質（每100g）是必填，其餘（熱量／
+      // 脂肪／糖）選填，邏輯跟原本 total 模式的必填/選填規則一致；熱量沒填
+      // 時一樣用蛋白質/脂肪/糖去估算（4/9/4 大卡）。
+      function readManualGramsEntry() {
+        var grams = Number(document.getElementById('manualGrams').value) || 0;
+        var protein100 = Number(document.getElementById('manualProtein100').value);
+        if (!grams || grams <= 0 || !protein100 || protein100 <= 0) return null;
+        var name = document.getElementById('manualName').value.trim() || '手動紀錄';
+        var fat100 = Number(document.getElementById('manualFat100').value) || 0;
+        var sugar100 = Number(document.getElementById('manualSugar100').value) || 0;
+        var cal100Input = document.getElementById('manualCal100').value;
+        var ratio = grams / 100;
+        var protein = protein100 * ratio;
+        var fat = fat100 * ratio;
+        var sugar = sugar100 * ratio;
+        var cal = cal100Input !== '' ? (Number(cal100Input) * ratio) : estimateCalories(protein, fat, sugar);
+        return { name: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal), grams: round1(grams) };
+      }
+
+      // 即時預覽：grams 模式下，克數／每100g欄位邊填邊算出這次吃的總量，
+      // 不用按「加入清單」才看到換算結果，也能提早發現填錯欄位。
+      function refreshManualGramsPreview() {
+        var previewEl = document.getElementById('manualGramsPreview');
+        if (!previewEl) return;
+        if (state.manualInputMode !== 'grams') { previewEl.style.display = 'none'; return; }
+        var entry = readManualGramsEntry();
+        if (!entry) {
+          previewEl.style.display = 'block';
+          previewEl.textContent = '請至少填「這次吃的克數」與「每100g蛋白質」，才能自動換算。';
+          return;
+        }
+        previewEl.style.display = 'block';
+        previewEl.textContent = '這次（' + entry.grams + 'g）＝ ' + entry.cal + ' kcal · 蛋白質 ' + entry.protein +
+          'g · 脂肪 ' + entry.fat + 'g · 糖 ' + entry.sugar + 'g';
       }
 
       function clearManualForm() {
@@ -4913,6 +4991,30 @@
         document.getElementById('manualFat').value = '';
         document.getElementById('manualSugar').value = '';
         document.getElementById('manualCal').value = '';
+        document.getElementById('manualGrams').value = '';
+        document.getElementById('manualProtein100').value = '';
+        document.getElementById('manualFat100').value = '';
+        document.getElementById('manualSugar100').value = '';
+        document.getElementById('manualCal100').value = '';
+        refreshManualGramsPreview();
+      }
+
+      // 切換「直接輸入總量」／「克數＋每100g自動換算」兩種填寫方式：
+      // 只切換畫面顯示哪一組欄位，兩組欄位的值互不影響，切換後保留原本
+      // 已經填的內容，方便填錯模式時可以切回去而不會遺失輸入。
+      function setManualInputMode(mode) {
+        state.manualInputMode = mode;
+        var chips = document.getElementById('manualModeChips');
+        if (chips) {
+          Array.prototype.forEach.call(chips.querySelectorAll('[data-manual-mode]'), function (btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-manual-mode') === mode);
+          });
+        }
+        var totalFields = document.getElementById('manualTotalFields');
+        var gramsFields = document.getElementById('manualGramsFields');
+        if (totalFields) totalFields.style.display = mode === 'total' ? 'flex' : 'none';
+        if (gramsFields) gramsFields.style.display = mode === 'grams' ? 'flex' : 'none';
+        refreshManualGramsPreview();
       }
 
       // 顯示目前已加入清單、還沒送出的手動品項，讓使用者可以一次輸入多樣品項
@@ -4926,9 +5028,10 @@
           return acc;
         }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
         var rows = state.manualBatch.map(function (it, idx) {
+          var gramsNote = (it.grams != null) ? (it.grams + 'g · ') : '';
           return '<div class="batch-row" data-manual-idx="' + idx + '">' +
             '<div class="field"><label>' + escapeHtml(it.name) + '</label>' +
-            '<p class="hint" style="margin:2px 0 0;">' + Math.round(it.cal) + ' kcal · P ' + round1(it.protein) + 'g · F ' + round1(it.fat) + 'g · 糖 ' + round1(it.sugar) + 'g</p></div>' +
+            '<p class="hint" style="margin:2px 0 0;">' + gramsNote + Math.round(it.cal) + ' kcal · P ' + round1(it.protein) + 'g · F ' + round1(it.fat) + 'g · 糖 ' + round1(it.sugar) + 'g</p></div>' +
             '<button type="button" class="btn-danger" data-manual-remove="' + idx + '">移除</button>' +
             '</div>';
         }).join('');
@@ -5059,6 +5162,50 @@
         }
       }
 
+      // 【本次新增】AI 估算：食材庫裡沒有的食物，輸入名稱＋這次吃的克數，
+      // 呼叫後端（Gemini）估算這個克數大約有多少熱量／蛋白質／脂肪／糖，
+      // 直接填進「直接輸入這次總量」的四個欄位，並自動切到該模式方便確認。
+      // 只負責「填欄位」，不會自動送出這一餐，使用者確認／修改欄位內容後
+      // 仍要自己按「加入清單」或「加入紀錄」。
+      async function runAiEstimateNutrition() {
+        var statusEl = document.getElementById('aiEstimateStatus');
+        var btn = document.getElementById('aiEstimateBtn');
+        var name = document.getElementById('manualName').value.trim();
+        var gramsStr = document.getElementById('aiEstimateGrams').value.trim();
+
+        if (!name) {
+          statusEl.textContent = '請先輸入上面的「名稱」，AI 才知道要估算哪個食物。';
+          statusEl.className = 'status-msg err';
+          document.getElementById('manualName').focus();
+          return;
+        }
+        if (!hasSheet()) {
+          statusEl.textContent = '尚未設定 Google 試算表同步網址，AI 估算功能需要透過試算表後端執行，請先到下方「資料同步設定」連結試算表；也可以直接手動填寫下面的欄位。';
+          statusEl.className = 'status-msg err';
+          return;
+        }
+
+        statusEl.textContent = 'AI 估算中，請稍候…';
+        statusEl.className = 'status-msg';
+        btn.disabled = true;
+        try {
+          var res = await sheetPost('estimateNutrition', { name: name, grams: gramsStr ? Number(gramsStr) : undefined });
+          setManualInputMode('total');
+          document.getElementById('manualCal').value = res.cal;
+          document.getElementById('manualProtein').value = res.protein;
+          document.getElementById('manualFat').value = res.fat;
+          document.getElementById('manualSugar').value = res.sugar;
+          refreshGoalPreview();
+          statusEl.textContent = '已自動填好上面「直接輸入這次總量」的四個欄位，請確認或微調再送出。' + (res.note ? ('（' + res.note + '）') : '');
+          statusEl.className = 'status-msg ok';
+        } catch (e) {
+          statusEl.textContent = 'AI 估算失敗：' + e.message + '（可以直接手動填寫下面的欄位再送出）';
+          statusEl.className = 'status-msg err';
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
       function wireLabelScan() {
         document.getElementById('labelScanOpenBtn').addEventListener('click', function (e) {
           e.stopPropagation();
@@ -5158,6 +5305,28 @@
           document.getElementById(id).addEventListener('input', refreshGoalPreview);
         });
 
+        // 「克數＋每100g」模式的欄位：邊填邊即時換算預覽，同時也更新「今日目標」預覽。
+        ['manualGrams', 'manualProtein100', 'manualFat100', 'manualSugar100', 'manualCal100'].forEach(function (id) {
+          document.getElementById(id).addEventListener('input', function () {
+            refreshManualGramsPreview();
+            refreshGoalPreview();
+          });
+        });
+
+        var manualModeChipsEl = document.getElementById('manualModeChips');
+        if (manualModeChipsEl) {
+          manualModeChipsEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-manual-mode]');
+            if (!btn) return;
+            setManualInputMode(btn.getAttribute('data-manual-mode'));
+            refreshGoalPreview();
+          });
+        }
+        setManualInputMode(state.manualInputMode || 'total');
+
+        var aiEstimateBtn = document.getElementById('aiEstimateBtn');
+        if (aiEstimateBtn) aiEstimateBtn.addEventListener('click', runAiEstimateNutrition);
+
         document.getElementById('manualSaveFoodBtn').addEventListener('click', function () {
           openMealSaveFoodBox();
         });
@@ -5204,12 +5373,13 @@
               var itD = items[iD];
               var half = {
                 protein: round1(itD.protein / 2), fat: round1(itD.fat / 2),
-                sugar: round1(itD.sugar / 2), cal: Math.round(itD.cal / 2)
+                sugar: round1(itD.sugar / 2), cal: Math.round(itD.cal / 2),
+                grams: (itD.grams != null) ? round1(itD.grams / 2) : null
               };
-              var entryA = { type: 'manual', foodId: null, foodName: itD.name, grams: null, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personA };
+              var entryA = { type: 'manual', foodId: null, foodName: itD.name, grams: half.grams, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personA };
               if (groupIdA) entryA.groupId = groupIdA;
               await addLog(entryA);
-              var entryB = { type: 'manual', foodId: null, foodName: itD.name, grams: null, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personB };
+              var entryB = { type: 'manual', foodId: null, foodName: itD.name, grams: half.grams, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personB };
               if (groupIdB) entryB.groupId = groupIdB;
               await addLog(entryB);
             }
@@ -5219,7 +5389,7 @@
           var groupId = items.length > 1 ? uid('m') : null;
           for (var i = 0; i < items.length; i++) {
             var it = items[i];
-            var entry = { type: 'manual', foodId: null, foodName: it.name, grams: null, protein: it.protein, fat: it.fat, sugar: it.sugar, cal: it.cal };
+            var entry = { type: 'manual', foodId: null, foodName: it.name, grams: (it.grams != null ? it.grams : null), protein: it.protein, fat: it.fat, sugar: it.sugar, cal: it.cal };
             if (groupId) entry.groupId = groupId;
             await addLog(entry);
           }

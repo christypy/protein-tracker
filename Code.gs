@@ -32,7 +32,16 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v16-sync-token-auth';
+var APP_BACKEND_VERSION = 'v17-ai-estimate-nutrition';
+// 【v17 新增】「手動輸入這一餐」新增「🤖 AI 估算」功能：食材庫裡沒有的食物，
+// 不用一項一項自己查熱量／蛋白質／脂肪／糖，只要輸入食物名稱＋這次實際吃的
+// 克數，就能呼叫 Gemini 文字模型幫忙估算出這個「特定重量」下的熱量、蛋白質、
+// 脂肪、糖（注意：跟 Foods 分頁一樣是糖 sugar，不是碳水化合物 carb），
+// 直接把估算結果填進手動輸入的四個欄位，使用者確認或微調數字沒問題後再送出。
+// 這是文字模型的推算值，不是精確測量，回傳結果一律會附上提醒文字，前端也會
+// 提示使用者這只是「估算」，需要的話仍然可以手動修改任何一個欄位再送出。
+// 跟 recognizeNutritionLabel（辨識照片）共用同一組 GEMINI_API_KEY 指令碼屬性，
+// 不需要另外申請或設定金鑰。
 // 【v14 新增】修「重新整理／立即重新同步會讓已刪除的食材、紀錄又跑出來，
 // 而且在試算表裡重複顯示」這個問題。根本原因有兩個，這版一次修掉：
 //
@@ -152,6 +161,7 @@ function doPost(e) {
       case 'updateLog': result = updateLog(payload); break;
       case 'deleteLog': result = deleteLog(payload); break;
       case 'recognizeNutritionLabel': result = recognizeNutritionLabel(payload); break;
+      case 'estimateNutrition': result = estimateNutrition(payload); break;
       default: result = { error: 'unknown action: ' + action };
     }
   } catch (err) {
@@ -839,6 +849,104 @@ function recognizeNutritionLabel(payload) {
     protein: numOrDefault(parsed.protein, 0),
     fat: numOrDefault(parsed.fat, 0),
     sugar: numOrDefault(parsed.sugar, 0)
+  };
+}
+
+/**
+ * 【v17 新增】AI 估算營養素（純文字，不用拍照）：
+ * 給食物名稱＋這次實際吃的克數，呼叫 Gemini 文字模型估算「這個重量」總共
+ * 大約有多少熱量、蛋白質、脂肪、糖，直接對應「手動輸入這一餐」表單裡的
+ * 四個欄位（不是每 100 克，也不是每一份，是「這次這個克數」的總量）。
+ *
+ * payload:
+ *   - name：食物名稱（必填，例如「滷雞腿便當」「無糖豆漿」）
+ *   - grams：這次吃的克數（必填，純數字；沒有的話預設當作 100 克來估算，
+ *     但估算結果會提醒使用者克數是用預設值算的，不一定準）
+ *
+ * 回傳（成功）：
+ *   { success: true, cal, protein, fat, sugar, note }
+ *   note 是給使用者看的提醒文字，說明這是 AI 估算值，建議依實際情況微調。
+ * 回傳（失敗）：{ error: '...' }，前端可以照樣顯示成失敗訊息，使用者仍然
+ *   能直接手動把四個欄位填一填送出，不會卡住整個流程。
+ */
+function estimateNutrition(payload) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPERTY);
+  if (!apiKey) {
+    return { error: '尚未設定估算用的 API 金鑰。請到 Apps Script 編輯器「專案設定」→「指令碼屬性」，新增 GEMINI_API_KEY（到 https://aistudio.google.com/apikey 免費申請），設定好後再試一次。' };
+  }
+  var name = payload && payload.name ? String(payload.name).trim() : '';
+  if (!name) return { error: '請先輸入食物名稱' };
+  var gramsProvided = payload && payload.grams !== undefined && payload.grams !== null && String(payload.grams).trim() !== '';
+  var grams = numOrDefault(payload && payload.grams, 100);
+  if (!(grams > 0)) grams = 100;
+
+  var prompt = '請根據常見食物的營養資料庫知識，估算「' + name + '」這個食物，總共 ' + grams + ' 公克的份量，' +
+    '大約含有多少營養素。只回傳一個 JSON 物件，不要加任何說明文字、不要用 Markdown code block 包起來，' +
+    '格式如下：\n' +
+    '{"cal": 這個重量總共大約多少大卡熱量（純數字），' +
+    '"protein": 這個重量總共大約多少公克蛋白質（純數字），' +
+    '"fat": 這個重量總共大約多少公克脂肪（純數字），' +
+    '"sugar": 這個重量總共大約多少公克「糖」（純數字，是糖 sugar，不是碳水化合物 carbohydrate 總量，' +
+    '例如白飯這種食物糖分很低、澱粉不算在這裡面），' +
+    '"note": 用不到20個字提醒使用者這是估算值的簡短中文說明}\n' +
+    '所有數字欄位都只能填數字本身，不要包含單位文字或任何其他符號；如果是完全無法估算的品項（例如不是食物），' +
+    '數字欄位一律填 0，並在 note 說明原因。';
+
+  var requestBody = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+  };
+
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(apiKey);
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(requestBody),
+    muteHttpExceptions: true
+  };
+
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(url, options);
+  } catch (err) {
+    return { error: '呼叫估算服務失敗：' + String(err) };
+  }
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  if (code < 200 || code >= 300) {
+    return { error: '估算服務回傳錯誤（狀態碼 ' + code + '）：' + text.substring(0, 300) };
+  }
+
+  var data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    return { error: '無法解析估算服務的回應' };
+  }
+
+  var candidateText = '';
+  try {
+    candidateText = data.candidates[0].content.parts[0].text;
+  } catch (e) {
+    return { error: '估算服務沒有回傳可用的結果，換個寫法再試一次看看（例如加上品牌或更具體的描述）' };
+  }
+
+  var parsed = parseJsonLoose(candidateText);
+  if (!parsed) {
+    return { error: '估算結果不是有效的 JSON，換個寫法再試一次看看' };
+  }
+
+  var note = parsed.note ? String(parsed.note).trim() : '';
+  var baseNote = 'AI 估算值僅供參考，建議依實際情況再微調。';
+  if (!gramsProvided) baseNote = '未輸入克數，先以 100 公克試算，' + baseNote;
+
+  return {
+    success: true,
+    cal: numOrDefault(parsed.cal, 0),
+    protein: numOrDefault(parsed.protein, 0),
+    fat: numOrDefault(parsed.fat, 0),
+    sugar: numOrDefault(parsed.sugar, 0),
+    note: note ? (baseNote + '（' + note + '）') : baseNote
   };
 }
 
