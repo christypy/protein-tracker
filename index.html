@@ -2440,13 +2440,17 @@
         <div class="row">
           <div class="field">
             <label>Web App URL</label>
-            <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/xxxx/exec">
+            <input type="text" id="sheetUrl" name="proteinDiaryWebAppUrl" placeholder="https://script.google.com/macros/s/xxxx/exec"
+                   autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                   data-lpignore="true" data-1p-ignore data-form-type="other">
           </div>
         </div>
         <div class="row" style="margin-top:8px;">
           <div class="field">
             <label>同步密鑰（選填）</label>
-            <input type="text" id="sheetToken" placeholder="只有在後端有設定 SYNC_TOKEN 時才需要填">
+            <input type="text" id="sheetToken" name="proteinDiarySyncToken" placeholder="只有在後端有設定 SYNC_TOKEN 時才需要填"
+                   autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                   data-lpignore="true" data-1p-ignore data-form-type="other">
           </div>
         </div>
         <p class="hint" style="margin:4px 0 0;">如果你在 Apps Script 的指令碼屬性有設定 SYNC_TOKEN，這裡要填一模一樣的字串，網址才呼叫得通；沒有設定的話這欄留空即可，不影響原本的使用方式。</p>
@@ -2475,7 +2479,7 @@
     (function () {
       "use strict";
 
-      var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzGD7QiTqm9KtJckFPZqwcAWlkJICHpQXPhZqZ67wQZyeH_obR0jlj-1bO9hYpbFsYU/exec";
+      var DEFAULT_SHEET_URL = "";
 
       var PROFILES = {
         A: {
