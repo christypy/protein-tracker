@@ -865,6 +865,29 @@
       .food-chip .fname {
         font-size: 11.5px;
       }
+
+      /* 面板內容在小螢幕比較擠，放大按鈕與輸入框的可點擊範圍、
+         加大列間距，減少手指點錯或點到隔壁按鈕的機率。 */
+      .batch-row {
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+      }
+
+      .qty-mode-btn {
+        padding: 8px 12px;
+        font-size: 12.5px;
+      }
+
+      .batch-row .qty-wrap input {
+        min-height: 40px;
+        font-size: 15px;
+      }
+
+      .batch-row .btn-danger {
+        padding: 8px 10px;
+        margin-top: 2px;
+      }
     }
 
     /* ---- 固定彈跳面板（新增這一餐 / 編輯紀錄共用）：
@@ -4250,16 +4273,25 @@
         var el = document.getElementById('batchList');
         var countEl = document.getElementById('pickerBatchCount');
         var toggleBtn = document.getElementById('pickerSheetToggle');
+        var addBody = document.querySelector('#secAdd .section-body');
         if (!state.batch.length) {
           wrap.style.display = 'none';
           wrap.classList.remove('collapsed');
           el.innerHTML = '';
           state.pickerSheetCollapsed = false;
+          if (addBody) addBody.style.paddingBottom = '';
           refreshGoalPreview();
           return;
         }
         wrap.style.display = 'flex';
         wrap.classList.toggle('collapsed', !!state.pickerSheetCollapsed);
+        // 面板固定貼在畫面底部，會蓋住它正下方的區域；這裡量出面板目前實際
+        // 佔用的高度（展開時很高、收合時只剩一條標題列），讓上面「新增這一餐」
+        // 清單自動保留出等高的底部留白，捲動頁面就能把所有食材完整捲到面板
+        // 上方看到，不會有一段被面板蓋住、卻怎麼捲都捲不出來的區域。
+        requestAnimationFrame(function () {
+          if (addBody) addBody.style.paddingBottom = (wrap.offsetHeight + 12) + 'px';
+        });
         if (countEl) countEl.textContent = state.batch.length;
         if (toggleBtn) toggleBtn.textContent = state.pickerSheetCollapsed ? '展開 ▴' : '收合 ▾';
         renderDualPersonBox();
@@ -4315,6 +4347,16 @@
           ? ('分別加入 ' + pA + '、' + pB + ' 的紀錄（' + state.batch.length + ' 項）')
           : ('全部加入紀錄（' + state.batch.length + ' 項）');
         refreshGoalPreview();
+
+        // 剛選的那一項自動捲動到面板可視範圍內（面板展開時才需要），
+        // 不用使用者自己在一長串批次清單裡找剛剛點的是哪一列。
+        if (state.pickerLastAddedId && !state.pickerSheetCollapsed) {
+          var justAddedRow = el.querySelector('[data-batch-row="' + CSS.escape(state.pickerLastAddedId) + '"]');
+          if (justAddedRow) {
+            justAddedRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        }
+        state.pickerLastAddedId = null;
       }
 
       function renderAll() {
@@ -4654,9 +4696,13 @@
           if (idx === -1) {
             var food = state.foods.find(function (f) { return f.id === id; });
             var baseGrams = (food && (food.base || food.baseGrams)) || 100;
+            var wasEmpty = state.batch.length === 0;
             state.batch.push({ foodId: id, grams: baseGrams, servings: 1, mode: 'g' });
-            // 挑選食材時自動展開固定面板，不用另外捲動到面板才看得到剛選的東西。
-            state.pickerSheetCollapsed = false;
+            // 只有「選第一樣食材」才自動展開固定面板；已經有其他品項在批次裡時，
+            // 面板維持使用者目前的收合／展開狀態，不會每點一樣新食材就強制整片
+            // 展開蓋住上面的食材清單，才能連續挑選多樣食材而不被面板打斷畫面。
+            if (wasEmpty) state.pickerSheetCollapsed = false;
+            state.pickerLastAddedId = id;
           } else {
             state.batch.splice(idx, 1);
           }
@@ -4737,6 +4783,16 @@
             }
           }
           refreshGoalPreview();
+        });
+
+        document.getElementById('batchList').addEventListener('focusin', function (e) {
+          if (e.target.tagName !== 'INPUT' || e.target.type !== 'number') return;
+          e.target.select();
+          // 延遲一點再捲動：手機鍵盤彈出通常需要一點時間才會把可視高度
+          // 擠壓完成，太早捲動位置會不準，稍微等一下再捲到置中位置。
+          setTimeout(function () {
+            e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }, 250);
         });
 
         document.getElementById('batchList').addEventListener('click', function (e) {
