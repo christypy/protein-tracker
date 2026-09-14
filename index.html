@@ -2045,14 +2045,7 @@
             </div>
           </div>
 
-          <p class="chip-field-label" style="margin-top:10px;">填寫方式</p>
-          <div class="qty-mode-chips" id="manualModeChips">
-            <button type="button" class="qty-mode-btn active" data-manual-mode="total">直接輸入這次總量</button>
-            <button type="button" class="qty-mode-btn" data-manual-mode="grams">克數＋每100g營養（自動換算）</button>
-          </div>
-
-          <!-- 模式一：直接輸入這次吃的總量（原本的行為，維持不變） -->
-          <div class="row" id="manualTotalFields" style="margin-top:8px;">
+          <div class="row" style="margin-top:8px;">
             <div class="field">
               <label>熱量 (kcal，選填)</label>
               <input type="number" id="manualCal" min="0" step="1">
@@ -2070,33 +2063,6 @@
               <input type="number" id="manualSugar" min="0" step="0.1">
             </div>
           </div>
-
-          <!-- 模式二：食物包裝／營養標示通常是「每100g」的數字，這裡填每100g的
-               熱量／蛋白質／脂肪／糖，再填這次實際吃的克數，會自動按比例換算
-               成這次吃的總量，不用自己拿計算機乘。注意欄位是「糖」不是「碳水」。 -->
-          <div class="row" id="manualGramsFields" style="margin-top:8px;display:none;">
-            <div class="field">
-              <label>這次吃的克數 (g)</label>
-              <input type="number" id="manualGrams" min="0" step="any" placeholder="例如：60">
-            </div>
-            <div class="field">
-              <label>每100g熱量 (kcal，選填)</label>
-              <input type="number" id="manualCal100" min="0" step="1">
-            </div>
-            <div class="field">
-              <label>每100g蛋白質 (g)</label>
-              <input type="number" id="manualProtein100" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>每100g脂肪 (g，選填)</label>
-              <input type="number" id="manualFat100" min="0" step="0.1">
-            </div>
-            <div class="field">
-              <label>每100g糖（Sugar）(g，選填)</label>
-              <input type="number" id="manualSugar100" min="0" step="0.1">
-            </div>
-          </div>
-          <p class="hint" id="manualGramsPreview" style="display:none;margin:2px 0 0;"></p>
         </div>
         <div class="sheet-footer">
           <div class="goal-compact" id="manualTotalBox" style="display:none;margin-bottom:10px;"></div>
@@ -2509,7 +2475,6 @@
         mealSaveFoodCategorySelected: [],
         batch: [],
         manualBatch: [],
-        manualInputMode: 'total', // 'total'=直接輸入總量 / 'grams'=克數＋每100g自動換算
         pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
         snackMultiMode: false,
@@ -4865,7 +4830,6 @@
 
       // 讀出手動輸入表單目前填的內容；protein 沒有有效值時回傳 null（代表這一列還沒填）。
       function readManualFormEntry() {
-        if (state.manualInputMode === 'grams') return readManualGramsEntry();
         var protein = Number(document.getElementById('manualProtein').value);
         if (!protein || protein <= 0) return null;
         var name = document.getElementById('manualName').value.trim() || '手動紀錄';
@@ -4876,73 +4840,12 @@
         return { name: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal), grams: null };
       }
 
-      // 「克數＋每100g營養」模式：把包裝上常見的「每100g」數字，依這次實際
-      // 吃的克數換算成這次吃的總量。蛋白質（每100g）是必填，其餘（熱量／
-      // 脂肪／糖）選填，邏輯跟原本 total 模式的必填/選填規則一致；熱量沒填
-      // 時一樣用蛋白質/脂肪/糖去估算（4/9/4 大卡）。
-      function readManualGramsEntry() {
-        var grams = Number(document.getElementById('manualGrams').value) || 0;
-        var protein100 = Number(document.getElementById('manualProtein100').value);
-        if (!grams || grams <= 0 || !protein100 || protein100 <= 0) return null;
-        var name = document.getElementById('manualName').value.trim() || '手動紀錄';
-        var fat100 = Number(document.getElementById('manualFat100').value) || 0;
-        var sugar100 = Number(document.getElementById('manualSugar100').value) || 0;
-        var cal100Input = document.getElementById('manualCal100').value;
-        var ratio = grams / 100;
-        var protein = protein100 * ratio;
-        var fat = fat100 * ratio;
-        var sugar = sugar100 * ratio;
-        var cal = cal100Input !== '' ? (Number(cal100Input) * ratio) : estimateCalories(protein, fat, sugar);
-        return { name: name, protein: round1(protein), fat: round1(fat), sugar: round1(sugar), cal: Math.round(cal), grams: round1(grams) };
-      }
-
-      // 即時預覽：grams 模式下，克數／每100g欄位邊填邊算出這次吃的總量，
-      // 不用按「加入清單」才看到換算結果，也能提早發現填錯欄位。
-      function refreshManualGramsPreview() {
-        var previewEl = document.getElementById('manualGramsPreview');
-        if (!previewEl) return;
-        if (state.manualInputMode !== 'grams') { previewEl.style.display = 'none'; return; }
-        var entry = readManualGramsEntry();
-        if (!entry) {
-          previewEl.style.display = 'block';
-          previewEl.textContent = '請至少填「這次吃的克數」與「每100g蛋白質」，才能自動換算。';
-          return;
-        }
-        previewEl.style.display = 'block';
-        previewEl.textContent = '這次（' + entry.grams + 'g）＝ ' + entry.cal + ' kcal · 蛋白質 ' + entry.protein +
-          'g · 脂肪 ' + entry.fat + 'g · 糖 ' + entry.sugar + 'g';
-      }
-
       function clearManualForm() {
         document.getElementById('manualName').value = '';
         document.getElementById('manualProtein').value = '';
         document.getElementById('manualFat').value = '';
         document.getElementById('manualSugar').value = '';
         document.getElementById('manualCal').value = '';
-        document.getElementById('manualGrams').value = '';
-        document.getElementById('manualProtein100').value = '';
-        document.getElementById('manualFat100').value = '';
-        document.getElementById('manualSugar100').value = '';
-        document.getElementById('manualCal100').value = '';
-        refreshManualGramsPreview();
-      }
-
-      // 切換「直接輸入總量」／「克數＋每100g自動換算」兩種填寫方式：
-      // 只切換畫面顯示哪一組欄位，兩組欄位的值互不影響，切換後保留原本
-      // 已經填的內容，方便填錯模式時可以切回去而不會遺失輸入。
-      function setManualInputMode(mode) {
-        state.manualInputMode = mode;
-        var chips = document.getElementById('manualModeChips');
-        if (chips) {
-          Array.prototype.forEach.call(chips.querySelectorAll('[data-manual-mode]'), function (btn) {
-            btn.classList.toggle('active', btn.getAttribute('data-manual-mode') === mode);
-          });
-        }
-        var totalFields = document.getElementById('manualTotalFields');
-        var gramsFields = document.getElementById('manualGramsFields');
-        if (totalFields) totalFields.style.display = mode === 'total' ? 'flex' : 'none';
-        if (gramsFields) gramsFields.style.display = mode === 'grams' ? 'flex' : 'none';
-        refreshManualGramsPreview();
       }
 
       // 顯示目前已加入清單、還沒送出的手動品項，讓使用者可以一次輸入多樣品項
@@ -5016,24 +4919,7 @@
           document.getElementById(id).addEventListener('input', refreshGoalPreview);
         });
 
-        // 「克數＋每100g」模式的欄位：邊填邊即時換算預覽，同時也更新「今日目標」預覽。
-        ['manualGrams', 'manualProtein100', 'manualFat100', 'manualSugar100', 'manualCal100'].forEach(function (id) {
-          document.getElementById(id).addEventListener('input', function () {
-            refreshManualGramsPreview();
-            refreshGoalPreview();
-          });
-        });
-
-        var manualModeChipsEl = document.getElementById('manualModeChips');
-        if (manualModeChipsEl) {
-          manualModeChipsEl.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-manual-mode]');
-            if (!btn) return;
-            setManualInputMode(btn.getAttribute('data-manual-mode'));
-            refreshGoalPreview();
-          });
-        }
-        setManualInputMode(state.manualInputMode || 'total');
+        refreshGoalPreview();
 
         document.getElementById('manualSaveFoodBtn').addEventListener('click', function () {
           openMealSaveFoodBox();
