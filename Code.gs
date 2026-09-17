@@ -21,7 +21,14 @@
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
 var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100'];
-var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order', 'groupId'];
+var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order', 'groupId', 'pairId'];
+// 【本次新增】Logs 新增了 pairId 欄位：「兩人均分」這一餐時，同一樣食材拆成
+// A、B 兩筆紀錄，這兩筆會共用同一個 pairId，代表「這兩筆是同一份、均分出來
+// 的一對」。前端靠這個欄位做到：其中一方刪除這筆時，另一方那一半也會自動
+// 一起刪除；其中一方編輯這筆內容（名稱／克數／熱量等）時，另一方那一半也
+// 會自動同步改成一樣的內容（身份 person 不會互相覆蓋）。舊試算表沒有這欄
+// 時 ensureHeaders() 會自動補上；讀取舊資料時 pairId 是空的就當作沒有配對
+// （維持原本各自獨立的行為）。
 // 【v9 新增】Logs 新增了 order 欄位，用來記錄「今日紀錄」使用者手動拖移排序後的順序
 // （單純一個數字，同一天、同一身份的紀錄依這個數字由小到大顯示）。舊試算表沒有這欄時
 // ensureHeaders() 會自動補上；讀取舊資料時 order 欄位若是空的，前端會用時間排序當作預設值。
@@ -32,7 +39,7 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v18-remove-ai-features';
+var APP_BACKEND_VERSION = 'v19-pair-id-for-split-meals';
 // 【v18】移除「AI 估算營養」與「拍照／上傳營養標示辨識」這兩個功能：因為
 // 兩者都需要另外設定 Gemini API 金鑰且經常無法成功運作，故整個拿掉，
 // 包含前端對應的輸入欄位、按鈕與這裡的 recognizeNutritionLabel／
@@ -525,6 +532,10 @@ function readLogs() {
     if (groupIdRaw !== '' && groupIdRaw !== undefined && groupIdRaw !== null) {
       logObj.groupId = String(groupIdRaw);
     }
+    var pairIdRaw = map.hasOwnProperty('pairId') ? r[map['pairId']] : '';
+    if (pairIdRaw !== '' && pairIdRaw !== undefined && pairIdRaw !== null) {
+      logObj.pairId = String(pairIdRaw);
+    }
     logs.push(logObj);
   }
   return logs;
@@ -665,7 +676,8 @@ function addLog(payload) {
     sugar: Number(sugarVal) || 0,
     cal: Number(payload.cal) || 0,
     order: payload.order != null ? Number(payload.order) : '',
-    groupId: payload.groupId ? String(payload.groupId) : ''
+    groupId: payload.groupId ? String(payload.groupId) : '',
+    pairId: payload.pairId ? String(payload.pairId) : ''
   });
   SpreadsheetApp.flush();
   return { success: true, id: id };
@@ -700,8 +712,18 @@ function updateLog(payload) {
         }
         sheet.getRange(rowNum, map['groupId'] + 1).setValue(payload.groupId || '');
       }
+      if (payload.pairId !== undefined) {
+        if (!map.hasOwnProperty('pairId')) {
+          var newPairCol = sheet.getLastColumn() + 1;
+          sheet.getRange(1, newPairCol).setValue('pairId');
+          map['pairId'] = newPairCol - 1;
+        }
+        sheet.getRange(rowNum, map['pairId'] + 1).setValue(payload.pairId || '');
+      }
       if (payload.date !== undefined) sheet.getRange(rowNum, map['date'] + 1).setValue(payload.date);
       if (payload.person !== undefined) sheet.getRange(rowNum, map['person'] + 1).setValue(payload.person || 'A');
+      if (payload.foodId !== undefined) sheet.getRange(rowNum, map['foodId'] + 1).setValue(payload.foodId || '');
+      if (payload.unit !== undefined) sheet.getRange(rowNum, map['unit'] + 1).setValue(payload.unit ? String(payload.unit) : 'g');
       if (payload.foodName !== undefined) sheet.getRange(rowNum, map['foodName'] + 1).setValue(payload.foodName);
       if (payload.grams !== undefined) sheet.getRange(rowNum, map['grams'] + 1).setValue(payload.grams == null ? '' : payload.grams);
       if (payload.protein !== undefined) sheet.getRange(rowNum, map['protein'] + 1).setValue(Number(payload.protein) || 0);

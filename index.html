@@ -669,6 +669,18 @@
       background: var(--protein-tint);
     }
 
+    /* 需求 1：所有數字輸入欄位都不要顯示上下增減按鈕（滾輪增減也會被 JS 擋掉，見 disableNumberInputSpinners） */
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input[type=number] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
     input:focus {
       outline: 2px solid var(--protein);
       outline-offset: 1px;
@@ -1994,6 +2006,10 @@
           <div class="sheet-body">
             <p class="hint" style="margin:0 0 10px;">面板會固定在畫面下方，選其他食材時不用捲動找它；每一項都可以自由切換「輸入份數」或「輸入克數」，兩邊會自動互相換算——例如半份就填
               0.5、三份就填 3。</p>
+            <div class="field" id="batchPersonFieldWrap" style="margin-bottom:10px;">
+              <label>這一餐算誰的</label>
+              <select id="batchPersonSelect"></select>
+            </div>
             <div class="dual-person-box" id="dualPersonBox">
               <label class="dual-toggle">
                 <input type="checkbox" id="dualPersonToggle">
@@ -2031,6 +2047,10 @@
         </div>
         <div class="sheet-body">
           <p class="hint" style="margin:0 0 10px;">食材庫裡找不到的品項可以直接輸入熱量／蛋白質／脂肪／糖；一餐有好幾樣手動輸入的東西時，先逐項按「加入清單」，最後按「加入紀錄」會自動合併成一餐一起計算。</p>
+          <div class="field" id="manualPersonFieldWrap" style="margin-bottom:10px;">
+            <label>這一餐算誰的</label>
+            <select id="manualPersonSelect"></select>
+          </div>
           <div class="dual-person-box" id="manualDualPersonBox">
             <label class="dual-toggle">
               <input type="checkbox" id="manualDualPersonToggle">
@@ -2501,6 +2521,13 @@
         dualPerson: false,
         dualMode: 'even',
         manualDualPerson: false,
+
+        // 需求 3：「新增這一餐」時可以選擇這一餐算誰的（不用先跳去切換身份頁面）。
+        // 預設是目前頁面的身份（例如在 150 的頁面就預設 150），但可以直接改選
+        // 另一個人，這一筆／這一批紀錄就會直接記在選到的那個人身上。
+        // null 代表「還沒特別選過，跟著目前頁面身份走」。
+        batchPerson: null,
+        manualPerson: null,
 
         // 「刪掉的東西又跑回來」的真正原因：這個 App 本機會快取一份食材／紀錄
         // 清單，如果某台裝置或某個分頁在刪除當下沒有同步到（例如離線、或
@@ -4178,6 +4205,36 @@
         renderBatchList();
       }
 
+      // 需求 3：「這一餐算誰的」單選欄位。跟「同時記錄給兩人」是不同功能：
+      // 這裡只是單純選一個人（預設是目前頁面身份），選別人的話這一餐就直接
+      // 記到別人身上，不用先跳頁切換身份。只有兩個身份都存在時才需要顯示；
+      // 勾了「同時記錄給兩人」之後這個欄位就沒意義了，暫時隱藏。
+      function personSelectOptionsHtml(selectedKey) {
+        return PROFILE_ORDER.map(function (k) {
+          return '<option value="' + k + '"' + (k === selectedKey ? ' selected' : '') + '>' + escapeHtml(PROFILES[k].name) + '</option>';
+        }).join('');
+      }
+
+      function renderBatchPersonSelect() {
+        var wrap = document.getElementById('batchPersonFieldWrap');
+        var sel = document.getElementById('batchPersonSelect');
+        if (!wrap || !sel) return;
+        if (!canDualPerson()) { wrap.style.display = 'none'; return; }
+        wrap.style.display = state.dualPerson ? 'none' : 'flex';
+        var current = state.batchPerson || activeProfile();
+        sel.innerHTML = personSelectOptionsHtml(current);
+      }
+
+      function renderManualPersonSelect() {
+        var wrap = document.getElementById('manualPersonFieldWrap');
+        var sel = document.getElementById('manualPersonSelect');
+        if (!wrap || !sel) return;
+        if (!canDualPerson()) { wrap.style.display = 'none'; return; }
+        wrap.style.display = state.manualDualPerson ? 'none' : 'flex';
+        var current = state.manualPerson || activeProfile();
+        sel.innerHTML = personSelectOptionsHtml(current);
+      }
+
       function renderDualPersonBox() {
         var box = document.getElementById('dualPersonBox');
         if (!box) return;
@@ -4229,6 +4286,7 @@
         if (countEl) countEl.textContent = state.batch.length;
         if (toggleBtn) toggleBtn.textContent = state.pickerSheetCollapsed ? '展開 ▴' : '收合 ▾';
         renderDualPersonBox();
+        renderBatchPersonSelect();
         var dual = canDualPerson() && state.dualPerson;
         var dualMode = state.dualMode;
         var pA = dual ? PROFILES[activeProfile()].name : '';
@@ -4430,20 +4488,45 @@
         }
       }
 
+      // 需求 2：如果這筆紀錄有 pairId（代表是「兩人均分」拆出來的一對紀錄之一），
+      // 把另一半（同一個 pairId、不同 id）也一起找出來，兩筆一起刪除／一起改。
+      function findPairedLogIds(ids) {
+        var idSet = {};
+        ids.forEach(function (id) { idSet[id] = true; });
+        var pairIds = {};
+        ids.forEach(function (id) {
+          var log = state.logs.find(function (l) { return l.id === id; });
+          if (log && log.pairId) pairIds[log.pairId] = true;
+        });
+        if (!Object.keys(pairIds).length) return ids.slice();
+        var result = ids.slice();
+        state.logs.forEach(function (l) {
+          if (l.pairId && pairIds[l.pairId] && !idSet[l.id]) {
+            idSet[l.id] = true;
+            result.push(l.id);
+          }
+        });
+        return result;
+      }
+
       async function deleteLog(id) {
-        state.logs = state.logs.filter(function (l) { return l.id !== id; });
-        await markLogsDeleted([id]);
+        var ids = findPairedLogIds([id]);
+        state.logs = state.logs.filter(function (l) { return ids.indexOf(l.id) === -1; });
+        await markLogsDeleted(ids);
         await persistLogsAndRender();
 
         if (hasSheet()) {
-          sheetPost('deleteLog', { id: id }).catch(function (e) {
-            setSheetStatus('刪除紀錄時同步失敗：' + e.message, 'err');
+          ids.forEach(function (delId) {
+            sheetPost('deleteLog', { id: delId }).catch(function (e) {
+              setSheetStatus('刪除紀錄時同步失敗：' + e.message, 'err');
+            });
           });
         }
       }
 
       async function deleteLogsBatch(ids) {
         if (!ids.length) return;
+        ids = findPairedLogIds(ids);
         var idSet = {};
         ids.forEach(function (id) { idSet[id] = true; });
         state.logs = state.logs.filter(function (l) { return !idSet[l.id]; });
@@ -4581,6 +4664,10 @@
           var confirmMsg = '切換到「' + PROFILES[k].name + '」（' + PROFILES[k].desc + '）？\n將改為顯示這個身份的今日目標與紀錄。';
           if (!window.confirm(confirmMsg)) return;
           state.settings.profile = k;
+          // 需求 3：切換頁面身份後，「這一餐算誰的」預設值要跟著換成新頁面的身份，
+          // 不然使用者會覺得選單卡在舊身份、卻要多按一次才會改過來。
+          state.batchPerson = null;
+          state.manualPerson = null;
           await saveLocalSettings();
           renderAll();
         });
@@ -4661,6 +4748,15 @@
           state.dualMode = btn.getAttribute('data-dual-mode');
           renderBatchList();
         });
+
+        // 需求 3：「這一餐算誰的」單選欄位，選了別人這一餐就直接記到那個人身上，
+        // 不用先跳頁切換身份。
+        var batchPersonSelect = document.getElementById('batchPersonSelect');
+        if (batchPersonSelect) {
+          batchPersonSelect.addEventListener('change', function (e) {
+            state.batchPerson = e.target.value || activeProfile();
+          });
+        }
 
         document.getElementById('batchList').addEventListener('input', function (e) {
           var gramsBInput = e.target.closest('[data-batch-grams-b]');
@@ -4787,6 +4883,10 @@
                 gA = it.grams;
                 gB = (it.gramsB !== undefined && it.gramsB !== null) ? it.gramsB : it.grams;
               }
+              // 需求 2：只有「兩人均分」才把 A、B 這兩筆記錄用 pairId 綁在一起，
+              // 之後其中一方刪除／更改時，另一方也會同步刪除／更改。
+              // 「各自不同份量」模式下兩人本來就各自獨立輸入份量，不綁定。
+              var pairId = (dualMode === 'even' && gA && gA > 0 && gB && gB > 0) ? uid('p') : null;
               if (gA && gA > 0) {
                 var mA = computeMacros(food, gA);
                 var entryA = {
@@ -4794,6 +4894,7 @@
                   protein: mA.protein, fat: mA.fat, sugar: mA.sugar, cal: mA.cal, person: personA
                 };
                 if (groupIdA) entryA.groupId = groupIdA;
+                if (pairId) entryA.pairId = pairId;
                 await addLog(entryA);
               }
               if (gB && gB > 0) {
@@ -4803,6 +4904,7 @@
                   protein: mB.protein, fat: mB.fat, sugar: mB.sugar, cal: mB.cal, person: personB
                 };
                 if (groupIdB) entryB.groupId = groupIdB;
+                if (pairId) entryB.pairId = pairId;
                 await addLog(entryB);
               }
             }
@@ -4812,6 +4914,8 @@
 
           // 一次選了兩樣以上食材時，這批一起送出的紀錄共用一個 groupId，
           // 「今日紀錄」會把它們自動包成一張「這一餐」卡片方便看加總。
+          // 需求 3：這一餐算誰的，預設目前頁面身份，也可以直接選另一個人。
+          var singlePerson = canDualPerson() ? (state.batchPerson || activeProfile()) : null;
           var groupId = items.length > 1 ? uid('m') : null;
           for (var i2 = 0; i2 < items.length; i2++) {
             var food2 = state.foods.find(function (f) { return f.id === items[i2].foodId; });
@@ -4821,6 +4925,7 @@
               type: 'selected', foodId: food2.id, foodName: food2.name, grams: items[i2].grams, unit: food2.unit || 'g',
               protein: m2.protein, fat: m2.fat, sugar: m2.sugar, cal: m2.cal
             };
+            if (singlePerson) entry2.person = singlePerson;
             if (groupId) entry2.groupId = groupId;
             await addLog(entry2);
           }
@@ -4851,6 +4956,7 @@
       // 顯示目前已加入清單、還沒送出的手動品項，讓使用者可以一次輸入多樣品項
       // 再合併成一餐（跟食材庫「新增這一餐」的批次清單邏輯相同）。
       function renderManualBatchList() {
+        renderManualPersonSelect();
         var el = document.getElementById('manualBatchList');
         if (!el) return;
         if (!state.manualBatch.length) { el.innerHTML = ''; refreshGoalPreview(); return; }
@@ -4884,6 +4990,7 @@
         closeMealGroupEdit();
         closeMealSaveFoodBox();
         document.getElementById('manualAddBox').style.display = 'flex';
+        renderManualPersonSelect();
         refreshGoalPreview();
       }
 
@@ -4909,8 +5016,19 @@
           manualDualToggle.checked = !!state.manualDualPerson;
           manualDualToggle.addEventListener('change', function (e) {
             state.manualDualPerson = !!e.target.checked;
-            // 勾選/取消勾選後「這一餐合計」要照新的分人方式立即重算。
+            // 勾選/取消勾選後「這一餐合計」要照新的分人方式立即重算，
+            // 「這一餐算誰的」單選欄位也要跟著顯示/隱藏。
+            renderManualPersonSelect();
             refreshGoalPreview();
+          });
+        }
+
+        // 需求 3：「這一餐算誰的」單選欄位，選了別人這一餐就直接記到那個人身上，
+        // 不用先跳頁切換身份。
+        var manualPersonSelect = document.getElementById('manualPersonSelect');
+        if (manualPersonSelect) {
+          manualPersonSelect.addEventListener('change', function (e) {
+            state.manualPerson = e.target.value || activeProfile();
           });
         }
 
@@ -4970,10 +5088,13 @@
                 sugar: round1(itD.sugar / 2), cal: Math.round(itD.cal / 2),
                 grams: (itD.grams != null) ? round1(itD.grams / 2) : null
               };
-              var entryA = { type: 'manual', foodId: null, foodName: itD.name, grams: half.grams, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personA };
+              // 需求 2：手動輸入的兩人均分永遠是對半分，兩筆用 pairId 綁在一起，
+              // 之後其中一方刪除／更改時，另一方也會同步刪除／更改。
+              var pairId = uid('p');
+              var entryA = { type: 'manual', foodId: null, foodName: itD.name, grams: half.grams, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personA, pairId: pairId };
               if (groupIdA) entryA.groupId = groupIdA;
               await addLog(entryA);
-              var entryB = { type: 'manual', foodId: null, foodName: itD.name, grams: half.grams, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personB };
+              var entryB = { type: 'manual', foodId: null, foodName: itD.name, grams: half.grams, protein: half.protein, fat: half.fat, sugar: half.sugar, cal: half.cal, person: personB, pairId: pairId };
               if (groupIdB) entryB.groupId = groupIdB;
               await addLog(entryB);
             }
@@ -4981,9 +5102,12 @@
           }
 
           var groupId = items.length > 1 ? uid('m') : null;
+          // 需求 3：這一餐算誰的，預設目前頁面身份，也可以直接選另一個人。
+          var singlePerson = canDualPerson() ? (state.manualPerson || activeProfile()) : null;
           for (var i = 0; i < items.length; i++) {
             var it = items[i];
             var entry = { type: 'manual', foodId: null, foodName: it.name, grams: (it.grams != null ? it.grams : null), protein: it.protein, fat: it.fat, sugar: it.sugar, cal: it.cal };
+            if (singlePerson) entry.person = singlePerson;
             if (groupId) entry.groupId = groupId;
             await addLog(entry);
           }
@@ -5439,6 +5563,23 @@
             log.cal = isNaN(c) ? 0 : Math.round(c);
           }
 
+          // 需求 2：如果這筆是「兩人均分」拆出來的一對紀錄之一（有 pairId），
+          // 另一半也要跟著一起改（內容、克數、營養素、日期都同步，
+          // 但「身份」維持各自原本的 A／B，不會被對方蓋掉）。
+          var pairedLog = log.pairId ? state.logs.find(function (l) { return l.pairId === log.pairId && l.id !== log.id; }) : null;
+          if (pairedLog) {
+            pairedLog.date = log.date;
+            pairedLog.foodName = log.foodName;
+            pairedLog.foodId = log.foodId;
+            pairedLog.unit = log.unit;
+            pairedLog.grams = log.grams;
+            pairedLog.protein = log.protein;
+            pairedLog.fat = log.fat;
+            pairedLog.sugar = log.sugar;
+            pairedLog.cal = log.cal;
+            delete pairedLog.carb;
+          }
+
           clearLogEditForm();
           await persistLogsAndRender();
 
@@ -5446,6 +5587,11 @@
             sheetPost('updateLog', log).catch(function (e) {
               setSheetStatus('更新紀錄同步失敗：' + e.message, 'err');
             });
+            if (pairedLog) {
+              sheetPost('updateLog', pairedLog).catch(function (e) {
+                setSheetStatus('更新均分紀錄同步失敗：' + e.message, 'err');
+              });
+            }
           }
         });
       }
@@ -5866,9 +6012,23 @@
         });
       }
 
+      // 需求 1：數字輸入欄位在聚焦時，滑鼠滾輪不應該拿來增減數值（否則使用者
+      // 滑動頁面滑過欄位時很容易不小心改到數字）。用 document 層級的事件代理，
+      // 這樣即使是之後動態產生出來的 <input type="number">（例如今日紀錄、批次
+      // 新增這一餐等由 JS 產生的欄位）也一樣會被擋到，不用每個地方個別加。
+      function disableNumberInputSpinners() {
+        document.addEventListener('wheel', function (e) {
+          var el = document.activeElement;
+          if (el && el.tagName === 'INPUT' && el.type === 'number') {
+            el.blur();
+          }
+        }, { passive: true });
+      }
+
       // ---------- init ----------
       async function init() {
         await loadLocal();
+        disableNumberInputSpinners();
         wireCollapsibles();
         wireDateNav();
         wireProfileTabs();
