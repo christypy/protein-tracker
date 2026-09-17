@@ -182,6 +182,178 @@
       margin-top: 0;
     }
 
+    .date-label {
+      cursor: pointer;
+      border-radius: 8px;
+      padding: 2px 6px;
+    }
+
+    .date-label:hover {
+      background: var(--protein-tint);
+    }
+
+    .cal-open-btn {
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 999px;
+      width: 28px;
+      height: 28px;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--ink);
+      flex: none;
+    }
+
+    .cal-open-btn:hover {
+      background: var(--protein-tint);
+      border-color: var(--protein);
+    }
+
+    /* ---- 日曆快速選日期：點日期文字或 📅 按鈕，跳出月曆選日期，
+       不用一天一天按 ‹ › 慢慢翻。有紀錄的那天下面會有一個小圓點。 ---- */
+    .calendar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(43, 38, 33, 0.35);
+      z-index: 60;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 64px 16px 16px;
+    }
+
+    .calendar-overlay.open {
+      display: flex;
+    }
+
+    .calendar-popup {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+      width: 100%;
+      max-width: 340px;
+      padding: 14px;
+    }
+
+    .calendar-popup-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+
+    .cal-month-label {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+      flex: 1;
+      text-align: center;
+    }
+
+    .calendar-nav-btn {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: 999px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      color: var(--ink);
+      font-size: 14px;
+      flex: none;
+    }
+
+    .calendar-nav-btn:hover {
+      background: var(--protein-tint);
+      border-color: var(--protein);
+    }
+
+    .calendar-close-btn {
+      border: none;
+      background: transparent;
+      color: var(--ink-soft);
+      font-size: 13px;
+      cursor: pointer;
+      padding: 4px 6px;
+    }
+
+    .calendar-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-size: 11px;
+      color: var(--ink-soft);
+      margin-bottom: 4px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .calendar-day {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-family: var(--font-num);
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--ink);
+      border: 1px solid transparent;
+    }
+
+    .calendar-day:hover {
+      background: var(--protein-tint);
+    }
+
+    .calendar-day.other-month {
+      color: var(--ink-soft);
+      opacity: .35;
+      cursor: default;
+    }
+
+    .calendar-day.other-month:hover {
+      background: none;
+    }
+
+    .calendar-day.today {
+      border-color: var(--protein);
+      font-weight: 700;
+    }
+
+    .calendar-day.selected {
+      background: var(--protein);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .calendar-day .cal-dot {
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--fat);
+    }
+
+    .calendar-day.selected .cal-dot {
+      background: #fff;
+    }
+
+    .calendar-popup-footer {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
     /* ---- Profile tabs（A／B 身份切換）：改成不佔版面的懸浮按鈕，固定貼在畫面
        右側，捲動、開啟任何底部面板時都還在，但完全不擠壓 topbar 或內容高度。 ---- */
     .profile-tabs {
@@ -1914,8 +2086,9 @@
         <h1 class="topbar-title">蛋白質日記</h1>
         <div class="date-nav">
           <button id="prevDay" aria-label="前一天">‹</button>
-          <div class="date-label" id="dateLabel">今天<small id="dateSub"></small></div>
+          <div class="date-label" id="dateLabel" title="點一下打開日曆選日期">今天<small id="dateSub"></small></div>
           <button id="nextDay" aria-label="後一天">›</button>
+          <button type="button" class="cal-open-btn" id="calendarOpenBtn" title="日曆選日期" aria-label="日曆選日期">📅</button>
         </div>
         <div class="sync-dot" id="syncDot" title="點擊查看同步設定"><span class="dot"></span><span id="syncLabel">本機儲存</span>
         </div>
@@ -1932,6 +2105,26 @@
         <button type="button" class="sync-float-btn" id="jumpAddMealBtn" title="新增這一餐">🍽️</button>
         <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="新增食材">➕</button>
         <button type="button" class="sync-float-btn" id="jumpSettingsBtn" title="跳到資料同步設定">⚙️</button>
+      </div>
+    </div>
+
+    <!-- 日曆選日期：點頂端日期文字或 📅 按鈕打開，一次看整個月，點哪天就直接
+         跳到那天，不用一天一天按 ‹ › 慢慢翻。有紀錄的那天下面會有一個小圓點。 -->
+    <div class="calendar-overlay" id="calendarOverlay">
+      <div class="calendar-popup">
+        <div class="calendar-popup-head">
+          <button type="button" class="calendar-nav-btn" id="calPrevMonth" aria-label="上個月">‹</button>
+          <span class="cal-month-label" id="calMonthLabel"></span>
+          <button type="button" class="calendar-nav-btn" id="calNextMonth" aria-label="下個月">›</button>
+          <button type="button" class="calendar-close-btn" id="calCloseBtn">✕</button>
+        </div>
+        <div class="calendar-weekdays">
+          <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="calendar-popup-footer">
+          <button type="button" class="btn btn-ghost" id="calTodayBtn">回到今天</button>
+        </div>
       </div>
     </div>
 
@@ -2497,6 +2690,7 @@
         manualBatch: [],
         pickerSheetCollapsed: false,
         currentDate: fmtDate(new Date()),
+        calendarMonth: null,
         snackMultiMode: false,
         snackMultiSelected: [],
         foodCategoryFilter: '',
@@ -4358,6 +4552,8 @@
         renderFoodTable();
         renderPickerList();
         renderSnackNow();
+        var calOverlay = document.getElementById('calendarOverlay');
+        if (calOverlay && calOverlay.classList.contains('open')) renderCalendarPopup();
       }
 
       // ---------- mutations ----------
@@ -4661,6 +4857,110 @@
           d.setDate(d.getDate() + 1);
           state.currentDate = fmtDate(d);
           renderAll();
+        });
+      }
+
+      // ---------- 日曆選日期 ----------
+      // state.calendarMonth 是目前月曆打開時顯示的月份（'YYYY-MM'），跟
+      // state.currentDate（真正選到、今日紀錄在看哪一天）分開管理，這樣
+      // 使用者在月曆裡翻到別的月份瀏覽時，畫面上的紀錄不會被誤觸跟著亂跳，
+      // 只有真的點下某一天才會切換 state.currentDate。
+      function pad2(n) { return String(n).padStart(2, '0'); }
+
+      function daysInMonth(year, monthIndex0) {
+        return new Date(year, monthIndex0 + 1, 0).getDate();
+      }
+
+      function openCalendar() {
+        var d = new Date(state.currentDate + 'T00:00:00');
+        state.calendarMonth = d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+        renderCalendarPopup();
+        document.getElementById('calendarOverlay').classList.add('open');
+      }
+
+      function closeCalendar() {
+        document.getElementById('calendarOverlay').classList.remove('open');
+      }
+
+      function shiftCalendarMonth(delta) {
+        var parts = (state.calendarMonth || state.currentDate.slice(0, 7)).split('-');
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+        d.setMonth(d.getMonth() + delta);
+        state.calendarMonth = d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+        renderCalendarPopup();
+      }
+
+      // 畫出目前 state.calendarMonth 那個月的月曆格子。跟今日紀錄一樣，只看
+      // 「目前身份」有紀錄的日子，在格子下面點一個小圓點，方便一眼看出
+      // 這個月哪幾天已經記過、哪幾天還沒記。
+      function renderCalendarPopup() {
+        var grid = document.getElementById('calendarGrid');
+        var label = document.getElementById('calMonthLabel');
+        if (!grid || !label) return;
+
+        var parts = (state.calendarMonth || state.currentDate.slice(0, 7)).split('-');
+        var year = Number(parts[0]), monthIndex = Number(parts[1]) - 1;
+        label.textContent = year + ' 年 ' + (monthIndex + 1) + ' 月';
+
+        var p = activeProfile();
+        var datesWithLogs = {};
+        state.logs.forEach(function (l) {
+          if ((l.person || 'A') === p && l.date) datesWithLogs[l.date] = true;
+        });
+
+        var firstWeekday = new Date(year, monthIndex, 1).getDay(); // 0=週日
+        var totalDays = daysInMonth(year, monthIndex);
+        var prevMonthTotalDays = daysInMonth(monthIndex === 0 ? year - 1 : year, monthIndex === 0 ? 11 : monthIndex - 1);
+
+        var cells = [];
+        for (var i = 0; i < firstWeekday; i++) {
+          cells.push({ day: prevMonthTotalDays - firstWeekday + 1 + i, otherMonth: true });
+        }
+        for (var d = 1; d <= totalDays; d++) {
+          cells.push({ day: d, otherMonth: false, dateStr: year + '-' + pad2(monthIndex + 1) + '-' + pad2(d) });
+        }
+        var nextDay = 1;
+        while (cells.length % 7 !== 0) {
+          cells.push({ day: nextDay++, otherMonth: true });
+        }
+
+        var todayStrVal = todayStr();
+        grid.innerHTML = cells.map(function (c) {
+          if (c.otherMonth) {
+            return '<div class="calendar-day other-month">' + c.day + '</div>';
+          }
+          var isToday = c.dateStr === todayStrVal;
+          var isSelected = c.dateStr === state.currentDate;
+          var hasLog = !!datesWithLogs[c.dateStr];
+          return '<div class="calendar-day' + (isToday ? ' today' : '') + (isSelected ? ' selected' : '') +
+            '" data-cal-day="' + c.dateStr + '">' + c.day + (hasLog ? '<span class="cal-dot"></span>' : '') + '</div>';
+        }).join('');
+      }
+
+      function wireCalendarPopup() {
+        document.getElementById('calendarOpenBtn').addEventListener('click', function (e) {
+          e.stopPropagation();
+          openCalendar();
+        });
+        document.getElementById('dateLabel').addEventListener('click', openCalendar);
+        document.getElementById('calPrevMonth').addEventListener('click', function () { shiftCalendarMonth(-1); });
+        document.getElementById('calNextMonth').addEventListener('click', function () { shiftCalendarMonth(1); });
+        document.getElementById('calCloseBtn').addEventListener('click', closeCalendar);
+        document.getElementById('calTodayBtn').addEventListener('click', function () {
+          state.currentDate = todayStr();
+          closeCalendar();
+          renderAll();
+        });
+        document.getElementById('calendarGrid').addEventListener('click', function (e) {
+          var cell = e.target.closest('[data-cal-day]');
+          if (!cell) return;
+          state.currentDate = cell.getAttribute('data-cal-day');
+          closeCalendar();
+          renderAll();
+        });
+        // 點半透明背景（彈窗以外的地方）等同取消。
+        document.getElementById('calendarOverlay').addEventListener('click', function (e) {
+          if (e.target.id === 'calendarOverlay') closeCalendar();
         });
       }
 
@@ -6040,6 +6340,7 @@
         disableNumberInputSpinners();
         wireCollapsibles();
         wireDateNav();
+        wireCalendarPopup();
         wireProfileTabs();
         wireGoalsBox();
         wirePicker();
