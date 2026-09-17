@@ -4421,11 +4421,20 @@
         await persistFoodsAndRender();
 
         if (hasSheet()) {
-          sheetPost('updateFood', food).then(function () {
-            setSheetStatus('食材修改已同步到試算表' + (syncedCount ? '，並更新了 ' + syncedCount + ' 筆使用這項食材的紀錄。' : '。'), 'ok');
+          sheetPost('updateFood', food).then(function (res) {
+            // 後端也會自己重新算一次歷史紀錄（就算前端這裡的 syncLogsWithFood
+            // 因為網路問題漏掉幾筆，試算表那邊還是會是正確的），優先顯示後端
+            // 實際回報的筆數，沒有的話才退回顯示前端這裡算出來的筆數。
+            var count = (res && typeof res.recalculatedLogCount === 'number') ? res.recalculatedLogCount : syncedCount;
+            setSheetStatus('食材修改已同步到試算表' + (count ? '，並更新了 ' + count + ' 筆使用這項食材的歷史紀錄。' : '。'), 'ok');
           }).catch(function (e) {
             setSheetStatus('更新食材同步失敗：' + e.message + '（已保留本機資料）', 'err');
           });
+        } else if (syncedCount) {
+          // 純本機模式沒有試算表可以同步，但還是要讓使用者知道「過去用過這項
+          // 食材的紀錄」已經照新的熱量／蛋白質／脂肪／糖重新算過了，不用自己
+          // 一筆一筆去手動改。
+          setSheetStatus('食材已更新，並重新計算了 ' + syncedCount + ' 筆用過這項食材的歷史紀錄。', 'ok');
         }
       }
 

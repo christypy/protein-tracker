@@ -39,7 +39,7 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v19-pair-id-for-split-meals';
+var APP_BACKEND_VERSION = 'v20-recalc-logs-on-food-edit';
 // 【v18】移除「AI 估算營養」與「拍照／上傳營養標示辨識」這兩個功能：因為
 // 兩者都需要另外設定 Gemini API 金鑰且經常無法成功運作，故整個拿掉，
 // 包含前端對應的輸入欄位、按鈕與這裡的 recognizeNutritionLabel／
@@ -614,11 +614,74 @@ function updateFood(payload) {
       sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
       sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);
       sheet.getRange(rowNum, map['cal100'] + 1).setValue(Number(payload.cal100) || 0);
+      // 【本次新增】食材的熱量／蛋白質／脂肪／糖被修改後，試算表這邊也直接把
+      // 「過去用過這項食材」的所有 Logs 紀錄（不限日期）重新算一次，不依賴
+      // 前端一定要成功把每一筆 updateLog 都送回來——就算前端網路中斷、
+      // 只同步到一半，試算表自己這邊的資料仍然會是正確、一致的。
+      var recalced = recalcLogsForFood(payload.id, Number(payload.base) || 100, {
+        protein100: Number(payload.protein100) || 0,
+        fat100: Number(payload.fat100) || 0,
+        sugar100: Number(sugarVal) || 0,
+        cal100: Number(payload.cal100) || 0
+      });
       SpreadsheetApp.flush();
-      return { success: true };
+      return { success: true, recalculatedLogCount: recalced };
     }
   }
   return { error: 'food not found' };
+}
+
+// 【本次新增】食材的每 100（或每一份）營養素被改掉之後，把 Logs 分頁裡所有
+// 「foodId 等於這個食材」且有填克數（grams）的紀錄，依新的營養素 × 克數比例
+// 重新算一次 protein／fat／sugar／cal 並寫回去。沒有 foodId（手動輸入、或
+// 食材本身已被刪除後留下的舊紀錄快照）、或沒有克數可以換算的紀錄不受影響，
+// 維持原樣。回傳實際被改到的列數。
+function recalcLogsForFood(foodId, base, per100) {
+  var targetId = String(foodId == null ? '' : foodId).trim();
+  if (!targetId) return 0;
+  var baseVal = Number(base) > 0 ? Number(base) : 100;
+  var sheet = getLogsSheet();
+  var map = headerIndexMap(sheet);
+  if (!map.hasOwnProperty('foodId') || !map.hasOwnProperty('grams')) return 0;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
+  var data = range.getValues();
+  var changed = 0;
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var rowFoodId = String(row[map['foodId']] == null ? '' : row[map['foodId']]).trim();
+    if (rowFoodId !== targetId) continue;
+    var gramsRaw = row[map['grams']];
+    if (gramsRaw === '' || gramsRaw === null || gramsRaw === undefined) continue;
+    var grams = Number(gramsRaw);
+    if (!grams || grams <= 0) continue;
+    var ratio = grams / baseVal;
+    var newProtein = round1(per100.protein100 * ratio);
+    var newFat = round1(per100.fat100 * ratio);
+    var newSugar = round1(per100.sugar100 * ratio);
+    var newCal = round1(per100.cal100 * ratio);
+    var curProtein = map.hasOwnProperty('protein') ? round1(Number(row[map['protein']]) || 0) : null;
+    var curFat = map.hasOwnProperty('fat') ? round1(Number(row[map['fat']]) || 0) : null;
+    var curSugar = map.hasOwnProperty('sugar') ? round1(Number(row[map['sugar']]) || 0) : null;
+    var curCal = map.hasOwnProperty('cal') ? round1(Number(row[map['cal']]) || 0) : null;
+    if (curProtein === newProtein && curFat === newFat && curSugar === newSugar && curCal === newCal) continue;
+    if (map.hasOwnProperty('protein')) data[i][map['protein']] = newProtein;
+    if (map.hasOwnProperty('fat')) data[i][map['fat']] = newFat;
+    if (map.hasOwnProperty('sugar')) data[i][map['sugar']] = newSugar;
+    if (map.hasOwnProperty('cal')) data[i][map['cal']] = newCal;
+    changed++;
+  }
+  if (changed > 0) {
+    range.setValues(data);
+  }
+  return changed;
+}
+
+// 四捨五入到小數點後一位，跟前端 round1() 的行為一致，避免浮點數誤差讓
+// 「有沒有變」的比較一直判斷成有變、白白多寫入。
+function round1(n) {
+  return Math.round((Number(n) || 0) * 10) / 10;
 }
 
 // 【修復】以前這裡比對到「第一筆」符合的 id 就刪除、馬上 return，如果同一個
