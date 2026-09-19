@@ -2073,6 +2073,493 @@
       font-size: 11px;
       margin-top: 24px;
     }
+    /* =====================================================================
+       運動紀錄（Workout）
+       沿用整個 App 的紙張／卡片語彙；只多一組石板灰藍（--wk）當「運動」的
+       識別色，跟飲食的蛋白質綠、脂肪橘、糖藍、熱量紫分開；力竭的那一組用
+       脂肪橘標出來，因為它是整份紀錄裡最需要一眼看到的例外。
+       ===================================================================== */
+    :root {
+      --wk: #46566B;
+      --wk-tint: #E8ECF1;
+      --wk-warn: #9A6620;
+    }
+
+    #secWorkout {
+      scroll-margin-top: 130px;
+    }
+
+    .wk-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px 10px;
+    }
+
+    .wk-toolbar .tool-btn {
+      margin-left: auto;
+    }
+
+    .wk-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 14px;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .wk-summary b {
+      font-family: var(--font-num);
+      font-size: 15px;
+      color: var(--ink);
+      margin-right: 2px;
+    }
+
+    .wk-part-block {
+      margin-top: 16px;
+    }
+
+    .wk-part-block:first-child {
+      margin-top: 10px;
+    }
+
+    .wk-part-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 0;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--wk);
+      font-family: var(--font-display);
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--wk);
+    }
+
+    .wk-part-head small {
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-soft);
+    }
+
+    .log-swipe>.log-item.wk-item,
+    .log-item.wk-item {
+      display: block;
+      padding: 11px 0 12px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .wk-list .log-swipe:last-child>.log-item.wk-item {
+      border-bottom: none;
+    }
+
+    .wk-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 3px 8px;
+    }
+
+    .wk-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .wk-load {
+      font-family: var(--font-num);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--wk);
+      background: var(--wk-tint);
+      border-radius: 999px;
+      padding: 1px 9px;
+      white-space: nowrap;
+    }
+
+    .wk-load.bw {
+      color: var(--ink-soft);
+      background: var(--paper);
+      font-family: var(--font-body);
+      font-weight: 500;
+    }
+
+    .wk-sets {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      row-gap: 5px;
+      margin-top: 8px;
+    }
+
+    .wk-pip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 26px;
+      padding: 0 6px;
+      border-radius: 8px;
+      background: var(--wk-tint);
+      color: var(--wk);
+      font-family: var(--font-num);
+      font-size: 12.5px;
+      font-weight: 700;
+    }
+
+    .wk-pip.fail {
+      background: var(--fat-tint);
+      color: var(--wk-warn);
+      box-shadow: inset 0 0 0 1.5px var(--fat);
+    }
+
+    .wk-gap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 26px;
+      width: 9px;
+    }
+
+    .wk-gap::before {
+      content: '';
+      width: 5px;
+      height: 2px;
+      border-radius: 1px;
+      background: var(--line);
+    }
+
+    .wk-gap.long {
+      width: auto;
+      gap: 3px;
+      padding: 0 4px;
+      font-family: var(--font-num);
+      font-size: 10.5px;
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+
+    .wk-gap.long::before,
+    .wk-gap.long::after {
+      content: '';
+      width: 4px;
+      height: 2px;
+      border-radius: 1px;
+      background: var(--line);
+    }
+
+    .wk-meta {
+      margin-top: 7px;
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+    }
+
+    .wk-meta .warn {
+      color: var(--wk-warn);
+      font-weight: 700;
+    }
+
+    .wk-note {
+      margin-top: 6px;
+      padding: 5px 9px;
+      border-radius: 8px;
+      background: var(--paper);
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--ink);
+    }
+
+    /* ---- 新增／編輯運動的固定面板 ---- */
+    #workoutEditBox,
+    #workoutCopyBox {
+      z-index: 61;
+    }
+
+    .wk-block {
+      margin-top: 14px;
+    }
+
+    .wk-block>label,
+    .wk-label {
+      display: block;
+      margin: 0 0 6px;
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+
+    .wk-saved-note {
+      margin: 0 0 10px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: var(--protein-tint);
+      color: var(--protein-dark);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .wk-saved-note.err {
+      background: #F6E3DD;
+      color: var(--danger);
+    }
+
+    .wk-name-chips {
+      margin-top: 8px;
+    }
+
+    .wk-name-chips .chip {
+      padding: 5px 11px;
+      font-size: 12px;
+    }
+
+    .wk-last-hint {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: var(--wk-tint);
+      color: var(--wk);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .wk-last-hint b {
+      font-family: var(--font-num);
+    }
+
+    .wk-last-hint button {
+      flex: none;
+      margin-left: auto;
+      border: none;
+      border-radius: 999px;
+      background: var(--wk);
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 12px;
+      cursor: pointer;
+    }
+
+    .wk-stepper {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    .wk-stepper button {
+      flex: none;
+      width: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .wk-stepper button:active {
+      background: var(--wk-tint);
+    }
+
+    .wk-stepper input {
+      min-width: 0;
+      text-align: center;
+      font-family: var(--font-num);
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .wk-weight-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .wk-weight-row .field {
+      flex: 1 1 170px;
+    }
+
+    .wk-weight-row .qty-mode-chips {
+      margin: 0 0 4px;
+    }
+
+    .wk-rest-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .wk-rest-row .chip {
+      padding: 6px 11px;
+    }
+
+    .wk-rest-custom {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .wk-rest-custom input {
+      width: 66px;
+      padding: 6px 8px;
+      text-align: center;
+      font-family: var(--font-num);
+    }
+
+    .wk-sets-box {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+    }
+
+    .wk-set-grid {
+      display: grid;
+      grid-template-columns: 46px 1fr 62px 1.25fr;
+      gap: 7px 6px;
+      align-items: center;
+    }
+
+    .wk-set-grid .wk-set-h {
+      font-size: 10.5px;
+      color: var(--ink-soft);
+    }
+
+    .wk-set-grid .wk-set-no {
+      font-family: var(--font-num);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--wk);
+    }
+
+    .wk-set-grid input,
+    .wk-set-grid select {
+      padding: 7px 8px;
+      font-size: 13px;
+      background: var(--card);
+    }
+
+    .wk-set-grid input {
+      text-align: center;
+      font-family: var(--font-num);
+    }
+
+    .wk-set-grid .wk-set-rest-none {
+      font-size: 11px;
+      color: var(--ink-soft);
+      text-align: center;
+    }
+
+    .wk-fail-btn {
+      font-family: var(--font-body);
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 7px 0;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink-soft);
+      cursor: pointer;
+    }
+
+    .wk-fail-btn.active {
+      background: var(--fat);
+      border-color: var(--fat);
+      color: #fff;
+    }
+
+    .wk-set-grid .is-changed {
+      border-color: var(--wk);
+      box-shadow: inset 0 0 0 1px var(--wk);
+    }
+
+    .wk-preview {
+      margin-top: 14px;
+      padding: 10px 12px 11px;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+    }
+
+    .wk-preview .wk-sets {
+      margin-top: 6px;
+    }
+
+    .wk-preview .wk-meta {
+      margin-top: 6px;
+    }
+
+    .wk-footer-left {
+      margin-right: auto;
+    }
+
+    .btn-ghost.wk-del-btn {
+      color: var(--danger);
+    }
+
+    .wk-copy-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .wk-copy-item:last-child {
+      border-bottom: none;
+    }
+
+    .wk-copy-item:hover .wk-copy-date {
+      color: var(--protein-dark);
+    }
+
+    .wk-copy-date {
+      flex: none;
+      width: 78px;
+      font-family: var(--font-num);
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+
+    .wk-copy-date small {
+      display: block;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-soft);
+    }
+
+    .wk-copy-main {
+      flex: 1;
+      min-width: 0;
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+
+    .wk-copy-main .sub {
+      color: var(--ink-soft);
+      font-size: 11.5px;
+    }
+
+    @media (max-width: 420px) {
+      .wk-set-grid {
+        grid-template-columns: 40px 1fr 56px 1.3fr;
+      }
+    }
+
   </style>
 </head>
 
@@ -2097,12 +2584,13 @@
         <button type="button" class="sync-float-btn" id="syncFloatBtn" title="立即重新同步" style="display:none;">⟳</button>
         <div id="profileTabs" style="display:contents;"></div>
       </div>
-      <!-- 【本次新增】固定在畫面右下角的懸浮按鈕：三顆由上到下分別是「新增這一
-           餐」（直接打開手動輸入這一餐面板）、「新增食材」（直接打開新增食材
-           面板）、「跳到資料同步設定」，不管目前捲到哪裡都能直接用，不用先找到
+      <!-- 【本次新增】固定在畫面右下角的懸浮按鈕：四顆由上到下分別是「新增這一
+           餐」（直接打開手動輸入這一餐面板）、「新增運動紀錄」（直接打開運動
+           面板）、「新增食材」（直接打開新增食材面板）、「跳到資料同步設定」，不管目前捲到哪裡都能直接用，不用先找到
            對應的卡片。 -->
       <div class="bottom-jump-col" id="bottomJumpCol">
         <button type="button" class="sync-float-btn" id="jumpAddMealBtn" title="新增這一餐">🍽️</button>
+        <button type="button" class="sync-float-btn" id="jumpWorkoutBtn" title="新增運動紀錄">🏋️</button>
         <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="新增食材">➕</button>
         <button type="button" class="sync-float-btn" id="jumpSettingsBtn" title="跳到資料同步設定">⚙️</button>
       </div>
@@ -2416,6 +2904,132 @@
             <button class="btn btn-primary" id="geSaveBtn">儲存修改（整餐）</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 3.5 運動紀錄：記錄今天練了什麼（部位、動作、重量、次數、組數、組間休息），
+         某一組力竭、休息比較久或次數不同，可以在「逐組調整」裡個別標出來。
+         新增／編輯都是固定貼在畫面下方的面板（workoutEditBox），跟飲食的操作方式一致。 -->
+    <div class="section" id="secWorkout">
+      <div class="section-head" data-toggle="secWorkout">
+        <h2>🏋️ 運動紀錄</h2>
+        <button type="button" class="btn btn-primary head-btn" id="wkOpenBtn">＋ 新增運動</button>
+        <span class="chev">▾</span>
+      </div>
+      <div class="section-body">
+        <p class="hint">點一下動作可以編輯，向左滑可以刪除。訓練量＝重量 × 次數（每手重量以兩手計，自體重量不計）。</p>
+        <div class="wk-toolbar">
+          <div class="wk-summary" id="wkSummary"></div>
+          <button type="button" class="tool-btn" id="wkCopyOpenBtn">複製過去的訓練</button>
+        </div>
+        <div class="wk-list" id="wkList"></div>
+      </div>
+    </div>
+
+    <!-- 新增／編輯運動 -->
+    <div class="food-detail" id="workoutEditBox" style="display:none;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title" id="wkSheetTitle">新增運動</span>
+        <button type="button" class="sheet-toggle" id="wkCloseBtn">✕ 關閉</button>
+      </div>
+      <div class="sheet-body">
+        <div class="wk-saved-note" id="wkSavedNote" style="display:none;"></div>
+
+        <div class="row">
+          <div class="field"><label>日期</label><input type="date" id="wkDate"></div>
+        </div>
+
+        <div class="wk-block">
+          <label>部位</label>
+          <div class="chip-scroll" id="wkPartChips"></div>
+          <div class="chip-new-row" id="wkPartNewRow" style="display:none;">
+            <input type="text" id="wkPartNewInput" placeholder="輸入新部位，例如：小腿">
+            <button type="button" class="btn btn-ghost" id="wkPartNewConfirm">加入</button>
+          </div>
+        </div>
+
+        <div class="wk-block">
+          <label for="wkName">動作名稱</label>
+          <input type="text" id="wkName" placeholder="例如：啞鈴胸推" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <div class="chip-scroll wk-name-chips" id="wkNameChips"></div>
+          <div class="wk-last-hint" id="wkLastHint" style="display:none;"></div>
+        </div>
+
+        <div class="wk-block wk-weight-row">
+          <div class="field">
+            <label>重量 (kg，自體重量請留空)</label>
+            <div class="wk-stepper">
+              <button type="button" data-wk-step="weight" data-dir="-1" aria-label="重量減少">−</button>
+              <input type="number" id="wkWeight" min="0" step="any" inputmode="decimal" placeholder="自重">
+              <button type="button" data-wk-step="weight" data-dir="1" aria-label="重量增加">＋</button>
+            </div>
+          </div>
+          <div class="qty-mode-chips" id="wkWeightModeChips">
+            <button type="button" class="qty-mode-btn" data-wk-mode="perHand">每手</button>
+            <button type="button" class="qty-mode-btn active" data-wk-mode="total">總重</button>
+          </div>
+        </div>
+
+        <div class="wk-block row">
+          <div class="field">
+            <label>每組次數</label>
+            <div class="wk-stepper">
+              <button type="button" data-wk-step="reps" data-dir="-1" aria-label="次數減少">−</button>
+              <input type="number" id="wkReps" min="1" step="1" inputmode="numeric">
+              <button type="button" data-wk-step="reps" data-dir="1" aria-label="次數增加">＋</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>組數</label>
+            <div class="wk-stepper">
+              <button type="button" data-wk-step="sets" data-dir="-1" aria-label="組數減少">−</button>
+              <input type="number" id="wkSets" min="1" max="30" step="1" inputmode="numeric">
+              <button type="button" data-wk-step="sets" data-dir="1" aria-label="組數增加">＋</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="wk-block">
+          <label>組間休息</label>
+          <div class="wk-rest-row">
+            <div class="chip-scroll" id="wkRestChips"></div>
+            <span class="wk-rest-custom">自訂 <input type="number" id="wkRest" min="0" step="5" inputmode="numeric"> 秒</span>
+          </div>
+        </div>
+
+        <div class="wk-block">
+          <span class="toggle-manual" id="wkSetsToggle" style="margin:0;">逐組調整（力竭、次數或休息不同）＋</span>
+          <div class="wk-sets-box" id="wkSetsBox" style="display:none;"></div>
+        </div>
+
+        <div class="wk-block">
+          <label for="wkNote">備註（選填）</label>
+          <input type="text" id="wkNote" placeholder="例如：每組最後幾下肩部抬升代償" autocomplete="off">
+          <div class="chip-scroll wk-name-chips" id="wkNoteChips"></div>
+        </div>
+
+        <div class="wk-preview" id="wkPreview"></div>
+      </div>
+      <div class="sheet-footer">
+        <div class="btn-row">
+          <button type="button" class="btn btn-ghost wk-del-btn wk-footer-left" id="wkDeleteBtn" style="display:none;">刪除</button>
+          <button type="button" class="btn btn-ghost" id="wkSaveNextBtn">儲存並繼續新增</button>
+          <button type="button" class="btn btn-primary" id="wkSaveBtn">儲存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 複製過去的訓練：選一天，把那天所有動作帶到目前看的這一天 -->
+    <div class="food-detail" id="workoutCopyBox" style="display:none;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">複製過去的訓練</span>
+        <button type="button" class="sheet-toggle" id="wkCopyCloseBtn">✕ 關閉</button>
+      </div>
+      <div class="sheet-body" style="padding-bottom:16px;">
+        <p class="hint" style="margin:0 0 6px;">選一天，把那天的動作複製到 <b id="wkCopyTarget"></b>。重量、次數、組數、休息都會一起帶過來，之後可以再逐項修改。</p>
+        <div id="wkCopyList"></div>
       </div>
     </div>
 
@@ -2733,7 +3347,11 @@
         // 同步、合併資料時一律把這些 id 排除在外，不管試算表或其他裝置的
         // 舊快取裡還有沒有，都不會再被誤判成「待補傳」而復活。
         deletedFoodIds: [],
-        deletedLogIds: []
+        deletedLogIds: [],
+
+        // 運動紀錄（見下方「運動紀錄」區塊）與它自己的 tombstone。
+        workouts: [],
+        deletedWorkoutIds: []
       };
 
       function defaultGoalsSet() {
@@ -2836,6 +3454,14 @@
           var dli = await storeGetRaw('deletedLogIds');
           state.deletedLogIds = dli ? JSON.parse(dli) : [];
         } catch (e) { state.deletedLogIds = []; }
+        try {
+          var wk = await storeGetRaw('workouts');
+          state.workouts = wk ? JSON.parse(wk).map(normalizeWorkout) : [];
+        } catch (e) { state.workouts = []; }
+        try {
+          var dwi = await storeGetRaw('deletedWorkoutIds');
+          state.deletedWorkoutIds = dwi ? JSON.parse(dwi) : [];
+        } catch (e) { state.deletedWorkoutIds = []; }
       }
       async function saveLocalFoods() { await storeSetRaw('foods', JSON.stringify(state.foods)); }
       async function saveLocalLogs() { await storeSetRaw('logs', JSON.stringify(state.logs)); }
@@ -2911,8 +3537,9 @@
       // 把「本機有、試算表沒有」的資料重新送一次。addFood 這邊試算表會沿用原本的 id
       // （不會重複新增食材本身），addLog 的部分試算表固定會產生新的 id，成功後把本機
       // 那筆的 id 換成試算表回傳的 id，避免下次又被誤判成「還沒同步」。
-      async function resyncPending(pendingFoods, pendingLogs) {
-        var results = { foodsOk: 0, foodsFail: 0, logsOk: 0, logsFail: 0 };
+      async function resyncPending(pendingFoods, pendingLogs, pendingWorkouts) {
+        pendingWorkouts = pendingWorkouts || [];
+        var results = { foodsOk: 0, foodsFail: 0, logsOk: 0, logsFail: 0, workoutsOk: 0, workoutsFail: 0 };
         for (var i = 0; i < pendingFoods.length; i++) {
           try { await sheetPost('addFood', Object.assign({}, pendingFoods[i])); results.foodsOk++; }
           catch (e) { results.foodsFail++; }
@@ -2924,6 +3551,11 @@
             if (res && res.id && res.id !== l.id) { l.id = res.id; }
             results.logsOk++;
           } catch (e) { results.logsFail++; }
+        }
+        // 運動紀錄：id 由前端決定、後端 upsert，重送多少次都不會在試算表生出重複列。
+        for (var k = 0; k < pendingWorkouts.length; k++) {
+          try { await sheetPost('addWorkout', Object.assign({}, pendingWorkouts[k])); results.workoutsOk++; }
+          catch (e) { results.workoutsFail++; }
         }
         if (results.foodsOk || results.logsOk) {
           await saveLocalFoods();
@@ -2956,23 +3588,36 @@
             pushDeletedIds(state.deletedLogIds, data.deletedLogIds);
             await storeSetRaw('deletedLogIds', JSON.stringify(state.deletedLogIds));
           }
+          // 舊版 Code.gs 的 getData 沒有 workouts：這時不能把本機所有運動紀錄都當成
+          // 「試算表還沒有」而一直補傳（後端不認得只會全部失敗），所以整段跳過，
+          // 等後端更新後才開始同步；下面會提醒使用者去更新。
+          var backendHasWorkouts = Array.isArray(data.workouts);
+          if (backendHasWorkouts && data.deletedWorkoutIds && data.deletedWorkoutIds.length) {
+            pushDeletedIds(state.deletedWorkoutIds, data.deletedWorkoutIds);
+            await storeSetRaw('deletedWorkoutIds', JSON.stringify(state.deletedWorkoutIds));
+          }
 
           var pendingFoods = findUnsynced(data.foods, state.foods, state.deletedFoodIds);
           var pendingLogs = findUnsynced(data.logs, state.logs, state.deletedLogIds);
+          var pendingWorkouts = backendHasWorkouts ? findUnsynced(data.workouts, state.workouts, state.deletedWorkoutIds) : [];
 
           state.foods = mergeById(data.foods, state.foods, state.deletedFoodIds);
           migrateFoodCategories();
           state.logs = mergeById(data.logs, state.logs, state.deletedLogIds);
+          if (backendHasWorkouts) {
+            state.workouts = mergeById(data.workouts, state.workouts, state.deletedWorkoutIds).map(normalizeWorkout);
+            await saveLocalWorkouts();
+          }
           await saveLocalFoods();
           await saveLocalLogs();
 
-          var pendingCount = pendingFoods.length + pendingLogs.length;
+          var pendingCount = pendingFoods.length + pendingLogs.length + pendingWorkouts.length;
           if (pendingCount > 0) {
             dot.className = 'sync-dot syncing';
             label.textContent = '補傳 ' + pendingCount + ' 筆待同步…';
             if (showStatus) setSheetStatus('偵測到 ' + pendingCount + ' 筆本機資料還沒進試算表，正在補傳…', '');
-            var results = await resyncPending(pendingFoods, pendingLogs);
-            var stillFailed = results.foodsFail + results.logsFail;
+            var results = await resyncPending(pendingFoods, pendingLogs, pendingWorkouts);
+            var stillFailed = results.foodsFail + results.logsFail + results.workoutsFail;
             if (stillFailed > 0) {
               dot.className = 'sync-dot warn';
               label.textContent = '尚有 ' + stillFailed + ' 筆待同步';
@@ -2986,6 +3631,11 @@
             dot.className = 'sync-dot on';
             label.textContent = '已連線試算表';
             if (showStatus) setSheetStatus('連線成功，已載入試算表資料，本機資料也都已同步。', 'ok');
+          }
+          if (!backendHasWorkouts && state.workouts.length) {
+            dot.className = 'sync-dot warn';
+            label.textContent = '後端待更新';
+            setSheetStatus('運動紀錄目前只存在這台裝置：後端 Code.gs 還不是最新版，請貼上新版並重新部署後，再按「立即重新同步」。', 'err');
           }
           return true;
         } catch (e) {
@@ -3439,6 +4089,7 @@
         renderMealSaveFoodCategoryChips();
         updateMealSaveFoodPreview();
         closeManualSheet();
+        closeWorkoutSheets();
         document.getElementById('mealSaveFoodBox').style.display = 'flex';
       }
 
@@ -4549,6 +5200,7 @@
         renderDateNav();
         renderHero();
         renderLogList();
+        renderWorkoutList();
         renderFoodTable();
         renderPickerList();
         renderSnackNow();
@@ -4768,6 +5420,7 @@
         closeManualSheet();
         clearLogEditForm();
         closeMealGroupEdit();
+        closeWorkoutSheets();
         document.getElementById('foodAddBox').style.display = 'flex';
       }
 
@@ -5298,6 +5951,7 @@
         if (logEditBox) logEditBox.style.display = 'none';
         closeMealGroupEdit();
         closeMealSaveFoodBox();
+        closeWorkoutSheets();
         document.getElementById('manualAddBox').style.display = 'flex';
         renderManualPersonSelect();
         refreshGoalPreview();
@@ -5738,6 +6392,7 @@
         }
         closeManualSheet();
         closeMealGroupEdit();
+        closeWorkoutSheets();
         document.getElementById('logEditBox').style.display = 'flex';
       }
 
@@ -5769,6 +6424,7 @@
         document.getElementById('gePerson').value = items[0].person || 'A';
         clearLogEditForm();
         closeManualSheet();
+        closeWorkoutSheets();
         document.getElementById('groupEditBox').style.display = 'flex';
       }
 
@@ -5910,6 +6566,7 @@
       function loadFoodIntoEditSheet(food) {
         closeFoodAddSheet();
         closeManualSheet();
+        closeWorkoutSheets();
         state.editingFoodId = food.id;
         document.getElementById('feName').value = food.name || '';
         document.getElementById('feBase').value = foodBaseGrams(food);
@@ -6334,6 +6991,919 @@
         }, { passive: true });
       }
 
+      // =====================================================================
+      // 運動紀錄（Workout）
+      // 一筆紀錄＝某一天的某一個動作：
+      //   { id, person, date, time, order, part, name,
+      //     weight（kg，null＝自體重量）, weightMode（'perHand' 每手／'total' 總重）,
+      //     reps（每組次數）, sets（組數）, rest（預設組間休息，秒）,
+      //     overrides（跟預設不一樣的那幾組）, note }
+      // overrides 例：{ "3": { rest: 120 }, "5": { reps: 15, failure: true } }
+      //   ＝第 3 組做完休息 120 秒；第 5 組做 15 下且力竭。
+      // 存取方式跟飲食紀錄一樣：先存本機，有設定試算表再背景同步（Workouts 分頁）。
+      // =====================================================================
+      var WK_PARTS = ['胸', '肩', '背', '二頭', '三頭', '腿', '臀', '核心'];
+      var WK_PRESETS = {
+        '胸': ['伏地挺身', '啞鈴胸推', '彈力繩胸推', '臥推'],
+        '肩': ['肩推', '平舉'],
+        '背': ['划船', '下拉'],
+        '二頭': ['二頭彎舉'],
+        '三頭': ['三頭彎舉', '三頭屈伸'],
+        '腿': ['深蹲', '弓步'],
+        '臀': ['臀橋'],
+        '核心': ['平板支撐', '捲腹']
+      };
+      var WK_REST_CHOICES = [30, 45, 60, 90, 120, 180];
+      var WK_SET_REST_CHOICES = [30, 45, 60, 90, 120, 150, 180, 300];
+      var WK_NOTE_CHIPS = ['有代償', '姿勢跑掉', '偏輕鬆', '偏吃力'];
+      var WK_MAX_SETS = 30;
+
+      var wkForm = null;
+      var wkPartNewOpen = false;
+      var wkLastPart = '';
+
+      // ---------- 資料整理 ----------
+      function normalizeWorkout(w) {
+        if (!w) return w;
+        w.person = w.person || 'A';
+        var wt = (w.weight === '' || w.weight === null || w.weight === undefined) ? NaN : Number(w.weight);
+        w.weight = (isNaN(wt) || wt <= 0) ? null : wt;
+        w.weightMode = w.weightMode === 'perHand' ? 'perHand' : 'total';
+        w.reps = Math.max(1, Math.round(Number(w.reps)) || 1);
+        w.sets = Math.min(WK_MAX_SETS, Math.max(1, Math.round(Number(w.sets)) || 1));
+        var rest = (w.rest === '' || w.rest === null || w.rest === undefined) ? NaN : Number(w.rest);
+        w.rest = (isNaN(rest) || rest < 0) ? 60 : Math.round(rest);
+        var ov = w.overrides;
+        if (typeof ov === 'string') { try { ov = JSON.parse(ov); } catch (e) { ov = {}; } }
+        if (!ov || typeof ov !== 'object' || Array.isArray(ov)) ov = {};
+        w.overrides = ov;
+        w.part = w.part ? String(w.part) : '其他';
+        w.name = w.name ? String(w.name) : '';
+        w.note = w.note ? String(w.note) : '';
+        return w;
+      }
+
+      function wkFmtRest(sec) {
+        sec = Math.round(Number(sec) || 0);
+        if (sec < 60) return sec + '秒';
+        var m = Math.floor(sec / 60), r = sec % 60;
+        return r ? (m + '分' + r + '秒') : (m + '分');
+      }
+      function wkFmtNum(n) { return String(Math.round(Number(n) * 100) / 100); }
+      function wkDateObj(dateStr) { return new Date(dateStr + 'T00:00:00'); }
+      function wkFmtDateShort(dateStr) { var d = wkDateObj(dateStr); return (d.getMonth() + 1) + '/' + d.getDate(); }
+      function wkFmtWeekday(dateStr) { return '週' + WEEKDAY_SHORT[wkDateObj(dateStr).getDay()]; }
+      function wkByOrder(a, b) {
+        return (Number(a.order) || 0) - (Number(b.order) || 0) || (a.time || '').localeCompare(b.time || '');
+      }
+
+      // 展開成「每一組」的實際內容：次數、是否力竭、做完後休息幾秒（最後一組沒有）。
+      function wkSetList(w) {
+        var out = [];
+        for (var i = 1; i <= w.sets; i++) {
+          var ov = (w.overrides && w.overrides[String(i)]) || {};
+          var repsOv = Number(ov.reps) > 0 ? Number(ov.reps) : null;
+          var restOv = (ov.rest !== undefined && ov.rest !== null && ov.rest !== '' && Number(ov.rest) >= 0) ? Number(ov.rest) : null;
+          out.push({
+            n: i,
+            reps: repsOv || w.reps,
+            repsChanged: !!repsOv && repsOv !== w.reps,
+            failure: !!ov.failure,
+            rest: i < w.sets ? (restOv !== null ? restOv : w.rest) : null
+          });
+        }
+        return out;
+      }
+
+      function wkStats(list) {
+        var stats = { exercises: list.length, sets: 0, reps: 0, volume: 0 };
+        list.forEach(function (w) {
+          wkSetList(w).forEach(function (s) {
+            stats.sets++;
+            stats.reps += s.reps;
+            if (w.weight) stats.volume += w.weight * (w.weightMode === 'perHand' ? 2 : 1) * s.reps;
+          });
+        });
+        return stats;
+      }
+
+      // ---------- 畫面：一筆動作的呈現（列表與面板預覽共用） ----------
+      function wkLoadHtml(w) {
+        if (w.weight == null) return '<span class="wk-load bw">自體重量</span>';
+        return '<span class="wk-load">' + wkFmtNum(w.weight) + ' kg' + (w.weightMode === 'perHand' ? '／手' : '') + '</span>';
+      }
+
+      // 每一組一個小方塊，裡面是那一組的次數；力竭的那組換成橘色；
+      // 組與組之間預設只有一小段連線，休息時間跟預設不同的那一段會標上時間。
+      function wkPipsHtml(w) {
+        var html = '';
+        wkSetList(w).forEach(function (s) {
+          html += '<span class="wk-pip' + (s.failure ? ' fail' : '') + '" title="第' + s.n + '組">' + s.reps + '</span>';
+          if (s.rest !== null) {
+            html += (s.rest !== w.rest)
+              ? '<span class="wk-gap long">' + wkFmtRest(s.rest) + '</span>'
+              : '<span class="wk-gap"></span>';
+          }
+        });
+        return html;
+      }
+
+      function wkMetaHtml(w) {
+        var list = wkSetList(w);
+        var bits = [w.reps + '下 × ' + w.sets + '組'];
+        if (w.sets > 1) {
+          var restTxt = '組間休息 ' + wkFmtRest(w.rest);
+          var byVal = {}, keys = [];
+          list.forEach(function (s) {
+            if (s.rest !== null && s.rest !== w.rest) {
+              var k = String(s.rest);
+              if (!byVal[k]) { byVal[k] = []; keys.push(k); }
+              byVal[k].push(s.n);
+            }
+          });
+          if (keys.length) {
+            restTxt += '（' + keys.map(function (k) {
+              return '第' + byVal[k].map(function (n) { return n + '→' + (n + 1); }).join('、') + '組間 ' + wkFmtRest(Number(k));
+            }).join('；') + '）';
+          }
+          bits.push(restTxt);
+        }
+        var html = bits.map(escapeHtml).join('　');
+        var fails = list.filter(function (s) { return s.failure; });
+        if (fails.length) {
+          html += '　<span class="warn">' + fails.map(function (s) {
+            return '第' + s.n + '組' + (s.repsChanged ? '做到' + s.reps + '下' : '') + '力竭';
+          }).join('、') + '</span>';
+        }
+        return html;
+      }
+
+      function wkBodyHtml(w) {
+        return '<div class="wk-title"><span class="wk-name">' + escapeHtml(w.name || '未命名') + '</span>' + wkLoadHtml(w) + '</div>' +
+          '<div class="wk-sets">' + wkPipsHtml(w) + '</div>' +
+          '<div class="wk-meta">' + wkMetaHtml(w) + '</div>' +
+          (w.note ? '<div class="wk-note">' + escapeHtml(w.note) + '</div>' : '');
+      }
+
+      function wkRowHtml(w) {
+        var id = escapeHtml(w.id);
+        return '<div class="log-swipe" data-swipe-id="' + id + '">' +
+          '<div class="log-swipe-action" data-swipe-delete="' + id + '">刪除</div>' +
+          '<div class="log-item wk-item" data-wk-id="' + id + '">' + wkBodyHtml(w) + '</div>' +
+          '</div>';
+      }
+
+      function workoutsForCurrentDate() {
+        var p = activeProfile();
+        return state.workouts.filter(function (w) {
+          return w.date === state.currentDate && (w.person || 'A') === p;
+        }).sort(wkByOrder);
+      }
+
+      function renderWorkoutList() {
+        var listEl = document.getElementById('wkList');
+        var sumEl = document.getElementById('wkSummary');
+        if (!listEl || !sumEl) return;
+        var items = workoutsForCurrentDate();
+        if (!items.length) {
+          sumEl.innerHTML = '';
+          listEl.innerHTML = '<div class="empty">這天還沒有運動紀錄，按右上角「＋ 新增運動」開始記錄。</div>';
+          return;
+        }
+        var st = wkStats(items);
+        sumEl.innerHTML =
+          '<span><b>' + st.exercises + '</b>個動作</span>' +
+          '<span><b>' + st.sets + '</b>組</span>' +
+          '<span><b>' + st.reps + '</b>下</span>' +
+          (st.volume > 0 ? '<span>訓練量 <b>' + Math.round(st.volume).toLocaleString('en-US') + '</b> kg</span>' : '');
+
+        // 依部位分組，部位的先後順序＝它第一次出現的順序。
+        var partOrder = [], byPart = {};
+        items.forEach(function (w) {
+          var p = w.part || '其他';
+          if (!byPart[p]) { byPart[p] = []; partOrder.push(p); }
+          byPart[p].push(w);
+        });
+        listEl.innerHTML = partOrder.map(function (p) {
+          var g = byPart[p];
+          var gs = wkStats(g);
+          return '<div class="wk-part-block">' +
+            '<div class="wk-part-head">' + escapeHtml(p) + '<small>' + g.length + ' 個動作・' + gs.sets + ' 組</small></div>' +
+            g.map(wkRowHtml).join('') +
+            '</div>';
+        }).join('');
+      }
+
+      // ---------- 資料存取（本機＋背景同步） ----------
+      async function saveLocalWorkouts() { await storeSetRaw('workouts', JSON.stringify(state.workouts)); }
+      async function markWorkoutsDeleted(ids) {
+        pushDeletedIds(state.deletedWorkoutIds, ids);
+        await storeSetRaw('deletedWorkoutIds', JSON.stringify(state.deletedWorkoutIds));
+      }
+      async function persistWorkoutsAndRender() {
+        await saveLocalWorkouts();
+        renderAll();
+      }
+
+      // 舊版 Code.gs 不認得運動紀錄的動作時，要明確告訴使用者去更新後端，
+      // 而不是默默失敗（資料仍然安全地留在本機）。
+      function wkSyncFail(e, what) {
+        var msg = (e && e.message) ? e.message : String(e);
+        var dot = document.getElementById('syncDot');
+        var label = document.getElementById('syncLabel');
+        if (/unknown action/i.test(msg)) {
+          if (dot) dot.className = 'sync-dot warn';
+          if (label) label.textContent = '後端待更新';
+          setSheetStatus('運動紀錄目前只存在這台裝置：後端 Code.gs 還不是最新版，請貼上新版並重新部署後，再按「立即重新同步」。', 'err');
+        } else {
+          setSheetStatus(what + '同步失敗：' + msg + '（已保留在本機）', 'err');
+        }
+      }
+
+      async function addWorkouts(list) {
+        list.forEach(function (w) { normalizeWorkout(w); state.workouts.push(w); });
+        await persistWorkoutsAndRender();
+        if (hasSheet()) {
+          list.forEach(function (w) {
+            sheetPost('addWorkout', Object.assign({}, w)).catch(function (e) { wkSyncFail(e, '新增運動紀錄'); });
+          });
+        }
+      }
+
+      async function updateWorkout(w) {
+        normalizeWorkout(w);
+        var idx = state.workouts.findIndex(function (x) { return x.id === w.id; });
+        if (idx !== -1) state.workouts[idx] = w; else state.workouts.push(w);
+        await persistWorkoutsAndRender();
+        if (hasSheet()) {
+          sheetPost('updateWorkout', Object.assign({}, w)).catch(function (e) { wkSyncFail(e, '更新運動紀錄'); });
+        }
+      }
+
+      async function deleteWorkout(id) {
+        state.workouts = state.workouts.filter(function (w) { return w.id !== id; });
+        await markWorkoutsDeleted([id]);
+        await persistWorkoutsAndRender();
+        if (hasSheet()) {
+          sheetPost('deleteWorkout', { id: id }).catch(function (e) { wkSyncFail(e, '刪除運動紀錄'); });
+        }
+      }
+
+      // ---------- 新增／編輯面板 ----------
+      function wkNewForm() {
+        return {
+          editingId: null, person: activeProfile(), date: state.currentDate,
+          part: wkLastPart, name: '', weight: null, weightMode: 'total',
+          reps: 12, sets: 4, rest: 60, overrides: {}, note: '', setsOpen: false,
+          time: null, order: null
+        };
+      }
+
+      function wkFormFromWorkout(w) {
+        var ov = JSON.parse(JSON.stringify(w.overrides || {}));
+        return {
+          editingId: w.id, person: w.person || 'A', date: w.date || state.currentDate,
+          part: w.part || '', name: w.name || '', weight: w.weight, weightMode: w.weightMode || 'total',
+          reps: w.reps, sets: w.sets, rest: w.rest, overrides: ov, note: w.note || '',
+          setsOpen: Object.keys(ov).length > 0, time: w.time, order: w.order
+        };
+      }
+
+      // 把面板上目前填的內容整理成一筆乾淨的紀錄；只保留「跟預設不一樣」的逐組調整。
+      function wkFormToWorkout() {
+        var f = wkForm;
+        var name = (f.name || '').trim();
+        var reps = Math.round(Number(f.reps) || 0);
+        var sets = Math.round(Number(f.sets) || 0);
+        var err = '';
+        if (!name) err = '請輸入動作名稱';
+        else if (reps < 1) err = '每組次數至少要 1 下';
+        else if (sets < 1) err = '組數至少要 1 組';
+        reps = Math.max(1, reps);
+        sets = Math.min(WK_MAX_SETS, Math.max(1, sets));
+        var rest = Number(f.rest);
+        rest = (f.rest === '' || f.rest === null || isNaN(rest) || rest < 0) ? 60 : Math.round(rest);
+        var ov = {};
+        for (var i = 1; i <= sets; i++) {
+          var o = f.overrides[String(i)];
+          if (!o) continue;
+          var c = {};
+          if (Number(o.reps) > 0 && Math.round(Number(o.reps)) !== reps) c.reps = Math.round(Number(o.reps));
+          if (o.failure) c.failure = true;
+          if (i < sets && o.rest !== undefined && o.rest !== null && o.rest !== '' && Math.round(Number(o.rest)) !== rest) c.rest = Math.round(Number(o.rest));
+          if (Object.keys(c).length) ov[String(i)] = c;
+        }
+        var weight = (f.weight === null || f.weight === '' || isNaN(Number(f.weight)) || Number(f.weight) <= 0) ? null : Math.round(Number(f.weight) * 100) / 100;
+        return {
+          error: err,
+          w: {
+            person: f.person, date: f.date || state.currentDate,
+            part: (f.part || '').trim() || '其他', name: name,
+            weight: weight, weightMode: f.weightMode === 'perHand' ? 'perHand' : 'total',
+            reps: reps, sets: sets, rest: rest, overrides: ov, note: (f.note || '').trim()
+          }
+        };
+      }
+
+      function wkHistory() {
+        var p = wkForm ? wkForm.person : activeProfile();
+        return state.workouts.filter(function (w) { return (w.person || 'A') === p; }).sort(function (a, b) {
+          return (b.date || '').localeCompare(a.date || '') || (Number(b.order) || 0) - (Number(a.order) || 0);
+        });
+      }
+
+      function wkPartsList() {
+        var list = WK_PARTS.slice();
+        state.workouts.forEach(function (w) { if (w.part && list.indexOf(w.part) === -1) list.push(w.part); });
+        if (wkForm && wkForm.part && list.indexOf(wkForm.part) === -1) list.push(wkForm.part);
+        return list;
+      }
+
+      // 「上次做這個動作」：優先找不晚於面板日期的最近一筆，找不到再退回最近的任何一筆。
+      function wkLastRecord(name) {
+        var key = (name || '').trim();
+        if (!key) return null;
+        var cands = wkHistory().filter(function (w) { return (w.name || '').trim() === key && w.id !== wkForm.editingId; });
+        if (!cands.length) return null;
+        var dated = cands.filter(function (w) { return (w.date || '') <= (wkForm.date || ''); });
+        return (dated[0] || cands[0]);
+      }
+
+      function wkSuggestNames() {
+        var part = wkForm.part;
+        var seen = {}, out = [];
+        function push(name, p) {
+          var k = (name || '').trim();
+          if (!k || seen[k]) return;
+          seen[k] = true;
+          out.push({ name: k, part: p });
+        }
+        wkHistory().forEach(function (w) { if (!part || w.part === part) push(w.name, w.part); });
+        if (part) (WK_PRESETS[part] || []).forEach(function (n) { push(n, part); });
+        // 打字時只留下符合的常用動作；但如果打的字剛好就是其中一個（例如剛點過它、
+        // 或存完準備換下一個動作），就保持完整清單，方便直接改選別的。
+        var q = (wkForm.name || '').trim().toLowerCase();
+        var exact = out.some(function (o) { return o.name.toLowerCase() === q; });
+        if (q && !exact) out = out.filter(function (o) { return o.name.toLowerCase().indexOf(q) > -1; });
+        return out.slice(0, 12);
+      }
+
+      function wkRenderPartChips() {
+        var el = document.getElementById('wkPartChips');
+        el.innerHTML = wkPartsList().map(function (p) {
+          return '<button type="button" class="chip' + (wkForm.part === p ? ' active' : '') + '" data-wk-part="' + escapeHtml(p) + '">' + escapeHtml(p) + '</button>';
+        }).join('') + '<button type="button" class="chip chip-add" data-wk-part-add="1">＋ 自訂</button>';
+        document.getElementById('wkPartNewRow').style.display = wkPartNewOpen ? 'flex' : 'none';
+      }
+
+      function wkRenderNameChips() {
+        var el = document.getElementById('wkNameChips');
+        var cur = (wkForm.name || '').trim();
+        el.innerHTML = wkSuggestNames().map(function (o) {
+          return '<button type="button" class="chip' + (o.name === cur ? ' active' : '') + '" data-wk-name="' + escapeHtml(o.name) + '" data-wk-name-part="' + escapeHtml(o.part || '') + '">' + escapeHtml(o.name) + '</button>';
+        }).join('');
+      }
+
+      function wkFormMatches(last) {
+        var cur = wkFormToWorkout().w;
+        return (cur.weight === last.weight && cur.weightMode === last.weightMode && cur.reps === last.reps &&
+          cur.sets === last.sets && cur.rest === last.rest &&
+          JSON.stringify(cur.overrides) === JSON.stringify(last.overrides || {}));
+      }
+
+      function wkRenderLastHint() {
+        var el = document.getElementById('wkLastHint');
+        var last = wkForm.editingId ? null : wkLastRecord(wkForm.name);
+        if (!last || wkFormMatches(last)) { el.style.display = 'none'; el.innerHTML = ''; return; }
+        var load = last.weight == null ? '自體重量' : (wkFmtNum(last.weight) + ' kg' + (last.weightMode === 'perHand' ? '／手' : ''));
+        el.innerHTML = '<span>上次（' + wkFmtDateShort(last.date) + '）：<b>' + escapeHtml(load) + '・' + last.reps + '下 × ' + last.sets + '組</b></span>' +
+          '<button type="button" data-wk-apply-last="1">帶入</button>';
+        el.style.display = 'flex';
+      }
+
+      function wkApplyLast(last) {
+        wkForm.weight = last.weight;
+        wkForm.weightMode = last.weightMode;
+        wkForm.reps = last.reps;
+        wkForm.sets = last.sets;
+        wkForm.rest = last.rest;
+        wkForm.overrides = JSON.parse(JSON.stringify(last.overrides || {}));
+        wkForm.setsOpen = Object.keys(wkForm.overrides).length > 0;
+        if (!wkForm.part && last.part) wkForm.part = last.part;
+        wkFillInputs();
+        wkRenderAll();
+      }
+
+      function wkRenderModeChips() {
+        document.querySelectorAll('#wkWeightModeChips [data-wk-mode]').forEach(function (b) {
+          b.classList.toggle('active', b.getAttribute('data-wk-mode') === wkForm.weightMode);
+        });
+      }
+
+      function wkRenderRestChips() {
+        var el = document.getElementById('wkRestChips');
+        el.innerHTML = WK_REST_CHOICES.map(function (sec) {
+          return '<button type="button" class="chip' + (Number(wkForm.rest) === sec ? ' active' : '') + '" data-wk-rest="' + sec + '">' + wkFmtRest(sec) + '</button>';
+        }).join('');
+      }
+
+      function wkChangedSetCount() {
+        var sets = Math.min(WK_MAX_SETS, Math.max(0, Math.round(Number(wkForm.sets) || 0)));
+        var n = 0;
+        for (var i = 1; i <= sets; i++) {
+          var o = wkForm.overrides[String(i)];
+          if (o && (o.failure || Number(o.reps) > 0 || (o.rest !== undefined && o.rest !== null && o.rest !== ''))) n++;
+        }
+        return n;
+      }
+
+      function wkRenderSetsToggle() {
+        var n = wkChangedSetCount();
+        document.getElementById('wkSetsToggle').textContent =
+          '逐組調整（' + (n ? '已調整 ' + n + ' 組' : '力竭、次數或休息不同') + '）' + (wkForm.setsOpen ? '－' : '＋');
+      }
+
+      function wkRenderSetsTable() {
+        var box = document.getElementById('wkSetsBox');
+        if (!wkForm.setsOpen) { box.style.display = 'none'; box.innerHTML = ''; return; }
+        var sets = Math.min(WK_MAX_SETS, Math.max(1, Math.round(Number(wkForm.sets) || 1)));
+        var defRest = (isNaN(Number(wkForm.rest)) || wkForm.rest === '' || Number(wkForm.rest) < 0) ? 60 : Number(wkForm.rest);
+        var html = '<div class="wk-set-grid">' +
+          '<span class="wk-set-h">組</span><span class="wk-set-h">次數</span><span class="wk-set-h">力竭</span><span class="wk-set-h">做完後休息</span>';
+        for (var i = 1; i <= sets; i++) {
+          var ov = wkForm.overrides[String(i)] || {};
+          var hasRest = ov.rest !== undefined && ov.rest !== null && ov.rest !== '';
+          html += '<span class="wk-set-no">第' + i + '組</span>' +
+            '<input type="number" class="wk-set-reps' + (Number(ov.reps) > 0 ? ' is-changed' : '') + '" data-set="' + i + '" min="1" step="1" inputmode="numeric" placeholder="' + (wkForm.reps || '') + '" value="' + (Number(ov.reps) > 0 ? ov.reps : '') + '">' +
+            '<button type="button" class="wk-fail-btn' + (ov.failure ? ' active' : '') + '" data-set="' + i + '">力竭</button>';
+          if (i < sets) {
+            var choices = WK_SET_REST_CHOICES.slice();
+            if (hasRest && choices.indexOf(Number(ov.rest)) === -1) { choices.push(Number(ov.rest)); choices.sort(function (a, b) { return a - b; }); }
+            html += '<select class="wk-set-rest' + (hasRest ? ' is-changed' : '') + '" data-set="' + i + '">' +
+              '<option value="">跟預設（' + wkFmtRest(defRest) + '）</option>' +
+              choices.map(function (sec) {
+                return '<option value="' + sec + '"' + (hasRest && Number(ov.rest) === sec ? ' selected' : '') + '>' + wkFmtRest(sec) + '</option>';
+              }).join('') + '</select>';
+          } else {
+            html += '<span class="wk-set-rest-none">—</span>';
+          }
+        }
+        html += '</div><p class="hint" style="margin:9px 0 0;">次數留空＝跟上面一樣。「做完後休息」是這組做完、到下一組開始之間休息多久，例如第 3、4 組之間休息比較久，就在第 3 組選 2 分。</p>';
+        box.innerHTML = html;
+        box.style.display = 'block';
+      }
+
+      function wkRenderNoteChips() {
+        var cur = wkForm.note || '';
+        document.getElementById('wkNoteChips').innerHTML = WK_NOTE_CHIPS.map(function (t) {
+          return '<button type="button" class="chip' + (cur.indexOf(t) > -1 ? ' active' : '') + '" data-wk-note="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+        }).join('');
+      }
+
+      function wkRenderPreview() {
+        var res = wkFormToWorkout();
+        var w = res.w;
+        var el = document.getElementById('wkPreview');
+        if (!w.name) {
+          el.innerHTML = '<div class="wk-label" style="margin:0;">預覽</div><div class="wk-meta" style="margin-top:4px;">填好動作名稱後，這裡會顯示每一組的樣子。</div>';
+          return;
+        }
+        el.innerHTML = '<div class="wk-label" style="margin:0 0 4px;">預覽</div>' + wkBodyHtml(w);
+      }
+
+      // 面板上「跟內容有關的顯示」一次全部刷新（輸入框本身的值不在這裡動，避免打字時游標跳掉）。
+      function wkRenderAll() {
+        wkRenderPartChips();
+        wkRenderNameChips();
+        wkRenderLastHint();
+        wkRenderModeChips();
+        wkRenderRestChips();
+        wkRenderSetsToggle();
+        wkRenderSetsTable();
+        wkRenderNoteChips();
+        wkRenderPreview();
+      }
+
+      function wkFillInputs() {
+        document.getElementById('wkDate').value = wkForm.date || state.currentDate;
+        document.getElementById('wkName').value = wkForm.name || '';
+        document.getElementById('wkWeight').value = wkForm.weight == null ? '' : wkForm.weight;
+        document.getElementById('wkReps').value = wkForm.reps === 0 ? '' : wkForm.reps;
+        document.getElementById('wkSets').value = wkForm.sets === 0 ? '' : wkForm.sets;
+        document.getElementById('wkRest').value = (wkForm.rest === '' || isNaN(Number(wkForm.rest))) ? '' : wkForm.rest;
+        document.getElementById('wkNote').value = wkForm.note || '';
+      }
+
+      function wkShowNote(msg, isErr) {
+        var el = document.getElementById('wkSavedNote');
+        el.textContent = msg;
+        el.classList.toggle('err', !!isErr);
+        el.style.display = msg ? 'block' : 'none';
+      }
+
+      function closeWorkoutSheets() {
+        var a = document.getElementById('workoutEditBox');
+        var b = document.getElementById('workoutCopyBox');
+        if (a) a.style.display = 'none';
+        if (b) b.style.display = 'none';
+      }
+
+      function openWorkoutSheet(w) {
+        closeManualSheet();
+        closeFoodAddSheet();
+        clearFoodEditForm();
+        clearLogEditForm();
+        closeMealGroupEdit();
+        closeMealSaveFoodBox();
+        closeWorkoutSheets();
+        wkForm = w ? wkFormFromWorkout(w) : wkNewForm();
+        wkPartNewOpen = false;
+        document.getElementById('wkPartNewInput').value = '';
+        document.getElementById('wkSheetTitle').textContent = w ? '編輯運動' : '新增運動';
+        document.getElementById('wkDeleteBtn').style.display = w ? '' : 'none';
+        document.getElementById('wkSaveNextBtn').style.display = w ? 'none' : '';
+        document.getElementById('wkSaveBtn').textContent = w ? '儲存修改' : '儲存';
+        wkShowNote('', false);
+        wkFillInputs();
+        wkRenderAll();
+        var box = document.getElementById('workoutEditBox');
+        box.style.display = 'flex';
+        box.querySelector('.sheet-body').scrollTop = 0;
+      }
+
+      function closeWorkoutEditSheet() {
+        document.getElementById('workoutEditBox').style.display = 'none';
+        wkForm = null;
+      }
+
+      async function wkSave(keepOpen) {
+        var res = wkFormToWorkout();
+        if (res.error) {
+          wkShowNote(res.error, true);
+          var box = document.getElementById('workoutEditBox');
+          box.querySelector('.sheet-body').scrollTop = 0;
+          if (!(wkForm.name || '').trim()) document.getElementById('wkName').focus();
+          return;
+        }
+        var w = res.w;
+        wkLastPart = w.part;
+        // 存到別天：直接切到那一天，這樣存完馬上就看得到。
+        state.currentDate = w.date;
+        var isEdit = !!wkForm.editingId;
+        if (isEdit) {
+          var existing = state.workouts.find(function (x) { return x.id === wkForm.editingId; });
+          await updateWorkout(Object.assign({}, existing || {}, w, { id: wkForm.editingId, time: (existing && existing.time) || nowTime(), order: (existing && existing.order) || Date.now() }));
+        } else {
+          w.id = uid('w');
+          w.time = nowTime();
+          w.order = Date.now();
+          await addWorkouts([w]);
+        }
+
+        if (keepOpen && !isEdit) {
+          // 留在面板繼續輸入：部位、動作、重量、次數、組數、休息都保留，方便接著記同一個動作的變化
+          // （例如深蹲「屁股」「大腿」「大腿內側」）；逐組調整與備註清空，因為那是每一筆各自的。
+          wkForm.overrides = {};
+          wkForm.note = '';
+          wkForm.setsOpen = false;
+          wkFillInputs();
+          wkRenderAll();
+          wkShowNote('已加入「' + w.name + '」（' + wkFmtDateShort(w.date) + '），可以繼續新增下一個。', false);
+          var nameEl = document.getElementById('wkName');
+          nameEl.focus();
+          nameEl.select();
+          var body = document.getElementById('workoutEditBox').querySelector('.sheet-body');
+          body.scrollTop = 0;
+          return;
+        }
+        closeWorkoutEditSheet();
+        var sec = document.getElementById('secWorkout');
+        if (sec) {
+          sec.classList.remove('collapsed');
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
+      function wkStep(field, dir) {
+        if (field === 'weight') {
+          var cur = Number(wkForm.weight) || 0;
+          var next = Math.max(0, Math.round((cur + dir) * 100) / 100);
+          wkForm.weight = next > 0 ? next : null;
+          document.getElementById('wkWeight').value = next > 0 ? next : '';
+        } else if (field === 'reps') {
+          wkForm.reps = Math.max(1, (Math.round(Number(wkForm.reps)) || 0) + dir);
+          document.getElementById('wkReps').value = wkForm.reps;
+        } else if (field === 'sets') {
+          wkForm.sets = Math.min(WK_MAX_SETS, Math.max(1, (Math.round(Number(wkForm.sets)) || 0) + dir));
+          document.getElementById('wkSets').value = wkForm.sets;
+        }
+        wkRenderLastHint();
+        wkRenderSetsToggle();
+        wkRenderSetsTable();
+        wkRenderPreview();
+      }
+
+      function wkOv(n) {
+        var k = String(n);
+        if (!wkForm.overrides[k]) wkForm.overrides[k] = {};
+        return wkForm.overrides[k];
+      }
+      function wkOvClean(n) {
+        var k = String(n);
+        var o = wkForm.overrides[k];
+        if (o && !Object.keys(o).length) delete wkForm.overrides[k];
+      }
+
+      function wireWorkoutForm() {
+        var box = document.getElementById('workoutEditBox');
+
+        box.addEventListener('input', function (e) {
+          var t = e.target;
+          if (!wkForm) return;
+          if (t.id === 'wkName') {
+            wkForm.name = t.value;
+            if (!wkForm.part) {
+              var hit = wkHistory().find(function (w) { return (w.name || '').trim() === t.value.trim(); });
+              if (hit && hit.part) { wkForm.part = hit.part; wkRenderPartChips(); }
+            }
+            wkRenderNameChips();
+            wkRenderLastHint();
+            wkRenderPreview();
+          } else if (t.id === 'wkDate') {
+            wkForm.date = t.value;
+            wkRenderLastHint();
+          } else if (t.id === 'wkWeight') {
+            wkForm.weight = t.value === '' ? null : Number(t.value);
+            wkRenderLastHint();
+            wkRenderPreview();
+          } else if (t.id === 'wkReps') {
+            wkForm.reps = parseInt(t.value, 10) || 0;
+            wkRenderLastHint();
+            wkRenderSetsTable();
+            wkRenderPreview();
+          } else if (t.id === 'wkSets') {
+            wkForm.sets = parseInt(t.value, 10) || 0;
+            wkRenderLastHint();
+            wkRenderSetsToggle();
+            wkRenderSetsTable();
+            wkRenderPreview();
+          } else if (t.id === 'wkRest') {
+            wkForm.rest = t.value === '' ? '' : Number(t.value);
+            wkRenderLastHint();
+            wkRenderRestChips();
+            wkRenderSetsTable();
+            wkRenderPreview();
+          } else if (t.id === 'wkNote') {
+            wkForm.note = t.value;
+            wkRenderNoteChips();
+            wkRenderPreview();
+          } else if (t.classList.contains('wk-set-reps')) {
+            var n = t.getAttribute('data-set');
+            var v = parseInt(t.value, 10);
+            if (v > 0) wkOv(n).reps = v; else if (wkForm.overrides[n]) delete wkForm.overrides[n].reps;
+            wkOvClean(n);
+            t.classList.toggle('is-changed', v > 0);
+            wkRenderSetsToggle();
+            wkRenderLastHint();
+            wkRenderPreview();
+          }
+        });
+
+        box.addEventListener('change', function (e) {
+          var t = e.target;
+          if (!wkForm || !t.classList.contains('wk-set-rest')) return;
+          var n = t.getAttribute('data-set');
+          if (t.value === '') { if (wkForm.overrides[n]) delete wkForm.overrides[n].rest; }
+          else wkOv(n).rest = Number(t.value);
+          wkOvClean(n);
+          t.classList.toggle('is-changed', t.value !== '');
+          wkRenderSetsToggle();
+          wkRenderLastHint();
+          wkRenderPreview();
+        });
+
+        box.addEventListener('click', function (e) {
+          if (!wkForm) return;
+          var t = e.target;
+
+          var stepBtn = t.closest('[data-wk-step]');
+          if (stepBtn) { wkStep(stepBtn.getAttribute('data-wk-step'), Number(stepBtn.getAttribute('data-dir'))); return; }
+
+          var modeBtn = t.closest('[data-wk-mode]');
+          if (modeBtn) {
+            wkForm.weightMode = modeBtn.getAttribute('data-wk-mode');
+            wkRenderModeChips(); wkRenderLastHint(); wkRenderPreview();
+            return;
+          }
+
+          var partAdd = t.closest('[data-wk-part-add]');
+          if (partAdd) {
+            wkPartNewOpen = !wkPartNewOpen;
+            document.getElementById('wkPartNewRow').style.display = wkPartNewOpen ? 'flex' : 'none';
+            if (wkPartNewOpen) document.getElementById('wkPartNewInput').focus();
+            return;
+          }
+          var partBtn = t.closest('[data-wk-part]');
+          if (partBtn) {
+            var p = partBtn.getAttribute('data-wk-part');
+            wkForm.part = (wkForm.part === p) ? '' : p;
+            wkRenderPartChips(); wkRenderNameChips(); wkRenderPreview();
+            return;
+          }
+          if (t.id === 'wkPartNewConfirm') {
+            var np = document.getElementById('wkPartNewInput').value.trim();
+            if (np) {
+              wkForm.part = np;
+              wkPartNewOpen = false;
+              document.getElementById('wkPartNewInput').value = '';
+              wkRenderPartChips(); wkRenderNameChips(); wkRenderPreview();
+            }
+            return;
+          }
+
+          var nameBtn = t.closest('[data-wk-name]');
+          if (nameBtn) {
+            var nm = nameBtn.getAttribute('data-wk-name');
+            var np2 = nameBtn.getAttribute('data-wk-name-part');
+            wkForm.name = nm;
+            if (!wkForm.part && np2) wkForm.part = np2;
+            document.getElementById('wkName').value = nm;
+            // 新增時，點選常用動作就順便帶入上次的重量、次數、組數；編輯時只換名稱。
+            var last = wkForm.editingId ? null : wkLastRecord(nm);
+            if (last) { wkApplyLast(last); return; }
+            wkRenderAll();
+            return;
+          }
+
+          if (t.closest('[data-wk-apply-last]')) {
+            var l2 = wkLastRecord(wkForm.name);
+            if (l2) wkApplyLast(l2);
+            return;
+          }
+
+          var restBtn = t.closest('[data-wk-rest]');
+          if (restBtn) {
+            wkForm.rest = Number(restBtn.getAttribute('data-wk-rest'));
+            document.getElementById('wkRest').value = wkForm.rest;
+            wkRenderRestChips(); wkRenderSetsTable(); wkRenderLastHint(); wkRenderPreview();
+            return;
+          }
+
+          if (t.id === 'wkSetsToggle') {
+            wkForm.setsOpen = !wkForm.setsOpen;
+            wkRenderSetsToggle(); wkRenderSetsTable();
+            return;
+          }
+
+          var failBtn = t.closest('.wk-fail-btn');
+          if (failBtn) {
+            var n = failBtn.getAttribute('data-set');
+            var o = wkOv(n);
+            if (o.failure) delete o.failure; else o.failure = true;
+            wkOvClean(n);
+            failBtn.classList.toggle('active', !!(wkForm.overrides[n] && wkForm.overrides[n].failure));
+            wkRenderSetsToggle(); wkRenderLastHint(); wkRenderPreview();
+            return;
+          }
+
+          var noteBtn = t.closest('[data-wk-note]');
+          if (noteBtn) {
+            var txt = noteBtn.getAttribute('data-wk-note');
+            var cur = (wkForm.note || '').trim();
+            if (cur.indexOf(txt) === -1) {
+              wkForm.note = cur ? (cur + '、' + txt) : txt;
+              document.getElementById('wkNote').value = wkForm.note;
+            }
+            wkRenderNoteChips(); wkRenderPreview();
+            return;
+          }
+        });
+
+        document.getElementById('wkSaveBtn').addEventListener('click', function () { wkSave(false); });
+        document.getElementById('wkSaveNextBtn').addEventListener('click', function () { wkSave(true); });
+        document.getElementById('wkDeleteBtn').addEventListener('click', async function () {
+          if (!wkForm || !wkForm.editingId) return;
+          var w = state.workouts.find(function (x) { return x.id === wkForm.editingId; });
+          if (confirm('確定要刪除「' + ((w && w.name) || '這筆運動紀錄') + '」嗎？')) {
+            var id = wkForm.editingId;
+            closeWorkoutEditSheet();
+            await deleteWorkout(id);
+          }
+        });
+        document.getElementById('wkCloseBtn').addEventListener('click', closeWorkoutEditSheet);
+      }
+
+      // ---------- 複製過去的訓練 ----------
+      function wkCopyCandidates() {
+        var p = activeProfile();
+        var byDate = {};
+        state.workouts.forEach(function (w) {
+          if ((w.person || 'A') === p && w.date && w.date !== state.currentDate) {
+            (byDate[w.date] = byDate[w.date] || []).push(w);
+          }
+        });
+        return Object.keys(byDate).sort().reverse().slice(0, 14).map(function (d) {
+          return { date: d, items: byDate[d].sort(wkByOrder) };
+        });
+      }
+
+      function openWorkoutCopySheet() {
+        closeManualSheet();
+        closeFoodAddSheet();
+        clearFoodEditForm();
+        clearLogEditForm();
+        closeMealGroupEdit();
+        closeMealSaveFoodBox();
+        closeWorkoutSheets();
+        wkForm = null;
+        document.getElementById('wkCopyTarget').textContent = wkFmtDateShort(state.currentDate) + '（' + wkFmtWeekday(state.currentDate) + '）';
+        var cands = wkCopyCandidates();
+        var el = document.getElementById('wkCopyList');
+        if (!cands.length) {
+          el.innerHTML = '<div class="empty">還沒有其他天的運動紀錄可以複製。</div>';
+        } else {
+          el.innerHTML = cands.map(function (c) {
+            var parts = [];
+            c.items.forEach(function (w) { if (parts.indexOf(w.part) === -1) parts.push(w.part); });
+            var st = wkStats(c.items);
+            var names = c.items.map(function (w) { return w.name; });
+            var preview = names.length > 4 ? names.slice(0, 4).join('、') + ' 等' : names.join('、');
+            return '<div class="wk-copy-item" data-wk-copy-date="' + escapeHtml(c.date) + '">' +
+              '<div class="wk-copy-date">' + wkFmtDateShort(c.date) + '<small>' + wkFmtWeekday(c.date) + '</small></div>' +
+              '<div class="wk-copy-main"><div><b>' + escapeHtml(parts.join('・')) + '</b></div>' +
+              '<div class="sub">' + st.exercises + ' 個動作・' + st.sets + ' 組：' + escapeHtml(preview) + '</div></div>' +
+              '</div>';
+          }).join('');
+        }
+        var box = document.getElementById('workoutCopyBox');
+        box.style.display = 'flex';
+        box.querySelector('.sheet-body').scrollTop = 0;
+      }
+
+      function closeWorkoutCopySheet() {
+        document.getElementById('workoutCopyBox').style.display = 'none';
+      }
+
+      async function wkCopyDay(dateStr) {
+        var src = wkCopyCandidates().filter(function (c) { return c.date === dateStr; })[0];
+        if (!src || !src.items.length) return;
+        if (!confirm('把 ' + wkFmtDateShort(dateStr) + ' 的 ' + src.items.length + ' 個動作複製到 ' + wkFmtDateShort(state.currentDate) + '？')) return;
+        var base = Date.now();
+        var now = nowTime();
+        var copies = src.items.map(function (w, i) {
+          var c = JSON.parse(JSON.stringify(w));
+          c.id = uid('w');
+          c.date = state.currentDate;
+          c.time = now;
+          c.order = base + i;
+          c.person = activeProfile();
+          return c;
+        });
+        closeWorkoutCopySheet();
+        await addWorkouts(copies);
+      }
+
+      function wireWorkout() {
+        document.getElementById('wkOpenBtn').addEventListener('click', function (e) {
+          e.stopPropagation();
+          openWorkoutSheet(null);
+        });
+        var fab = document.getElementById('jumpWorkoutBtn');
+        if (fab) fab.addEventListener('click', function () { openWorkoutSheet(null); });
+        document.getElementById('wkCopyOpenBtn').addEventListener('click', openWorkoutCopySheet);
+        document.getElementById('wkCopyCloseBtn').addEventListener('click', closeWorkoutCopySheet);
+        document.getElementById('wkCopyList').addEventListener('click', function (e) {
+          var item = e.target.closest('[data-wk-copy-date]');
+          if (item) wkCopyDay(item.getAttribute('data-wk-copy-date'));
+        });
+
+        wireWorkoutForm();
+
+        // 列表：左滑刪除（沿用今日紀錄同一套手勢）＋ 點一下編輯。
+        var listEl = document.getElementById('wkList');
+        wireLogSwipe(listEl);
+        var down = null;
+        listEl.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY }; });
+        listEl.addEventListener('click', function (e) {
+          var del = e.target.closest('[data-swipe-delete]');
+          if (del) {
+            var id = del.getAttribute('data-swipe-delete');
+            var w = state.workouts.find(function (x) { return x.id === id; });
+            if (w && confirm('確定要刪除「' + (w.name || '這筆運動紀錄') + '」嗎？')) deleteWorkout(id);
+            return;
+          }
+          var row = e.target.closest('.wk-item');
+          if (!row) return;
+          // 剛剛是在滑動而不是點擊：不要順便打開編輯。
+          if (down && (Math.abs(e.clientX - down.x) > 8 || Math.abs(e.clientY - down.y) > 8)) return;
+          var wrap = row.closest('.log-swipe');
+          if (wrap && wrap.classList.contains('swiped')) { wrap.classList.remove('swiped'); return; }
+          var wid = row.getAttribute('data-wk-id');
+          var target = state.workouts.find(function (x) { return x.id === wid; });
+          if (target) openWorkoutSheet(target);
+        });
+      }
+
       // ---------- init ----------
       async function init() {
         await loadLocal();
@@ -6351,11 +7921,13 @@
         wireSettings();
         wireSnackNow();
         wireBottomJumpButtons();
+        wireWorkout();
 
         renderAll();
 
         if (hasSheet()) {
-          refreshFromSheet(false);
+          // 連線抓回試算表資料（例如另一台裝置剛記的）後要重畫，畫面才會看到。
+          refreshFromSheet(false).then(function () { renderAll(); });
         }
       }
 
@@ -6382,6 +7954,10 @@
           findUnsynced: findUnsynced,
           fmtDate: fmtDate,
           uid: uid,
+          normalizeWorkout: normalizeWorkout,
+          wkSetList: wkSetList,
+          wkStats: wkStats,
+          wkMetaHtml: wkMetaHtml,
           computeSnackBudget: computeSnackBudget,
           maxGramsForFood: maxGramsForFood,
           snackCategoryFoods: snackCategoryFoods,

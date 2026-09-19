@@ -1,5 +1,10 @@
 /**
- * 蛋白質日記 - Google Apps Script 後端（v6-date-fix）
+ * 蛋白質日記 - Google Apps Script 後端（v21-workouts）
+ *
+ * 【v21 新增】運動紀錄：新增 Workouts 分頁與 addWorkout／updateWorkout／
+ * deleteWorkout 三個動作，getData 也會回傳 workouts。更新這份程式碼後，
+ * 要到「部署」→「管理部署作業」→ 編輯 → 版本選「新版本」→ 部署，網頁
+ * 才會吃到新版後端。
  *
  * 這版修正三個問題：
  * 1. 舊試算表如果欄位還是 carb100 / carb，過去的版本會「多新增一欄」sugar100 / sugar，
@@ -39,7 +44,26 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v20-recalc-logs-on-food-edit';
+var APP_BACKEND_VERSION = 'v21-workouts';
+
+// 【v21 新增】運動紀錄：新增一張 Workouts 分頁，一列＝「某一天的某一個運動動作」。
+// 欄位說明：
+//   part        部位（胸／肩／背／二頭／三頭／腿…，也可以是自訂文字）
+//   name        動作名稱（例如：啞鈴胸推）
+//   weight      重量（公斤）；空白代表自體重量
+//   weightMode  重量怎麼算：'perHand'＝每手、'total'＝總重
+//   reps / sets 每組次數、組數
+//   rest        預設組間休息（秒）
+//   overrides   「跟預設不一樣的那幾組」，JSON 文字，例如
+//               {"3":{"rest":120},"5":{"reps":15,"failure":true}}
+//               ＝第 3 組做完休息 120 秒；第 5 組做 15 下且力竭。
+//               沒有特別調整就是空白（或 {}）。
+//   note        備註（例如：每組最後幾下肩部抬升代償）
+//   order       同一天內的排列順序（數字愈小愈前面）
+// 舊試算表沒有這張分頁時會自動建立；刪除運動紀錄也會寫進 DeletedIds
+// 分頁（type = 'workout'），跟食材／飲食紀錄用同一套「不會復活」的機制。
+var WORKOUTS_SHEET_NAME = 'Workouts';
+var WORKOUTS_HEADERS = ['id', 'person', 'date', 'time', 'part', 'name', 'weight', 'weightMode', 'reps', 'sets', 'rest', 'overrides', 'note', 'order'];
 // 【v18】移除「AI 估算營養」與「拍照／上傳營養標示辨識」這兩個功能：因為
 // 兩者都需要另外設定 Gemini API 金鑰且經常無法成功運作，故整個拿掉，
 // 包含前端對應的輸入欄位、按鈕與這裡的 recognizeNutritionLabel／
@@ -150,6 +174,9 @@ function doPost(e) {
       case 'addLog': result = addLog(payload); break;
       case 'updateLog': result = updateLog(payload); break;
       case 'deleteLog': result = deleteLog(payload); break;
+      case 'addWorkout': result = addWorkout(payload); break;
+      case 'updateWorkout': result = updateWorkout(payload); break;
+      case 'deleteWorkout': result = deleteWorkout(payload); break;
       default: result = { error: 'unknown action: ' + action };
     }
   } catch (err) {
@@ -169,6 +196,7 @@ function jsonResponse(obj) {
 function getFoodsSheet() { return getSheet(FOODS_SHEET_NAME, FOODS_HEADERS); }
 function getLogsSheet() { return getSheet(LOGS_SHEET_NAME, LOGS_HEADERS); }
 function getDeletedSheet() { return getSheet(DELETED_SHEET_NAME, DELETED_HEADERS); }
+function getWorkoutsSheet() { return getSheet(WORKOUTS_SHEET_NAME, WORKOUTS_HEADERS); }
 
 // 把一批「已刪除」的 id 記進 DeletedIds 分頁。同一個 type+id 已經記錄過
 // 就不會重複再寫一次，避免使用者反覆刪同一筆（理論上不會發生，但保險起見）
@@ -234,7 +262,8 @@ function readDeletedIds(type) {
 // 這些欄位一定要用「純文字」格式儲存，否則 Google 試算表會自動把
 // "2026-08-13" 這種字串認成日期物件，讀回來的時候前端拿字串比對
 // (l.date === state.currentDate) 就永遠對不上，紀錄因此「連了試算表反而不見」。
-var TEXT_FORMAT_COLUMNS = ['date', 'time'];
+// 'note'（運動紀錄備註）也一併設成純文字，避免以「=」「+」「-」開頭的備註被當成公式。
+var TEXT_FORMAT_COLUMNS = ['date', 'time', 'note'];
 
 function getSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -412,7 +441,10 @@ function getData() {
     // 自己本機那份 tombstone，才不會把別的裝置刪掉的東西誤判成新資料
     // 又補傳回去。
     deletedFoodIds: readDeletedIds('food'),
-    deletedLogIds: readDeletedIds('log')
+    deletedLogIds: readDeletedIds('log'),
+    // 【v21 新增】運動紀錄與它的刪除清單。
+    workouts: readWorkouts(),
+    deletedWorkoutIds: readDeletedIds('workout')
   };
 }
 
@@ -816,6 +848,129 @@ function deleteLog(payload) {
   return { error: 'log not found' };
 }
 
+// ---------- workouts（運動紀錄） ----------
+
+// 把「跟預設不一樣的那幾組」整理成乾淨的物件：只保留 reps（正整數）、
+// failure（true）、rest（秒，>= 0）三種欄位，其他一律丟掉，避免前端傳來
+// 奇怪的內容把試算表弄髒。
+function sanitizeWorkoutOverrides(raw) {
+  var obj = raw;
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj); } catch (err) { obj = {}; }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+  var clean = {};
+  Object.keys(obj).forEach(function (k) {
+    var n = parseInt(k, 10);
+    if (!n || n < 1) return;
+    var src = obj[k] || {};
+    var item = {};
+    if (Number(src.reps) > 0) item.reps = Math.round(Number(src.reps));
+    if (src.failure === true || String(src.failure).toLowerCase() === 'true') item.failure = true;
+    if (src.rest !== undefined && src.rest !== null && src.rest !== '' && Number(src.rest) >= 0) item.rest = Math.round(Number(src.rest));
+    if (Object.keys(item).length) clean[String(n)] = item;
+  });
+  return clean;
+}
+
+function workoutRowValues(payload, id) {
+  var weightNum = (payload.weight === '' || payload.weight === null || payload.weight === undefined) ? NaN : Number(payload.weight);
+  var overrides = sanitizeWorkoutOverrides(payload.overrides);
+  return {
+    id: id,
+    person: payload.person || 'A',
+    date: payload.date,
+    time: payload.time || '',
+    part: payload.part ? String(payload.part) : '',
+    name: payload.name ? String(payload.name) : '',
+    weight: (isNaN(weightNum) || weightNum <= 0) ? '' : weightNum,
+    weightMode: payload.weightMode === 'perHand' ? 'perHand' : 'total',
+    reps: Math.max(1, Math.round(Number(payload.reps)) || 1),
+    sets: Math.max(1, Math.round(Number(payload.sets)) || 1),
+    rest: (payload.rest === '' || payload.rest === null || payload.rest === undefined || isNaN(Number(payload.rest)) || Number(payload.rest) < 0) ? 60 : Math.round(Number(payload.rest)),
+    overrides: Object.keys(overrides).length ? JSON.stringify(overrides) : '',
+    note: payload.note ? String(payload.note) : '',
+    order: payload.order != null && payload.order !== '' ? Number(payload.order) : ''
+  };
+}
+
+function readWorkouts() {
+  var sheet = getWorkoutsSheet();
+  var map = headerIndexMap(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
+  var list = [];
+  var seen = {};
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r[map['id']]) continue;
+    var idKey = String(r[map['id']]).trim();
+    if (seen[idKey]) continue; // 同一個 id 只取第一筆（跟 Foods／Logs 一樣的防呆）
+    seen[idKey] = true;
+    var weightRaw = map.hasOwnProperty('weight') ? r[map['weight']] : '';
+    var restRaw = map.hasOwnProperty('rest') ? r[map['rest']] : '';
+    var orderRaw = map.hasOwnProperty('order') ? r[map['order']] : '';
+    var w = {
+      id: idKey,
+      person: r[map['person']] || 'A',
+      date: formatDateCell(r[map['date']], tz),
+      time: formatTimeCell(r[map['time']], tz),
+      part: map.hasOwnProperty('part') ? String(r[map['part']] || '') : '',
+      name: map.hasOwnProperty('name') ? String(r[map['name']] || '') : '',
+      weight: (weightRaw === '' || weightRaw === null || weightRaw === undefined || isNaN(Number(weightRaw))) ? null : Number(weightRaw),
+      weightMode: (map.hasOwnProperty('weightMode') && r[map['weightMode']] === 'perHand') ? 'perHand' : 'total',
+      reps: Math.max(1, Number(r[map['reps']]) || 1),
+      sets: Math.max(1, Number(r[map['sets']]) || 1),
+      rest: (restRaw === '' || restRaw === null || restRaw === undefined || isNaN(Number(restRaw))) ? 60 : Number(restRaw),
+      overrides: sanitizeWorkoutOverrides(map.hasOwnProperty('overrides') ? r[map['overrides']] : ''),
+      note: map.hasOwnProperty('note') ? String(r[map['note']] || '') : ''
+    };
+    if (orderRaw !== '' && orderRaw !== undefined && orderRaw !== null && !isNaN(Number(orderRaw))) {
+      w.order = Number(orderRaw);
+    }
+    list.push(w);
+  }
+  return list;
+}
+
+// upsert：同一個 id 不管被送幾次，試算表裡永遠只有一列。
+function addWorkout(payload) {
+  if (!payload || !payload.date) return { error: 'missing date' };
+  var sheet = getWorkoutsSheet();
+  var id = String(payload.id || ('w_' + new Date().getTime()));
+  upsertRowByHeader(sheet, WORKOUTS_HEADERS, 'id', workoutRowValues(payload, id));
+  SpreadsheetApp.flush();
+  return { success: true, id: id };
+}
+
+// 編輯一筆運動紀錄：整列覆寫成前端送來的最新內容（前端一律送完整的一筆）。
+// 找不到這個 id（例如原本那一筆還沒同步上來就先被編輯）就當作新增，不會漏資料。
+function updateWorkout(payload) {
+  if (!payload || !payload.id) return { error: 'missing id' };
+  return addWorkout(payload);
+}
+
+function deleteWorkout(payload) {
+  var sheet = getWorkoutsSheet();
+  var map = headerIndexMap(sheet);
+  var data = sheet.getDataRange().getValues();
+  var targetId = String(payload && payload.id != null ? payload.id : '').trim();
+  if (!targetId) return { error: 'missing id' };
+  var deletedCount = 0;
+  // 由下往上刪，並且用寬鬆比對把「所有」符合的列都刪掉（同 deleteFood 的作法）。
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowId = String(data[i][map['id']] == null ? '' : data[i][map['id']]).trim();
+    if (rowId === targetId) {
+      sheet.deleteRow(i + 1);
+      deletedCount++;
+    }
+  }
+  // 就算試算表裡已經找不到這一列，也照樣記進 DeletedIds，讓其他裝置知道它被刪過。
+  recordDeletion('workout', [targetId]);
+  SpreadsheetApp.flush();
+  return { success: true, deletedCount: deletedCount };
+}
+
 /**
  * 手動修復小工具：如果你想在不呼叫 API 的情況下，馬上把 Foods / Logs 分頁的
  * carb100 / carb 欄位合併成 sugar100 / sugar，可以在 Apps Script 編輯器裡
@@ -1002,7 +1157,8 @@ function removeCategoryEverywhere(categoryName) {
 function dedupeFoodsAndLogsSheets() {
   var removedFoods = dedupeSheetById(getFoodsSheet());
   var removedLogs = dedupeSheetById(getLogsSheet());
-  return { removedFoodRows: removedFoods, removedLogRows: removedLogs };
+  var removedWorkouts = dedupeSheetById(getWorkoutsSheet());
+  return { removedFoodRows: removedFoods, removedLogRows: removedLogs, removedWorkoutRows: removedWorkouts };
 }
 
 function dedupeSheetById(sheet) {
