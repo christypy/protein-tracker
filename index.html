@@ -1080,7 +1080,9 @@
     .food-detail {
       position: fixed;
       left: 50%;
-      bottom: 0;
+      /* --kb 由 wireViewportKeyboard() 依 visualViewport 即時算出鍵盤高度，
+         手機鍵盤彈出時面板會貼在鍵盤正上方，不會被鍵盤蓋住。 */
+      bottom: var(--kb, 0px);
       transform: translateX(-50%);
       width: 100%;
       max-width: 640px;
@@ -1094,7 +1096,7 @@
       z-index: 60;
       display: flex;
       flex-direction: column;
-      max-height: 74vh;
+      max-height: min(74vh, calc(var(--vvh, 100vh) - 12px));
       overflow: hidden;
     }
 
@@ -1140,6 +1142,7 @@
     }
 
     .sheet-body {
+      overscroll-behavior: contain;
       overflow-y: auto;
       padding: 0 16px 8px;
       flex: 1 1 auto;
@@ -1340,6 +1343,430 @@
       color: var(--ink-soft);
       font-weight: 700;
       margin-right: 6px;
+    }
+
+    /* =====================================================================
+       新增這一餐（手機友善版）
+       流程：點食材（可連續多選）→ 底部提示列按「填寫份量」→ 面板內每樣食材
+       用 − ／＋、快速按鈕或直接輸入調整 → 鍵盤上方「下一項」連續填寫 → 全部加入紀錄。
+       ===================================================================== */
+
+    /* 食材格子：點擊回饋更明顯、不會誤觸雙擊縮放 */
+    .food-chip {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: transform .08s, background .12s, border-color .12s;
+    }
+
+    .food-chip:active {
+      transform: scale(0.95);
+    }
+
+    .food-chip .fmacro.sel-qty {
+      color: var(--protein-dark);
+      font-weight: 700;
+    }
+
+    /* 面板本體：填份量時需要比較多空間，允許到 86% 高 */
+    #pickerDetail {
+      max-height: min(86vh, calc(var(--vvh, 100vh) - 12px));
+    }
+
+    /* 關掉手機瀏覽器點擊時預設的淡藍色閃爍（各按鈕已有自己的 :active 回饋） */
+    #pickerDetail,
+    #pickerDetail * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 收合時＝畫面底部一條「提示列」：已選幾項、大約幾 kcal、一顆明顯的主按鈕 */
+    #pickerDetail .sheet-header {
+      padding: 10px 16px;
+    }
+
+    #pickerDetail.collapsed .sheet-header {
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .kb-open #pickerDetail.collapsed .sheet-header {
+      padding-bottom: 10px;
+    }
+
+    #pickerDetail .sheet-title {
+      font-size: 14px;
+    }
+
+    #pickerDetail .sheet-sub {
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--ink-soft);
+      font-family: var(--font-num);
+    }
+
+    #pickerDetail .sheet-toggle {
+      font-size: 13px;
+      font-weight: 700;
+      min-height: 38px;
+      padding: 8px 14px;
+      color: var(--ink);
+    }
+
+    #pickerDetail.collapsed .sheet-toggle {
+      background: var(--protein-dark);
+      border-color: var(--protein-dark);
+      color: #fff;
+    }
+
+    /* 「這一餐算誰的」＋「同時記錄給兩人」：壓縮成兩條窄列，把空間留給食材 */
+    #pickerDetail #batchPersonFieldWrap {
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      margin: 2px 0 8px;
+    }
+
+    #pickerDetail #batchPersonFieldWrap label {
+      white-space: nowrap;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    #pickerDetail .dual-person-box {
+      padding: 8px 12px;
+      margin-bottom: 10px;
+    }
+
+    #pickerDetail .dual-toggle {
+      min-height: 32px;
+    }
+
+    #pickerDetail .dual-toggle input {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* 每樣食材＝一張卡片 */
+    #batchList {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .bx-row {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .bx-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .bx-title {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bx-name {
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .bx-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1px 10px;
+      margin-top: 2px;
+      font-size: 11.5px;
+      color: var(--ink-soft);
+    }
+
+    .bx-preview {
+      font-family: var(--font-num);
+      font-weight: 700;
+      color: var(--protein-dark);
+    }
+
+    .bx-remove {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      margin: -8px -8px -6px 0;
+      border: none;
+      background: transparent;
+      border-radius: 50%;
+      color: var(--ink-soft);
+      font-size: 16px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .bx-remove:active {
+      background: rgba(184, 84, 61, 0.14);
+      color: var(--danger);
+    }
+
+    .bx-qty {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .bx-who {
+      flex: none;
+      min-width: 44px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+
+    /* 克數／份數 切換：一顆分段按鈕，取代原本兩顆各自獨立的小膠囊 */
+    .bx-seg {
+      display: inline-flex;
+      flex: none;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .bx-seg .qty-mode-btn {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      min-height: 44px;
+      padding: 0 13px;
+      font-size: 13.5px;
+      touch-action: manipulation;
+    }
+
+    .bx-seg .qty-mode-btn.active {
+      background: var(--protein-dark);
+      color: #fff;
+    }
+
+    /* − [ 數字 單位 ] ＋ */
+    .bx-stepper {
+      display: flex;
+      flex: 1 1 190px;
+      align-items: stretch;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .bx-step {
+      flex: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--protein-dark);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .bx-step:active {
+      background: var(--protein-tint);
+      transform: scale(0.94);
+    }
+
+    .bx-input {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* 18px：大於 16px，iPhone 聚焦輸入框時不會自動放大整個頁面 */
+    .bx-input input {
+      height: 44px;
+      padding: 0 22px 0 8px;
+      text-align: center;
+      font-family: var(--font-num);
+      font-size: 18px;
+      font-weight: 700;
+      background: var(--card);
+      border-radius: 12px;
+    }
+
+    .bx-input .qty-unit {
+      position: absolute;
+      right: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: var(--ink-soft);
+      pointer-events: none;
+    }
+
+    /* 快速按鈕：半份／1 份／2 份／整包…，一鍵帶入，不用開鍵盤 */
+    .bx-quick {
+      display: flex;
+      gap: 6px;
+      padding: 1px 1px 2px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .bx-quick::-webkit-scrollbar {
+      display: none;
+    }
+
+    .bx-chip {
+      flex: none;
+      height: 34px;
+      padding: 0 13px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .bx-chip.active {
+      background: var(--protein-tint);
+      border-color: var(--protein);
+      color: var(--protein-dark);
+    }
+
+    .bx-chip:active {
+      transform: scale(0.95);
+    }
+
+    .bx-row .dual-split-note {
+      margin: 0;
+    }
+
+    /* 面板底部：合計（縮小一點）＋ 存成新食材／全部加入紀錄 排同一列，主按鈕撐滿 */
+    #pickerDetail #batchTotalBox {
+      grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 2px 8px;
+      padding: 6px 10px;
+      margin-bottom: 8px !important;
+    }
+
+    #pickerDetail #batchTotalBox .gc-label {
+      white-space: normal;
+      line-height: 1.2;
+    }
+
+    #pickerDetail #batchTotalBox .gc-line {
+      font-size: 15px !important;
+    }
+
+    .bx-actions {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .bx-actions .btn-row {
+      margin: 0;
+      flex-wrap: nowrap;
+    }
+
+    .bx-actions .bx-add-wrap {
+      flex: 1;
+    }
+
+    .bx-actions .bx-add-wrap .btn {
+      flex: 1;
+      padding: 12px 14px;
+      font-size: 14.5px;
+      line-height: 1.3;
+    }
+
+    .bx-actions #batchSaveFoodBtn {
+      padding: 13px 14px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    /* 鍵盤上方工具列：iPhone 的數字鍵盤沒有「下一項／完成」，這條補上。
+       只在觸控裝置、正在輸入份量時，取代面板底部的合計與送出按鈕。 */
+    .kb-bar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kb-bar .kb-btn {
+      height: 42px;
+      min-width: 46px;
+      padding: 0 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .kb-bar .kb-btn:disabled {
+      opacity: 0.35;
+    }
+
+    .kb-bar .kb-cur {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .kb-bar .kb-btn.kb-done {
+      background: var(--protein-dark);
+      border-color: var(--protein-dark);
+      color: #fff;
+      font-size: 14px;
+      padding: 0 18px;
+    }
+
+    .kb-open .sheet-footer {
+      padding-bottom: 10px;
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+      .food-detail.kb-editing .foot-normal {
+        display: none;
+      }
+
+      .food-detail.kb-editing .kb-bar {
+        display: flex;
+      }
+
+      /* iOS 只要輸入框字體小於 16px 就會在聚焦時自動放大頁面 */
+      #foodSearch,
+      #batchPersonSelect {
+        font-size: 16px;
+      }
     }
 
     .recommend-badge {
@@ -2681,13 +3108,11 @@
         <div class="food-detail" id="pickerDetail" style="display:none;">
           <div class="sheet-handle"></div>
           <div class="sheet-header" id="pickerSheetHeader">
-            <span class="sheet-title">已選 <b id="pickerBatchCount">0</b> 項食材，填好份數／克數後送出</span>
-            <button type="button" class="sheet-toggle" id="pickerSheetToggle">收合 ▾</button>
+            <span class="sheet-title">已選 <b id="pickerBatchCount">0</b> 項<span class="sheet-sub" id="pickerBatchSummary"></span></span>
+            <button type="button" class="sheet-toggle" id="pickerSheetToggle">填寫份量 ▴</button>
           </div>
           <div class="sheet-body">
-            <p class="hint" style="margin:0 0 10px;">面板會固定在畫面下方，選其他食材時不用捲動找它；每一項都可以自由切換「輸入份數」或「輸入克數」，兩邊會自動互相換算——例如半份就填
-              0.5、三份就填 3。</p>
-            <div class="field" id="batchPersonFieldWrap" style="margin-bottom:10px;">
+            <div class="field" id="batchPersonFieldWrap">
               <label>這一餐算誰的</label>
               <select id="batchPersonSelect"></select>
             </div>
@@ -2705,12 +3130,23 @@
             <div id="batchList"></div>
           </div>
           <div class="sheet-footer">
-            <div class="goal-compact" id="batchTotalBox" style="display:none;margin-bottom:10px;"></div>
-            <div class="btn-row" id="batchSaveFoodRow" style="display:none;">
-              <button type="button" class="btn btn-ghost" id="batchSaveFoodBtn">＋ 存成新食材</button>
+            <div class="foot-normal">
+              <div class="goal-compact" id="batchTotalBox" style="display:none;margin-bottom:10px;"></div>
+              <div class="bx-actions">
+                <div class="btn-row" id="batchSaveFoodRow" style="display:none;">
+                  <button type="button" class="btn btn-ghost" id="batchSaveFoodBtn">＋ 存成新食材</button>
+                </div>
+                <div class="btn-row bx-add-wrap">
+                  <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
+                </div>
+              </div>
             </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="batchAddBtn">全部加入紀錄</button>
+            <!-- 手機輸入份量時顯示在鍵盤正上方的工具列（上一項／下一項／完成） -->
+            <div class="kb-bar" id="batchKbBar">
+              <button type="button" class="kb-btn" data-kb="prev" aria-label="上一項">‹</button>
+              <span class="kb-cur" id="batchKbCur"></span>
+              <button type="button" class="kb-btn" data-kb="next" aria-label="下一項">›</button>
+              <button type="button" class="kb-btn kb-done" data-kb="done">完成</button>
             </div>
           </div>
         </div>
@@ -3960,6 +4396,7 @@
         }, { protein: 0, fat: 0, sugar: 0, cal: 0 });
         renderProgressGrid(totals, currentGoals(), pendingMealTotals());
         renderThisMealTotalBoxes();
+        renderPickerPeekSummary();
       }
 
       // 把一組營養總和轉成「這一餐合計」面板裡的 4 個小格子（熱量／蛋白質／
@@ -5041,10 +5478,11 @@
           return;
         }
         el.innerHTML = list.map(function (f) {
-          var inBatch = state.batch.some(function (b) { return b.foodId === f.id; });
-          return '<div class="food-chip' + (inBatch ? ' selected' : '') + '" data-pick="' + escapeHtml(f.id) + '">' +
+          var picked = state.batch.find(function (b) { return b.foodId === f.id; });
+          // 已選的食材在格子上直接顯示目前的克數，不用打開面板也知道填了多少。
+          return '<div class="food-chip' + (picked ? ' selected' : '') + '" data-pick="' + escapeHtml(f.id) + '">' +
             '<span class="fname">' + escapeHtml(f.name) + '</span>' +
-            '<span class="fmacro">每份' + (f.base || 100) + 'g</span>' +
+            '<span class="fmacro' + (picked ? ' sel-qty' : '') + '">' + (picked ? ('已選 ' + round1(picked.grams) + 'g') : ('每份' + (f.base || 100) + 'g')) + '</span>' +
             '</div>';
         }).join('');
         renderBatchList();
@@ -5104,6 +5542,198 @@
         }
       }
 
+      // ---------- 新增這一餐（手機友善版）的共用小工具 ----------
+      // 第一次點選食材後，底部面板要不要自動展開？
+      //   false（預設）：先縮成畫面底部一條「已選 N 項｜填寫份量」提示列，
+      //                  可以連續點好幾樣食材，全部選完再按「填寫份量」一次填完；
+      //   true：跟舊版一樣，點第一樣食材就直接展開面板。
+      var PICKER_AUTO_OPEN_ON_FIRST_PICK = false;
+      // − ／＋ 按鈕每按一下增減的量。
+      var BATCH_STEP_GRAMS = 10;
+      var BATCH_STEP_SERVINGS = 0.5;
+
+      // −  [ 數字 單位 ]  ＋
+      function bxStepperHtml(id, who, inputAttr, val, unit, label) {
+        return '<div class="bx-stepper">' +
+          '<button type="button" class="bx-step" data-batch-step="-1" data-batch-id="' + id + '" data-batch-who="' + who + '" aria-label="減少">−</button>' +
+          '<div class="bx-input"><input type="number" inputmode="decimal" enterkeyhint="next" min="0" step="any" value="' + val + '" ' + inputAttr + ' aria-label="' + label + '"><span class="qty-unit">' + unit + '</span></div>' +
+          '<button type="button" class="bx-step" data-batch-step="1" data-batch-id="' + id + '" data-batch-who="' + who + '" aria-label="增加">＋</button>' +
+          '</div>';
+      }
+
+      // 快速按鈕：克數模式＝半份／1 份／1.5 份／2 份（顯示成克數）＋整包；
+      // 份數模式＝0.5／1／1.5／2／3 份＋整包。點一下就帶入，不用開鍵盤。
+      function bxQuickHtml(id, food, mode, cur) {
+        var base = foodBaseGrams(food);
+        var total = foodTotalServings(food);
+        var opts = [];
+        if (mode === 'g') {
+          [0.5, 1, 1.5, 2].forEach(function (k) {
+            var g = round1(base * k);
+            opts.push({ v: g, label: g + 'g' });
+          });
+          if (total > 2) opts.push({ v: round1(base * total), label: '整包 ' + round1(base * total) + 'g' });
+        } else {
+          [0.5, 1, 1.5, 2, 3].forEach(function (k) { opts.push({ v: k, label: k + '份' }); });
+          if (total > 3) opts.push({ v: round1(total), label: '整包 ' + round1(total) + '份' });
+        }
+        return '<div class="bx-quick">' + opts.map(function (o) {
+          var active = Math.abs(Number(cur) - o.v) < 0.0001;
+          return '<button type="button" class="bx-chip' + (active ? ' active' : '') + '" data-batch-quick="' + o.v + '" data-batch-id="' + id + '">' + o.label + '</button>';
+        }).join('') + '</div>';
+      }
+
+      // 收合時的提示列顯示「已選 N 項 · 約 X kcal」。
+      function renderPickerPeekSummary() {
+        var el = document.getElementById('pickerBatchSummary');
+        if (!el) return;
+        if (!state.batch.length || (canDualPerson() && state.dualPerson)) { el.textContent = ''; return; }
+        var cal = 0;
+        state.batch.forEach(function (b) {
+          var f = state.foods.find(function (x) { return x.id === b.foodId; });
+          if (f && b.grams) cal += Number(computeMacros(f, b.grams).cal) || 0;
+        });
+        el.textContent = cal ? (' · 約 ' + Math.round(cal) + ' kcal') : '';
+      }
+
+      // 某一樣食材的份量改變後（打字、按 ±、按快速按鈕），只更新畫面上該更新的地方，
+      // 不整包重畫——這樣輸入到一半時鍵盤不會收起、游標不會跳掉。
+      //   opts.keepInput  ：不要覆寫「目前這個模式」的輸入框（使用者正在打字）
+      //   opts.keepInputB ：不要覆寫另一人（B）的輸入框
+      function syncBatchRowUI(id, opts) {
+        opts = opts || {};
+        var b = state.batch.find(function (x) { return x.foodId === id; });
+        var food = b && state.foods.find(function (f) { return f.id === id; });
+        if (!b || !food) return;
+        var base = foodBaseGrams(food);
+        var mode = b.mode || 'serving';
+        var esc = CSS.escape(id);
+        var row = document.querySelector('#batchList [data-batch-row="' + esc + '"]');
+        if (row) {
+          if (!opts.keepInput) {
+            var inp = row.querySelector(mode === 'g' ? '[data-batch-grams]' : '[data-batch-servings]');
+            if (inp) inp.value = (mode === 'g') ? b.grams : ((b.servings !== undefined && b.servings !== null) ? b.servings : (base ? round1(b.grams / base) : 0));
+          }
+          if (!opts.keepInputB) {
+            var inpB = row.querySelector('[data-batch-grams-b]');
+            if (inpB) inpB.value = (b.gramsB !== undefined && b.gramsB !== null) ? b.gramsB : b.grams;
+          }
+          var m = computeMacros(food, b.grams);
+          var prev = row.querySelector('[data-batch-preview]');
+          if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
+          if (canDualPerson() && state.dualPerson) {
+            var note = row.querySelector('.dual-split-note');
+            if (note) {
+              var pA = PROFILES[activeProfile()].name, pB = PROFILES[otherProfile()].name;
+              if (state.dualMode === 'even') {
+                var half = round1((b.grams || 0) / 2);
+                var mh = computeMacros(food, half);
+                note.textContent = '均分後 ' + pA + '／' + pB + ' 各得約 ' + half + 'g（P' + mh.protein + ' F' + mh.fat + ' S' + mh.sugar + ' · ' + mh.cal + 'kcal）';
+              } else {
+                var gB = (b.gramsB !== undefined && b.gramsB !== null) ? b.gramsB : b.grams;
+                var mB = computeMacros(food, gB);
+                note.textContent = pB + '：P' + mB.protein + ' F' + mB.fat + ' S' + mB.sugar + ' · ' + mB.cal + 'kcal';
+              }
+            }
+          }
+          var cur = (mode === 'g') ? b.grams : b.servings;
+          Array.prototype.forEach.call(row.querySelectorAll('[data-batch-quick]'), function (chip) {
+            chip.classList.toggle('active', Math.abs(Number(chip.getAttribute('data-batch-quick')) - Number(cur)) < 0.0001);
+          });
+        }
+        var badge = document.querySelector('#pickerList [data-pick="' + esc + '"] .fmacro');
+        if (badge) badge.textContent = '已選 ' + round1(b.grams) + 'g';
+        refreshGoalPreview();
+      }
+
+      // 直接指定份量（快速按鈕、± 都走這裡）。who：'a'＝主要輸入（依目前模式），'b'＝另一人的克數。
+      function setBatchQty(id, value, who) {
+        var b = state.batch.find(function (x) { return x.foodId === id; });
+        var food = b && state.foods.find(function (f) { return f.id === id; });
+        if (!b || !food) return;
+        var base = foodBaseGrams(food);
+        value = Math.max(0, Math.round((Number(value) || 0) * 100) / 100);
+        if (who === 'b') {
+          b.gramsB = round1(value);
+        } else if ((b.mode || 'serving') === 'serving') {
+          b.servings = value;
+          b.grams = round1(base * value);
+        } else {
+          b.grams = round1(value);
+          b.servings = base ? round1(b.grams / base) : 0;
+        }
+        syncBatchRowUI(id);
+      }
+
+      function stepBatchQty(id, dir, who) {
+        var b = state.batch.find(function (x) { return x.foodId === id; });
+        var food = b && state.foods.find(function (f) { return f.id === id; });
+        if (!b || !food) return;
+        var base = foodBaseGrams(food);
+        var mode = b.mode || 'serving';
+        var cur, step;
+        if (who === 'b') {
+          cur = (b.gramsB !== undefined && b.gramsB !== null) ? b.gramsB : b.grams;
+          step = BATCH_STEP_GRAMS;
+        } else if (mode === 'serving') {
+          cur = (b.servings !== undefined && b.servings !== null) ? b.servings : (base ? b.grams / base : 0);
+          step = BATCH_STEP_SERVINGS;
+        } else {
+          cur = b.grams || 0;
+          step = BATCH_STEP_GRAMS;
+        }
+        setBatchQty(id, (Number(cur) || 0) + dir * step, who);
+      }
+
+      // 讓正在輸入的那一列露在面板可視範圍內（手動捲動面板本身，不去捲整個頁面）。
+      function scrollBatchInputIntoView(input) {
+        var body = document.querySelector('#pickerDetail .sheet-body');
+        var row = input && input.closest && input.closest('.bx-row');
+        if (!body || !row) return;
+        var bRect = body.getBoundingClientRect();
+        var rRect = row.getBoundingClientRect();
+        if (rRect.top < bRect.top + 4 || rRect.bottom > bRect.bottom - 4) {
+          body.scrollTo({ top: body.scrollTop + (rRect.top - bRect.top) - 8, behavior: 'smooth' });
+        }
+      }
+
+      // 手機虛擬鍵盤彈出時，固定在畫面底部的面板會被鍵盤蓋住（尤其是 iPhone Safari，
+      // 以及 Android Chrome 108 之後的預設行為）。這裡用 visualViewport 量出鍵盤高度，
+      // 寫進 CSS 變數：--kb 讓底部面板整個貼到鍵盤上方、--vvh 讓面板高度不超出可視範圍。
+      function wireViewportKeyboard() {
+        var vv = window.visualViewport;
+        var root = document.documentElement;
+        var queued = false;
+        function apply() {
+          queued = false;
+          // 使用者雙指放大時 visualViewport 也會縮小，那不是鍵盤，不處理。
+          var zoomed = vv && vv.scale && vv.scale > 1.01;
+          var vh = (vv && !zoomed) ? vv.height : window.innerHeight;
+          var kb = (vv && !zoomed) ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+          if (kb < 80) kb = 0; // 網址列伸縮造成的小差距不算鍵盤
+          root.style.setProperty('--vvh', Math.round(vh) + 'px');
+          root.style.setProperty('--kb', Math.round(kb) + 'px');
+          root.classList.toggle('kb-open', kb > 0);
+          // 鍵盤高度確定後，再把正在輸入的那一列捲進面板可視範圍。
+          var a = document.activeElement;
+          if (kb > 0 && a && a.tagName === 'INPUT' && a.closest && a.closest('#batchList')) {
+            scrollBatchInputIntoView(a);
+          }
+        }
+        function schedule() {
+          if (queued) return;
+          queued = true;
+          requestAnimationFrame(apply);
+        }
+        if (vv) {
+          vv.addEventListener('resize', schedule);
+          vv.addEventListener('scroll', schedule);
+        }
+        window.addEventListener('resize', schedule);
+        window.addEventListener('orientationchange', schedule);
+        apply();
+      }
+
       function renderBatchList() {
         var wrap = document.getElementById('pickerDetail');
         var el = document.getElementById('batchList');
@@ -5113,6 +5743,7 @@
         if (!state.batch.length) {
           wrap.style.display = 'none';
           wrap.classList.remove('collapsed');
+          wrap.classList.remove('kb-editing');
           el.innerHTML = '';
           state.pickerSheetCollapsed = false;
           if (addBody) addBody.style.paddingBottom = '';
@@ -5122,14 +5753,15 @@
         wrap.style.display = 'flex';
         wrap.classList.toggle('collapsed', !!state.pickerSheetCollapsed);
         // 面板固定貼在畫面底部，會蓋住它正下方的區域；這裡量出面板目前實際
-        // 佔用的高度（展開時很高、收合時只剩一條標題列），讓上面「新增這一餐」
+        // 佔用的高度（展開時很高、收合時只剩一條提示列），讓上面「新增這一餐」
         // 清單自動保留出等高的底部留白，捲動頁面就能把所有食材完整捲到面板
         // 上方看到，不會有一段被面板蓋住、卻怎麼捲都捲不出來的區域。
         requestAnimationFrame(function () {
           if (addBody) addBody.style.paddingBottom = (wrap.offsetHeight + 12) + 'px';
         });
         if (countEl) countEl.textContent = state.batch.length;
-        if (toggleBtn) toggleBtn.textContent = state.pickerSheetCollapsed ? '展開 ▴' : '收合 ▾';
+        // 收合＝底部提示列，主按鈕是「填寫份量」；展開時按鈕改成「繼續選食材」。
+        if (toggleBtn) toggleBtn.textContent = state.pickerSheetCollapsed ? '填寫份量 ▴' : '＋ 繼續選食材 ▾';
         renderDualPersonBox();
         renderBatchPersonSelect();
         var dual = canDualPerson() && state.dualPerson;
@@ -5143,46 +5775,59 @@
           var base = foodBaseGrams(food);
           var totalServings = foodTotalServings(food);
           var mode = b.mode || 'serving';
+          var isG = (mode === 'g');
           var id = escapeHtml(b.foodId);
+          var name = escapeHtml(food.name);
           var servingsVal = (b.servings !== undefined && b.servings !== null) ? b.servings : (base ? round1(b.grams / base) : 0);
-          var qtyHtml = (mode === 'g')
-            ? ('<input type="number" min="0" step="any" value="' + b.grams + '" data-batch-grams="' + id + '"><span class="qty-unit">g</span>')
-            : ('<input type="number" min="0" step="any" value="' + servingsVal + '" data-batch-servings="' + id + '"><span class="qty-unit">份（1 份 = ' + base + 'g）</span>');
 
-          var dualExtraHtml = '';
+          var head = '<div class="bx-head">' +
+            '<div class="bx-title">' +
+            '<div class="bx-name"><span class="bx-name-text">' + name + '</span></div>' +
+            '<div class="bx-meta"><span>整包共 ' + round1(totalServings) + ' 份 · 一份 ' + base + 'g</span>' +
+            '<span class="bx-preview" data-batch-preview="' + id + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</span></div>' +
+            '</div>' +
+            '<button type="button" class="bx-remove" data-batch-remove="' + id + '" aria-label="移除 ' + name + '">✕</button>' +
+            '</div>';
+
+          var seg = '<div class="bx-seg" data-batch-modes="' + id + '">' +
+            '<button type="button" class="qty-mode-btn' + (isG ? ' active' : '') + '" data-batch-id="' + id + '" data-batch-mode="g">克數</button>' +
+            '<button type="button" class="qty-mode-btn' + (!isG ? ' active' : '') + '" data-batch-id="' + id + '" data-batch-mode="serving">份數</button>' +
+            '</div>';
+
+          var stepA = bxStepperHtml(id, 'a',
+            isG ? ('data-batch-grams="' + id + '"') : ('data-batch-servings="' + id + '"'),
+            isG ? b.grams : servingsVal, isG ? 'g' : '份', name + (isG ? ' 克數' : ' 份數'));
+
+          // 兩人各自不同份量：切換按鈕獨立一行，兩人的 − 數字 ＋ 上下對齊；
+          // 其他情況切換按鈕與步進器同一行（放不下時步進器自動換到下一行）。
+          var qtyLines;
+          if (dual && dualMode === 'custom') {
+            qtyLines = '<div class="bx-qty">' + seg + '</div>' +
+              '<div class="bx-qty"><span class="bx-who">' + escapeHtml(pA) + '</span>' + stepA + '</div>';
+          } else {
+            qtyLines = '<div class="bx-qty">' + seg + stepA + '</div>';
+          }
+          var noteHtml = '';
+
           if (dual && dualMode === 'even') {
             var half = round1((b.grams || 0) / 2);
             var mh = computeMacros(food, half);
-            dualExtraHtml = '<p class="dual-split-note">均分後 ' + pA + '／' + pB + ' 各得約 ' + half + 'g（P' + mh.protein + ' F' + mh.fat + ' S' + mh.sugar + ' · ' + mh.cal + 'kcal）</p>';
+            noteHtml = '<p class="dual-split-note">均分後 ' + pA + '／' + pB + ' 各得約 ' + half + 'g（P' + mh.protein + ' F' + mh.fat + ' S' + mh.sugar + ' · ' + mh.cal + 'kcal）</p>';
           } else if (dual && dualMode === 'custom') {
             var gramsB = (b.gramsB !== undefined && b.gramsB !== null) ? b.gramsB : b.grams;
             var mB = computeMacros(food, gramsB);
-            qtyHtml = '<span class="dual-a-label">' + escapeHtml(pA) + '</span>' + qtyHtml;
-            dualExtraHtml = '<div class="dual-b-wrap">' +
-              '<span class="dual-b-label">' + escapeHtml(pB) + '</span>' +
-              '<input type="number" min="0" step="any" value="' + gramsB + '" data-batch-grams-b="' + id + '"><span class="qty-unit">g</span>' +
-              '</div>' +
-              '<p class="dual-split-note">' + escapeHtml(pB) + '：P' + mB.protein + ' F' + mB.fat + ' S' + mB.sugar + ' · ' + mB.cal + 'kcal</p>';
+            qtyLines += '<div class="bx-qty"><span class="bx-who">' + escapeHtml(pB) + '</span>' +
+              bxStepperHtml(id, 'b', 'data-batch-grams-b="' + id + '"', gramsB, 'g', name + ' ' + escapeHtml(pB) + ' 克數') + '</div>';
+            noteHtml = '<p class="dual-split-note">' + escapeHtml(pB) + '：P' + mB.protein + ' F' + mB.fat + ' S' + mB.sugar + ' · ' + mB.cal + 'kcal</p>';
           }
 
-          return '<div class="batch-row" data-batch-row="' + id + '">' +
-            '<div class="field">' +
-            '<label>' + escapeHtml(food.name) + '</label>' +
-            '<span class="batch-servings-info">整包共 ' + round1(totalServings) + ' 份 · 一份 ' + base + 'g</span>' +
-            '<div class="qty-mode-chips" data-batch-modes="' + id + '">' +
-            '<button type="button" class="qty-mode-btn' + (mode === 'serving' ? ' active' : '') + '" data-batch-id="' + id + '" data-batch-mode="serving">輸入份數</button>' +
-            '<button type="button" class="qty-mode-btn' + (mode === 'g' ? ' active' : '') + '" data-batch-id="' + id + '" data-batch-mode="g">輸入克數</button>' +
-            '</div>' +
-            '<div class="qty-wrap">' + qtyHtml + '</div>' +
-            dualExtraHtml +
-            '</div>' +
-            '<div class="preview" data-batch-preview="' + id + '">P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal</div>' +
-            '<button type="button" class="btn-danger" data-batch-remove="' + id + '">移除</button>' +
+          return '<div class="bx-row" data-batch-row="' + id + '">' +
+            head + qtyLines + bxQuickHtml(id, food, mode, isG ? b.grams : servingsVal) + noteHtml +
             '</div>';
         }).join('');
         document.getElementById('batchAddBtn').textContent = dual
-          ? ('分別加入 ' + pA + '、' + pB + ' 的紀錄（' + state.batch.length + ' 項）')
-          : ('全部加入紀錄（' + state.batch.length + ' 項）');
+          ? ('分別加入 ' + pA + '、' + pB + ' 的紀錄（' + state.batch.length + '\u00A0項）')
+          : ('全部加入紀錄（' + state.batch.length + '\u00A0項）');
         refreshGoalPreview();
 
         // 剛選的那一項自動捲動到面板可視範圍內（面板展開時才需要），
@@ -5680,10 +6325,10 @@
             var baseGrams = (food && (food.base || food.baseGrams)) || 100;
             var wasEmpty = state.batch.length === 0;
             state.batch.push({ foodId: id, grams: baseGrams, servings: 1, mode: 'g' });
-            // 只有「選第一樣食材」才自動展開固定面板；已經有其他品項在批次裡時，
-            // 面板維持使用者目前的收合／展開狀態，不會每點一樣新食材就強制整片
-            // 展開蓋住上面的食材清單，才能連續挑選多樣食材而不被面板打斷畫面。
-            if (wasEmpty) state.pickerSheetCollapsed = false;
+            // 只有「選第一樣食材」才決定面板初始狀態：預設先縮成底部提示列
+            // （PICKER_AUTO_OPEN_ON_FIRST_PICK = false），可以連續點選多樣食材，
+            // 選完再按「填寫份量」；已經有其他品項時，面板維持目前的收合／展開狀態。
+            if (wasEmpty) state.pickerSheetCollapsed = !PICKER_AUTO_OPEN_ON_FIRST_PICK;
             state.pickerLastAddedId = id;
           } else {
             state.batch.splice(idx, 1);
@@ -5720,25 +6365,18 @@
           });
         }
 
-        document.getElementById('batchList').addEventListener('input', function (e) {
+        var batchListEl = document.getElementById('batchList');
+        var lastBatchInput = null;
+
+        batchListEl.addEventListener('input', function (e) {
           var gramsBInput = e.target.closest('[data-batch-grams-b]');
           if (gramsBInput) {
             var idB = gramsBInput.getAttribute('data-batch-grams-b');
             var bB = state.batch.find(function (x) { return x.foodId === idB; });
-            var foodB = state.foods.find(function (f) { return f.id === idB; });
-            if (!bB || !foodB) return;
+            if (!bB) return;
             bB.gramsB = Number(gramsBInput.value) || 0;
-            // 只更新這一列「另一人份量」的即時預覽文字，不整包重畫，
-            // 避免輸入到一半時輸入框失焦、游標跳掉。
-            var rowB = document.querySelector('[data-batch-row="' + idB + '"]');
-            var noteB = rowB ? rowB.querySelector('.dual-split-note') : null;
-            if (noteB) {
-              var mB = computeMacros(foodB, bB.gramsB);
-              noteB.textContent = PROFILES[otherProfile()].name + '：P' + mB.protein + ' F' + mB.fat + ' S' + mB.sugar + ' · ' + mB.cal + 'kcal';
-            }
-            // B 的份量會另外算進「這一餐合計」（見 pendingMealTotals 的
-            // dualCustom 分支），所以這裡也要即時刷新合計數字。
-            refreshGoalPreview();
+            // 只更新預覽與合計，不整包重畫，避免輸入到一半鍵盤收起、游標跳掉。
+            syncBatchRowUI(idB, { keepInput: true, keepInputB: true });
             return;
           }
 
@@ -5758,35 +6396,96 @@
             b.grams = Number(gramsInput.value) || 0;
             b.servings = base ? round1(b.grams / base) : 0;
           }
-          var m = computeMacros(food, b.grams);
-          var prev = document.querySelector('[data-batch-preview="' + id + '"]');
-          if (prev) prev.textContent = 'P' + m.protein + ' F' + m.fat + ' S' + m.sugar + ' · ' + m.cal + 'kcal';
-          if (state.dualPerson && state.dualMode === 'even') {
-            // 均分模式下畫面上的份量代表「兩人合計」，數字一變，下面
-            // 「均分後各得多少」的提示文字也要跟著即時更新。
-            var row = document.querySelector('[data-batch-row="' + id + '"]');
-            var note = row ? row.querySelector('.dual-split-note') : null;
-            if (note) {
-              var half = round1((b.grams || 0) / 2);
-              var mh = computeMacros(food, half);
-              var pA = PROFILES[activeProfile()].name, pB = PROFILES[otherProfile()].name;
-              note.textContent = '均分後 ' + pA + '／' + pB + ' 各得約 ' + half + 'g（P' + mh.protein + ' F' + mh.fat + ' S' + mh.sugar + ' · ' + mh.cal + 'kcal）';
-            }
-          }
-          refreshGoalPreview();
+          // 均分模式下畫面上的份量代表「兩人合計」，「均分後各得多少」的提示、
+          // 快速按鈕的選取狀態、食材格子上的「已選 xx g」都在這裡一起同步。
+          syncBatchRowUI(id, { keepInput: true });
         });
 
-        document.getElementById('batchList').addEventListener('focusin', function (e) {
+        // ---- 輸入份量時的鍵盤體驗 ----
+        function batchNumberInputs() {
+          return Array.prototype.slice.call(batchListEl.querySelectorAll('input[type=number]'));
+        }
+
+        function setBatchEditing(on, input) {
+          var sheet = document.getElementById('pickerDetail');
+          if (!sheet) return;
+          sheet.classList.toggle('kb-editing', !!on);
+          if (!on || !input) return;
+          var inputs = batchNumberInputs();
+          var i = inputs.indexOf(input);
+          var qtyLine = input.closest('.bx-qty');
+          var who = qtyLine ? qtyLine.querySelector('.bx-who') : null;
+          var nameEl = input.closest('.bx-row') ? input.closest('.bx-row').querySelector('.bx-name-text') : null;
+          var cur = document.getElementById('batchKbCur');
+          if (cur) cur.textContent = (nameEl ? nameEl.textContent : '') + (who ? '（' + who.textContent + '）' : '');
+          var prevBtn = document.querySelector('#batchKbBar [data-kb="prev"]');
+          var nextBtn = document.querySelector('#batchKbBar [data-kb="next"]');
+          if (prevBtn) prevBtn.disabled = i <= 0;
+          if (nextBtn) nextBtn.disabled = i === -1 || i >= inputs.length - 1;
+        }
+
+        batchListEl.addEventListener('focusin', function (e) {
           if (e.target.tagName !== 'INPUT' || e.target.type !== 'number') return;
-          e.target.select();
-          // 延遲一點再捲動：手機鍵盤彈出通常需要一點時間才會把可視高度
-          // 擠壓完成，太早捲動位置會不準，稍微等一下再捲到置中位置。
-          setTimeout(function () {
-            e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          }, 250);
+          lastBatchInput = e.target;
+          try { e.target.select(); } catch (err) { /* 部分瀏覽器不支援，略過 */ }
+          setBatchEditing(true, e.target);
+          // 主要靠 wireViewportKeyboard() 在鍵盤高度確定後重新捲動；
+          // 這裡再補一次，涵蓋不支援 visualViewport 的舊瀏覽器。
+          var target = e.target;
+          setTimeout(function () { scrollBatchInputIntoView(target); }, 300);
         });
+
+        batchListEl.addEventListener('focusout', function () {
+          // 從一個輸入框切到下一個時會先 focusout 再 focusin，稍等一下再判斷是不是真的離開了。
+          setTimeout(function () {
+            var a = document.activeElement;
+            if (!(a && a.tagName === 'INPUT' && batchListEl.contains(a))) setBatchEditing(false);
+          }, 80);
+        });
+
+        // 實體鍵盤／Android 鍵盤的「下一項」：跳到下一個輸入框，最後一個就收起鍵盤。
+        batchListEl.addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter' || !e.target || e.target.tagName !== 'INPUT') return;
+          e.preventDefault();
+          var inputs = batchNumberInputs();
+          var i = inputs.indexOf(e.target);
+          if (i > -1 && inputs[i + 1]) inputs[i + 1].focus(); else e.target.blur();
+        });
+
+        // 鍵盤上方工具列：上一項／下一項／完成。
+        var kbBar = document.getElementById('batchKbBar');
+        if (kbBar) {
+          // 按工具列時不要讓輸入框失焦，鍵盤才不會閃一下收起來。
+          kbBar.addEventListener('mousedown', function (e) { e.preventDefault(); });
+          kbBar.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-kb]');
+            if (!btn) return;
+            var act = btn.getAttribute('data-kb');
+            if (act === 'done') {
+              if (lastBatchInput) lastBatchInput.blur();
+              setBatchEditing(false);
+              return;
+            }
+            var inputs = batchNumberInputs();
+            var i = inputs.indexOf(lastBatchInput);
+            var target = inputs[i + (act === 'next' ? 1 : -1)];
+            if (target) target.focus();
+          });
+        }
 
         document.getElementById('batchList').addEventListener('click', function (e) {
+          var stepBtn = e.target.closest('[data-batch-step]');
+          if (stepBtn) {
+            stepBatchQty(stepBtn.getAttribute('data-batch-id'), Number(stepBtn.getAttribute('data-batch-step')), stepBtn.getAttribute('data-batch-who') || 'a');
+            return;
+          }
+
+          var quickBtn = e.target.closest('[data-batch-quick]');
+          if (quickBtn) {
+            setBatchQty(quickBtn.getAttribute('data-batch-id'), Number(quickBtn.getAttribute('data-batch-quick')), 'a');
+            return;
+          }
+
           var rm = e.target.closest('[data-batch-remove]');
           if (rm) {
             var rmId = rm.getAttribute('data-batch-remove');
@@ -7914,6 +8613,7 @@
         wireProfileTabs();
         wireGoalsBox();
         wirePicker();
+        wireViewportKeyboard();
         wireManual();
         wireLogList();
         wireFoodTable();
