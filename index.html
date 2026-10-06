@@ -467,6 +467,17 @@
     .med-chip { border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px;
       font-family: var(--font-num); background: var(--card); cursor: pointer; }
 
+    .med-block { margin-top: 14px; }
+    .med-block > label { display: block; margin: 0 0 6px; font-size: 12px; color: var(--ink-soft); }
+    .med-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .med-pair .med-block { margin-top: 0; min-width: 0; }
+    .med-block input { display: block; width: 100%; box-sizing: border-box; min-height: 40px; }
+    .med-add-row { display: flex; gap: 8px; align-items: stretch; }
+    .med-add-row input { flex: 1; min-width: 0; }
+    .med-add-row .btn { flex: none; white-space: nowrap; padding: 0 16px; }
+    .med-used-wrap { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); }
+    .med-chips { margin: 0 0 12px; }
+
     .app-top-spacer {
       height: 12px;
     }
@@ -3427,20 +3438,23 @@
       </div>
       <div class="sheet-body">
         <div class="status-msg err" id="medNote" style="display:none;"></div>
-        <div class="field"><label for="medName">藥品名稱</label><input type="text" id="medName" placeholder="例如：袪痘素凝膠" autocomplete="off"></div>
-        <div class="row"><div class="field"><label>開始使用日期</label><input type="date" id="medStart"></div></div>
-        <div class="row">
-          <div class="field"><label>提醒週數（建議評估）</label><input type="number" id="medWarnWeeks" min="1" step="1" value="8"></div>
-          <div class="field"><label>連續使用上限（週）</label><input type="number" id="medLimitWeeks" min="1" step="1" value="12"></div>
+        <div class="med-block"><label for="medName">藥品名稱</label><input type="text" id="medName" placeholder="例如：袪痘素凝膠" autocomplete="off"></div>
+        <div class="med-block"><label for="medStart">開始使用日期</label><input type="date" id="medStart"></div>
+        <div class="med-pair">
+          <div class="med-block"><label for="medWarnWeeks">提醒週數（建議評估）</label><input type="number" id="medWarnWeeks" min="1" step="1" value="8" inputmode="numeric"></div>
+          <div class="med-block"><label for="medLimitWeeks">連續使用上限（週）</label><input type="number" id="medLimitWeeks" min="1" step="1" value="12" inputmode="numeric"></div>
         </div>
-        <div class="field"><label for="medNoteInput">備註</label><input type="text" id="medNoteInput" placeholder="例如：睡前薄擦" autocomplete="off"></div>
-        <div id="medUsedBox" style="display:none;">
-          <label>已擦日期（點一下可移除）</label>
+        <div class="med-block"><label for="medNoteInput">備註</label><input type="text" id="medNoteInput" placeholder="例如：睡前薄擦" autocomplete="off"></div>
+        <div class="med-used-wrap" id="medUsedBox" style="display:none;">
+          <label class="wk-label">已擦日期（點一下可移除）</label>
           <div class="med-chips" id="medUsedChips"></div>
-          <div class="row"><div class="field"><label>補記日期</label><input type="date" id="medAddDate"></div></div>
-          <button type="button" class="btn btn-ghost" id="medAddDateBtn">補記這一天</button>
+          <label class="wk-label" for="medAddDate">補記日期</label>
+          <div class="med-add-row">
+            <input type="date" id="medAddDate">
+            <button type="button" class="btn btn-ghost" id="medAddDateBtn">補記</button>
+          </div>
         </div>
-        <p class="hint" style="margin-top:10px;">袪痘素凝膠連續使用不宜超過 8 至 12 週。已擦天數以「今天已擦」按鈕記錄的日期為準，剩餘天數＝上限 − 已擦天數。</p>
+        <p class="hint" style="margin-top:16px;">袪痘素凝膠連續使用不宜超過 8 至 12 週。已擦天數以「已擦」按鈕記錄的日期為準（按的是目前查看的那一天，可用上方日期切換補記），剩餘天數＝上限 − 已擦天數。</p>
       </div>
       <div class="sheet-footer">
         <div class="btn-row">
@@ -8566,16 +8580,18 @@
         var el = document.getElementById('medStatus');
         if (!el) return;
         if (!isA) { el.innerHTML = ''; return; }
-        var today = todayStr();
+        var viewDate = state.currentDate;
+        var isToday = viewDate === todayStr();
+        var dayLabel = isToday ? '今天' : (Number(viewDate.slice(5, 7)) + '/' + Number(viewDate.slice(8, 10)));
         el.innerHTML = state.meds.filter(function (m) { return m.person === MED_PERSON && m.active; }).map(function (m) {
           var s = medStats(m);
-          var doneToday = m.usedDates.indexOf(today) > -1;
+          var doneToday = m.usedDates.indexOf(viewDate) > -1;
           return '<div class="med-line ' + s.level + '">' +
             '<div class="med-text" data-med-edit="' + escapeHtml(m.id) + '">💊 ' + escapeHtml(m.name) +
             '　已擦 <b>' + s.used + '</b> 天・' + (s.left > 0 ? '剩餘 <b>' + s.left + '</b> 天' : '<b>已達上限</b>') +
             '<small>' + escapeHtml(s.tip) + '</small></div>' +
             '<button type="button" class="med-today-btn' + (doneToday ? ' done' : '') + '" data-med-today="' + escapeHtml(m.id) + '">' +
-            (doneToday ? '✓ 今天已擦' : '今天已擦') + '</button></div>';
+            (doneToday ? '✓ ' + dayLabel + '已擦' : dayLabel + '已擦') + '</button></div>';
         }).join('');
       }
 
@@ -8604,7 +8620,7 @@
       async function toggleMedToday(id) {
         var m = state.meds.find(function (x) { return x.id === id; });
         if (!m) return;
-        var t = todayStr(), i = m.usedDates.indexOf(t);
+        var t = state.currentDate, i = m.usedDates.indexOf(t);
         if (i > -1) m.usedDates.splice(i, 1); else m.usedDates.push(t);
         await saveMed(m, false);
       }
