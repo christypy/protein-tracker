@@ -451,6 +451,22 @@
       }
     }
 
+    /* ---- 藥品紀錄（只在 150 頁面顯示） ---- */
+    .med-status { margin-top: 6px; display: flex; flex-direction: column; gap: 5px; }
+    .med-line { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 10px;
+      background: var(--protein-tint); border: 1px solid var(--line); font-size: 12px; color: var(--ink); }
+    .med-line.warn { background: #FBF1DE; border-color: var(--fat); }
+    .med-line.danger { background: #F8E4DE; border-color: var(--danger); }
+    .med-line .med-text { flex: 1; min-width: 0; cursor: pointer; line-height: 1.45; }
+    .med-line .med-text b { font-family: var(--font-num); }
+    .med-line .med-text small { display: block; color: var(--ink-soft); font-size: 11px; }
+    .med-today-btn { flex: none; border: 1px solid var(--protein-dark); background: var(--card); color: var(--protein-dark);
+      border-radius: 999px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+    .med-today-btn.done { background: var(--protein-dark); color: #fff; }
+    .med-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+    .med-chip { border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px;
+      font-family: var(--font-num); background: var(--card); cursor: pointer; }
+
     .app-top-spacer {
       height: 12px;
     }
@@ -2949,6 +2965,7 @@
       <div class="bottom-jump-col" id="bottomJumpCol">
         <button type="button" class="sync-float-btn" id="jumpAddMealBtn" title="新增這一餐">🍽️</button>
         <button type="button" class="sync-float-btn" id="jumpWorkoutBtn" title="新增運動紀錄">🏋️</button>
+        <button type="button" class="sync-float-btn" id="jumpMedBtn" title="新增藥品紀錄" style="display:none;">💊</button>
         <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="新增食材">➕</button>
         <button type="button" class="sync-float-btn" id="jumpSettingsBtn" title="跳到資料同步設定">⚙️</button>
       </div>
@@ -2981,6 +2998,7 @@
         <div class="goal-head-text">
           <span class="goal-head-title">今日目標 · <b id="profileDesc"></b></span>
           <div class="both-protein-goals" id="bothProteinGoals"></div>
+          <div class="med-status" id="medStatus"></div>
         </div>
       </div>
       <div class="section-body goal-section-body">
@@ -3400,6 +3418,38 @@
       </div>
     </div>
 
+    <!-- 藥品紀錄面板（只在 150 頁面使用）：新增／編輯藥品、補記或移除已擦日期 -->
+    <div class="food-detail" id="medBox" style="display:none;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title" id="medSheetTitle">新增藥品紀錄</span>
+        <button type="button" class="sheet-toggle" id="medCloseBtn">✕ 關閉</button>
+      </div>
+      <div class="sheet-body">
+        <div class="status-msg err" id="medNote" style="display:none;"></div>
+        <div class="field"><label for="medName">藥品名稱</label><input type="text" id="medName" placeholder="例如：袪痘素凝膠" autocomplete="off"></div>
+        <div class="row"><div class="field"><label>開始使用日期</label><input type="date" id="medStart"></div></div>
+        <div class="row">
+          <div class="field"><label>提醒週數（建議評估）</label><input type="number" id="medWarnWeeks" min="1" step="1" value="8"></div>
+          <div class="field"><label>連續使用上限（週）</label><input type="number" id="medLimitWeeks" min="1" step="1" value="12"></div>
+        </div>
+        <div class="field"><label for="medNoteInput">備註</label><input type="text" id="medNoteInput" placeholder="例如：睡前薄擦" autocomplete="off"></div>
+        <div id="medUsedBox" style="display:none;">
+          <label>已擦日期（點一下可移除）</label>
+          <div class="med-chips" id="medUsedChips"></div>
+          <div class="row"><div class="field"><label>補記日期</label><input type="date" id="medAddDate"></div></div>
+          <button type="button" class="btn btn-ghost" id="medAddDateBtn">補記這一天</button>
+        </div>
+        <p class="hint" style="margin-top:10px;">袪痘素凝膠連續使用不宜超過 8 至 12 週。已擦天數以「今天已擦」按鈕記錄的日期為準，剩餘天數＝上限 − 已擦天數。</p>
+      </div>
+      <div class="sheet-footer">
+        <div class="btn-row">
+          <button type="button" class="btn btn-ghost wk-del-btn wk-footer-left" id="medDeleteBtn" style="display:none;">刪除</button>
+          <button type="button" class="btn btn-primary" id="medSaveBtn">儲存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 4. 現在可以吃什麼（零食類別，扣掉晚餐預留熱量後還能吃多少） -->
     <div class="section collapsed" id="secSnackNow">
       <div class="section-head" data-toggle="secSnackNow">
@@ -3718,7 +3768,9 @@
 
         // 運動紀錄（見下方「運動紀錄」區塊）與它自己的 tombstone。
         workouts: [],
-        deletedWorkoutIds: []
+        deletedWorkoutIds: [],
+        meds: [],
+        deletedMedIds: []
       };
 
       function defaultGoalsSet() {
@@ -3829,6 +3881,14 @@
           var dwi = await storeGetRaw('deletedWorkoutIds');
           state.deletedWorkoutIds = dwi ? JSON.parse(dwi) : [];
         } catch (e) { state.deletedWorkoutIds = []; }
+        try {
+          var md = await storeGetRaw('meds');
+          state.meds = md ? JSON.parse(md).map(normalizeMed) : [];
+        } catch (e) { state.meds = []; }
+        try {
+          var dmi = await storeGetRaw('deletedMedIds');
+          state.deletedMedIds = dmi ? JSON.parse(dmi) : [];
+        } catch (e) { state.deletedMedIds = []; }
       }
       async function saveLocalFoods() { await storeSetRaw('foods', JSON.stringify(state.foods)); }
       async function saveLocalLogs() { await storeSetRaw('logs', JSON.stringify(state.logs)); }
@@ -3904,9 +3964,10 @@
       // 把「本機有、試算表沒有」的資料重新送一次。addFood 這邊試算表會沿用原本的 id
       // （不會重複新增食材本身），addLog 的部分試算表固定會產生新的 id，成功後把本機
       // 那筆的 id 換成試算表回傳的 id，避免下次又被誤判成「還沒同步」。
-      async function resyncPending(pendingFoods, pendingLogs, pendingWorkouts) {
+      async function resyncPending(pendingFoods, pendingLogs, pendingWorkouts, pendingMeds) {
         pendingWorkouts = pendingWorkouts || [];
-        var results = { foodsOk: 0, foodsFail: 0, logsOk: 0, logsFail: 0, workoutsOk: 0, workoutsFail: 0 };
+        pendingMeds = pendingMeds || [];
+        var results = { foodsOk: 0, foodsFail: 0, logsOk: 0, logsFail: 0, workoutsOk: 0, workoutsFail: 0, medsOk: 0, medsFail: 0 };
         for (var i = 0; i < pendingFoods.length; i++) {
           try { await sheetPost('addFood', Object.assign({}, pendingFoods[i])); results.foodsOk++; }
           catch (e) { results.foodsFail++; }
@@ -3923,6 +3984,10 @@
         for (var k = 0; k < pendingWorkouts.length; k++) {
           try { await sheetPost('addWorkout', Object.assign({}, pendingWorkouts[k])); results.workoutsOk++; }
           catch (e) { results.workoutsFail++; }
+        }
+        for (var m = 0; m < pendingMeds.length; m++) {
+          try { await sheetPost('addMed', Object.assign({}, pendingMeds[m])); results.medsOk++; }
+          catch (e) { results.medsFail++; }
         }
         if (results.foodsOk || results.logsOk) {
           await saveLocalFoods();
@@ -3978,13 +4043,24 @@
           await saveLocalFoods();
           await saveLocalLogs();
 
-          var pendingCount = pendingFoods.length + pendingLogs.length + pendingWorkouts.length;
+          // 藥品紀錄：舊版後端沒有 meds 時整段跳過（資料仍安全留在本機）。
+          var backendHasMeds = Array.isArray(data.meds);
+          if (backendHasMeds && data.deletedMedIds && data.deletedMedIds.length) {
+            pushDeletedIds(state.deletedMedIds, data.deletedMedIds);
+            await storeSetRaw('deletedMedIds', JSON.stringify(state.deletedMedIds));
+          }
+          var pendingMeds = backendHasMeds ? findUnsynced(data.meds, state.meds, state.deletedMedIds) : [];
+          if (backendHasMeds) {
+            state.meds = mergeById(data.meds, state.meds, state.deletedMedIds).map(normalizeMed);
+            await saveLocalMeds();
+          }
+          var pendingCount = pendingFoods.length + pendingLogs.length + pendingWorkouts.length + pendingMeds.length;
           if (pendingCount > 0) {
             dot.className = 'sync-dot syncing';
             label.textContent = '補傳 ' + pendingCount + ' 筆待同步…';
             if (showStatus) setSheetStatus('偵測到 ' + pendingCount + ' 筆本機資料還沒進試算表，正在補傳…', '');
-            var results = await resyncPending(pendingFoods, pendingLogs, pendingWorkouts);
-            var stillFailed = results.foodsFail + results.logsFail + results.workoutsFail;
+            var results = await resyncPending(pendingFoods, pendingLogs, pendingWorkouts, pendingMeds);
+            var stillFailed = results.foodsFail + results.logsFail + results.workoutsFail + results.medsFail;
             if (stillFailed > 0) {
               dot.className = 'sync-dot warn';
               label.textContent = '尚有 ' + stillFailed + ' 筆待同步';
@@ -5704,6 +5780,7 @@
         renderHero();
         renderLogList();
         renderWorkoutList();
+        renderMedStatus();
         renderFoodTable();
         renderPickerList();
         renderSnackNow();
@@ -8051,6 +8128,7 @@
         var b = document.getElementById('workoutCopyBox');
         if (a) a.style.display = 'none';
         if (b) b.style.display = 'none';
+        closeMedSheet();
       }
 
       function openWorkoutSheet(w) {
@@ -8449,6 +8527,167 @@
         });
       }
 
+      // ---------- 藥品紀錄（只在 150＝身份 A 的頁面顯示） ----------
+      var MED_PERSON = 'A';
+      var medForm = null;
+
+      function normalizeMed(m) {
+        if (!m) return m;
+        m.person = m.person || MED_PERSON;
+        m.name = m.name || '';
+        m.startDate = m.startDate || todayStr();
+        m.limitWeeks = Math.max(1, Math.round(Number(m.limitWeeks)) || 12);
+        m.warnWeeks = Math.min(m.limitWeeks, Math.max(1, Math.round(Number(m.warnWeeks)) || 8));
+        var seen = {};
+        m.usedDates = (Array.isArray(m.usedDates) ? m.usedDates : []).filter(function (d) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || seen[d]) return false;
+          seen[d] = true; return true;
+        }).sort();
+        m.note = m.note || '';
+        m.active = m.active !== false;
+        return m;
+      }
+
+      function medStats(m) {
+        var used = m.usedDates.length, limit = m.limitWeeks * 7, warn = m.warnWeeks * 7;
+        var left = limit - used;
+        var level = left <= 0 ? 'danger' : (used >= warn ? 'warn' : '');
+        var tip;
+        if (left <= 0) tip = '已達連續使用上限 ' + m.limitWeeks + ' 週，請先停用／休息，必要時詢問醫師或藥師';
+        else if (used >= warn) tip = '已超過 ' + m.warnWeeks + ' 週，建議評估是否停用；距上限還有 ' + left + ' 天';
+        else tip = '距 ' + m.warnWeeks + ' 週提醒還有 ' + (warn - used) + ' 天';
+        return { used: used, left: left, level: level, tip: tip };
+      }
+
+      function renderMedStatus() {
+        var isA = activeProfile() === MED_PERSON;
+        var fab = document.getElementById('jumpMedBtn');
+        if (fab) fab.style.display = isA ? '' : 'none';
+        var el = document.getElementById('medStatus');
+        if (!el) return;
+        if (!isA) { el.innerHTML = ''; return; }
+        var today = todayStr();
+        el.innerHTML = state.meds.filter(function (m) { return m.person === MED_PERSON && m.active; }).map(function (m) {
+          var s = medStats(m);
+          var doneToday = m.usedDates.indexOf(today) > -1;
+          return '<div class="med-line ' + s.level + '">' +
+            '<div class="med-text" data-med-edit="' + escapeHtml(m.id) + '">💊 ' + escapeHtml(m.name) +
+            '　已擦 <b>' + s.used + '</b> 天・' + (s.left > 0 ? '剩餘 <b>' + s.left + '</b> 天' : '<b>已達上限</b>') +
+            '<small>' + escapeHtml(s.tip) + '</small></div>' +
+            '<button type="button" class="med-today-btn' + (doneToday ? ' done' : '') + '" data-med-today="' + escapeHtml(m.id) + '">' +
+            (doneToday ? '✓ 今天已擦' : '今天已擦') + '</button></div>';
+        }).join('');
+      }
+
+      async function saveLocalMeds() { await storeSetRaw('meds', JSON.stringify(state.meds)); }
+      function medSyncFail(e, what) {
+        var msg = (e && e.message) ? e.message : String(e);
+        if (/unknown action/i.test(msg)) setSheetStatus('藥品紀錄目前只存在這台裝置：後端 Code.gs 還不是最新版，請貼上新版並重新部署後，再按「立即重新同步」。', 'err');
+        else setSheetStatus(what + '同步失敗：' + msg + '（已保留在本機）', 'err');
+      }
+      async function saveMed(m, isNew) {
+        normalizeMed(m);
+        var idx = state.meds.findIndex(function (x) { return x.id === m.id; });
+        if (idx !== -1) state.meds[idx] = m; else state.meds.push(m);
+        await saveLocalMeds();
+        renderAll();
+        if (hasSheet()) sheetPost(isNew ? 'addMed' : 'updateMed', Object.assign({}, m)).catch(function (e) { medSyncFail(e, '藥品紀錄'); });
+      }
+      async function deleteMed(id) {
+        state.meds = state.meds.filter(function (m) { return m.id !== id; });
+        pushDeletedIds(state.deletedMedIds, [id]);
+        await storeSetRaw('deletedMedIds', JSON.stringify(state.deletedMedIds));
+        await saveLocalMeds();
+        renderAll();
+        if (hasSheet()) sheetPost('deleteMed', { id: id }).catch(function (e) { medSyncFail(e, '刪除藥品紀錄'); });
+      }
+      async function toggleMedToday(id) {
+        var m = state.meds.find(function (x) { return x.id === id; });
+        if (!m) return;
+        var t = todayStr(), i = m.usedDates.indexOf(t);
+        if (i > -1) m.usedDates.splice(i, 1); else m.usedDates.push(t);
+        await saveMed(m, false);
+      }
+
+      function medShowNote(msg) {
+        var el = document.getElementById('medNote');
+        el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+      }
+      function renderMedUsedChips() {
+        var box = document.getElementById('medUsedBox');
+        box.style.display = medForm && medForm.editingId ? 'block' : 'none';
+        document.getElementById('medUsedChips').innerHTML = medForm ? medForm.usedDates.slice().sort().reverse().map(function (d) {
+          return '<span class="med-chip" data-med-rm="' + d + '">' + d.slice(5) + ' ✕</span>';
+        }).join('') || '<span class="hint">還沒有紀錄</span>' : '';
+      }
+      function closeMedSheet() {
+        var b = document.getElementById('medBox');
+        if (b) b.style.display = 'none';
+        medForm = null;
+      }
+      function openMedSheet(m) {
+        closeManualSheet(); closeFoodAddSheet(); clearFoodEditForm(); clearLogEditForm();
+        closeMealGroupEdit(); closeMealSaveFoodBox(); closeWorkoutSheets();
+        medForm = m ? { editingId: m.id, usedDates: m.usedDates.slice() } : { editingId: null, usedDates: [] };
+        document.getElementById('medSheetTitle').textContent = m ? '編輯藥品紀錄' : '新增藥品紀錄';
+        document.getElementById('medName').value = m ? m.name : '袪痘素凝膠';
+        document.getElementById('medStart').value = m ? m.startDate : todayStr();
+        document.getElementById('medWarnWeeks').value = m ? m.warnWeeks : 8;
+        document.getElementById('medLimitWeeks').value = m ? m.limitWeeks : 12;
+        document.getElementById('medNoteInput').value = m ? m.note : '';
+        document.getElementById('medAddDate').value = todayStr();
+        document.getElementById('medDeleteBtn').style.display = m ? '' : 'none';
+        medShowNote('');
+        renderMedUsedChips();
+        var box = document.getElementById('medBox');
+        box.style.display = 'flex';
+        box.querySelector('.sheet-body').scrollTop = 0;
+      }
+      async function medSave() {
+        var name = document.getElementById('medName').value.trim();
+        var limit = Math.round(Number(document.getElementById('medLimitWeeks').value));
+        var warn = Math.round(Number(document.getElementById('medWarnWeeks').value));
+        var start = document.getElementById('medStart').value || todayStr();
+        if (!name) { medShowNote('請輸入藥品名稱'); return; }
+        if (!(limit >= 1) || !(warn >= 1)) { medShowNote('週數請填 1 以上的整數'); return; }
+        if (warn > limit) { medShowNote('提醒週數不能大於連續使用上限'); return; }
+        var existing = medForm.editingId ? state.meds.find(function (x) { return x.id === medForm.editingId; }) : null;
+        var m = Object.assign({}, existing || { id: uid('m'), person: MED_PERSON, active: true }, {
+          name: name, startDate: start, limitWeeks: limit, warnWeeks: warn,
+          note: document.getElementById('medNoteInput').value.trim(), usedDates: medForm.usedDates
+        });
+        closeMedSheet();
+        await saveMed(m, !existing);
+      }
+      function wireMeds() {
+        var fab = document.getElementById('jumpMedBtn');
+        if (fab) fab.addEventListener('click', function () { openMedSheet(null); });
+        document.getElementById('medCloseBtn').addEventListener('click', closeMedSheet);
+        document.getElementById('medSaveBtn').addEventListener('click', medSave);
+        document.getElementById('medDeleteBtn').addEventListener('click', async function () {
+          var m = state.meds.find(function (x) { return medForm && x.id === medForm.editingId; });
+          if (m && confirm('確定要刪除「' + m.name + '」的紀錄嗎？')) { closeMedSheet(); await deleteMed(m.id); }
+        });
+        document.getElementById('medAddDateBtn').addEventListener('click', function () {
+          var d = document.getElementById('medAddDate').value;
+          if (!d || !medForm) return;
+          if (medForm.usedDates.indexOf(d) === -1) medForm.usedDates.push(d);
+          renderMedUsedChips();
+        });
+        document.getElementById('medUsedChips').addEventListener('click', function (e) {
+          var c = e.target.closest('[data-med-rm]');
+          if (!c || !medForm) return;
+          medForm.usedDates = medForm.usedDates.filter(function (d) { return d !== c.getAttribute('data-med-rm'); });
+          renderMedUsedChips();
+        });
+        document.getElementById('medStatus').addEventListener('click', function (e) {
+          var t = e.target.closest('[data-med-today]');
+          if (t) { toggleMedToday(t.getAttribute('data-med-today')); return; }
+          var ed = e.target.closest('[data-med-edit]');
+          if (ed) openMedSheet(state.meds.find(function (x) { return x.id === ed.getAttribute('data-med-edit'); }));
+        });
+      }
+
       // ---------- init ----------
       async function init() {
         await loadLocal();
@@ -8468,6 +8707,7 @@
         wireSnackNow();
         wireBottomJumpButtons();
         wireWorkout();
+        wireMeds();
 
         renderAll();
 

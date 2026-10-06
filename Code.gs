@@ -44,7 +44,14 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v21-workouts';
+var APP_BACKEND_VERSION = 'v22-meds';
+
+// 【v22 新增】藥品紀錄：一列＝一項藥品（例如袪痘素凝膠）的一個療程。
+//   startDate  開始使用日；limitWeeks 連續使用上限（週）；warnWeeks 提醒週數
+//   usedDates  已擦的日期，用逗號分隔（例如 2026-10-01,2026-10-02）
+//   active     是否還在使用（FALSE＝已結束，不再顯示在首頁）
+var MEDS_SHEET_NAME = 'Meds';
+var MEDS_HEADERS = ['id', 'person', 'name', 'startDate', 'limitWeeks', 'warnWeeks', 'usedDates', 'note', 'active'];
 
 // 【v21 新增】運動紀錄：新增一張 Workouts 分頁，一列＝「某一天的某一個運動動作」。
 // 欄位說明：
@@ -177,6 +184,9 @@ function doPost(e) {
       case 'addWorkout': result = addWorkout(payload); break;
       case 'updateWorkout': result = updateWorkout(payload); break;
       case 'deleteWorkout': result = deleteWorkout(payload); break;
+      case 'addMed': result = addMed(payload); break;
+      case 'updateMed': result = updateMed(payload); break;
+      case 'deleteMed': result = deleteMed(payload); break;
       default: result = { error: 'unknown action: ' + action };
     }
   } catch (err) {
@@ -197,6 +207,7 @@ function getFoodsSheet() { return getSheet(FOODS_SHEET_NAME, FOODS_HEADERS); }
 function getLogsSheet() { return getSheet(LOGS_SHEET_NAME, LOGS_HEADERS); }
 function getDeletedSheet() { return getSheet(DELETED_SHEET_NAME, DELETED_HEADERS); }
 function getWorkoutsSheet() { return getSheet(WORKOUTS_SHEET_NAME, WORKOUTS_HEADERS); }
+function getMedsSheet() { return getSheet(MEDS_SHEET_NAME, MEDS_HEADERS); }
 
 // 把一批「已刪除」的 id 記進 DeletedIds 分頁。同一個 type+id 已經記錄過
 // 就不會重複再寫一次，避免使用者反覆刪同一筆（理論上不會發生，但保險起見）
@@ -263,7 +274,7 @@ function readDeletedIds(type) {
 // "2026-08-13" 這種字串認成日期物件，讀回來的時候前端拿字串比對
 // (l.date === state.currentDate) 就永遠對不上，紀錄因此「連了試算表反而不見」。
 // 'note'（運動紀錄備註）也一併設成純文字，避免以「=」「+」「-」開頭的備註被當成公式。
-var TEXT_FORMAT_COLUMNS = ['date', 'time', 'note'];
+var TEXT_FORMAT_COLUMNS = ['date', 'time', 'note', 'startDate', 'usedDates'];
 
 function getSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -444,7 +455,10 @@ function getData() {
     deletedLogIds: readDeletedIds('log'),
     // 【v21 新增】運動紀錄與它的刪除清單。
     workouts: readWorkouts(),
-    deletedWorkoutIds: readDeletedIds('workout')
+    deletedWorkoutIds: readDeletedIds('workout'),
+    // 【v22 新增】藥品紀錄與它的刪除清單。
+    meds: readMeds(),
+    deletedMedIds: readDeletedIds('med')
   };
 }
 
@@ -967,6 +981,94 @@ function deleteWorkout(payload) {
   }
   // 就算試算表裡已經找不到這一列，也照樣記進 DeletedIds，讓其他裝置知道它被刪過。
   recordDeletion('workout', [targetId]);
+  SpreadsheetApp.flush();
+  return { success: true, deletedCount: deletedCount };
+}
+
+// ---------- meds（藥品紀錄） ----------
+
+function parseUsedDates(v, tz) {
+  if (Object.prototype.toString.call(v) === '[object Date]') return [Utilities.formatDate(v, tz, 'yyyy-MM-dd')];
+  var list = Array.isArray(v) ? v : String(v == null ? '' : v).split(/[,，\s]+/);
+  var seen = {}, out = [];
+  list.forEach(function (d) {
+    d = String(d).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d) && !seen[d]) { seen[d] = true; out.push(d); }
+  });
+  return out.sort();
+}
+
+function medRowValues(payload, id) {
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
+  return {
+    id: id,
+    person: payload.person || 'A',
+    name: payload.name ? String(payload.name) : '',
+    startDate: payload.startDate || '',
+    limitWeeks: Math.max(1, Math.round(Number(payload.limitWeeks)) || 12),
+    warnWeeks: Math.max(1, Math.round(Number(payload.warnWeeks)) || 8),
+    usedDates: parseUsedDates(payload.usedDates, tz).join(','),
+    note: payload.note ? String(payload.note) : '',
+    active: payload.active === false || String(payload.active).toLowerCase() === 'false' ? false : true
+  };
+}
+
+function readMeds() {
+  var sheet = getMedsSheet();
+  var map = headerIndexMap(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
+  var list = [], seen = {};
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r[map['id']]) continue;
+    var idKey = String(r[map['id']]).trim();
+    if (seen[idKey]) continue;
+    seen[idKey] = true;
+    var act = map.hasOwnProperty('active') ? r[map['active']] : true;
+    list.push({
+      id: idKey,
+      person: r[map['person']] || 'A',
+      name: String(r[map['name']] || ''),
+      startDate: formatDateCell(r[map['startDate']], tz),
+      limitWeeks: Math.max(1, Number(r[map['limitWeeks']]) || 12),
+      warnWeeks: Math.max(1, Number(r[map['warnWeeks']]) || 8),
+      usedDates: parseUsedDates(r[map['usedDates']], tz),
+      note: map.hasOwnProperty('note') ? String(r[map['note']] || '') : '',
+      active: !(act === false || String(act).toLowerCase() === 'false')
+    });
+  }
+  return list;
+}
+
+// upsert：同一個 id 不管被送幾次，試算表裡永遠只有一列。
+function addMed(payload) {
+  if (!payload || !payload.name) return { error: 'missing name' };
+  var id = String(payload.id || ('m_' + new Date().getTime()));
+  upsertRowByHeader(getMedsSheet(), MEDS_HEADERS, 'id', medRowValues(payload, id));
+  SpreadsheetApp.flush();
+  return { success: true, id: id };
+}
+
+function updateMed(payload) {
+  if (!payload || !payload.id) return { error: 'missing id' };
+  return addMed(payload);
+}
+
+function deleteMed(payload) {
+  var sheet = getMedsSheet();
+  var map = headerIndexMap(sheet);
+  var data = sheet.getDataRange().getValues();
+  var targetId = String(payload && payload.id != null ? payload.id : '').trim();
+  if (!targetId) return { error: 'missing id' };
+  var deletedCount = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][map['id']] == null ? '' : data[i][map['id']]).trim() === targetId) {
+      sheet.deleteRow(i + 1);
+      deletedCount++;
+    }
+  }
+  recordDeletion('med', [targetId]);
   SpreadsheetApp.flush();
   return { success: true, deletedCount: deletedCount };
 }
