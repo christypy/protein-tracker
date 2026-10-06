@@ -1,5 +1,5 @@
 /**
- * 蛋白質日記 - Google Apps Script 後端（v21-workouts）
+ * 身體管理 - Google Apps Script 後端（v21-workouts）
  *
  * 【v21 新增】運動紀錄：新增 Workouts 分頁與 addWorkout／updateWorkout／
  * deleteWorkout 三個動作，getData 也會回傳 workouts。更新這份程式碼後，
@@ -25,7 +25,7 @@
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100', 'mfgDate', 'expiryDate'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100', 'expiryDate'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order', 'groupId', 'pairId'];
 // 【本次新增】Logs 新增了 pairId 欄位：「兩人均分」這一餐時，同一樣食材拆成
 // A、B 兩筆紀錄，這兩筆會共用同一個 pairId，代表「這兩筆是同一份、均分出來
@@ -274,7 +274,7 @@ function readDeletedIds(type) {
 // "2026-08-13" 這種字串認成日期物件，讀回來的時候前端拿字串比對
 // (l.date === state.currentDate) 就永遠對不上，紀錄因此「連了試算表反而不見」。
 // 'note'（運動紀錄備註）也一併設成純文字，避免以「=」「+」「-」開頭的備註被當成公式。
-var TEXT_FORMAT_COLUMNS = ['date', 'time', 'note', 'startDate', 'usedDates', 'mfgDate', 'expiryDate'];
+var TEXT_FORMAT_COLUMNS = ['date', 'time', 'note', 'startDate', 'usedDates', 'expiryDate'];
 
 function getSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -519,7 +519,6 @@ function readFoods() {
       fat100: Number(r[map['fat100']]) || 0,
       sugar100: Number(r[map['sugar100']]) || 0,
       cal100: Number(r[map['cal100']]) || 0,
-      mfgDate: map.hasOwnProperty('mfgDate') ? String(formatDateCell(r[map['mfgDate']], tz) || '') : '',
       expiryDate: map.hasOwnProperty('expiryDate') ? String(formatDateCell(r[map['expiryDate']], tz) || '') : ''
     });
   }
@@ -612,7 +611,6 @@ function addFood(payload) {
     fat100: Number(payload.fat100) || 0,
     sugar100: Number(sugarVal) || 0,
     cal100: Number(payload.cal100) || 0,
-    mfgDate: payload.mfgDate ? String(payload.mfgDate).slice(0, 10) : '',
     expiryDate: payload.expiryDate ? String(payload.expiryDate).slice(0, 10) : ''
   });
   SpreadsheetApp.flush();
@@ -665,16 +663,14 @@ function updateFood(payload) {
       sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
       sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);
       sheet.getRange(rowNum, map['cal100'] + 1).setValue(Number(payload.cal100) || 0);
-      ['mfgDate', 'expiryDate'].forEach(function (h) {
-        if (!map.hasOwnProperty(h)) {
-          var c = sheet.getLastColumn() + 1;
-          sheet.getRange(1, c).setValue(h);
-          map[h] = c - 1;
-        }
-        var cell = sheet.getRange(rowNum, map[h] + 1);
-        cell.setNumberFormat('@');
-        cell.setValue(payload[h] ? String(payload[h]).slice(0, 10) : '');
-      });
+      if (!map.hasOwnProperty('expiryDate')) {
+        var expCol = sheet.getLastColumn() + 1;
+        sheet.getRange(1, expCol).setValue('expiryDate');
+        map['expiryDate'] = expCol - 1;
+      }
+      var expCell = sheet.getRange(rowNum, map['expiryDate'] + 1);
+      expCell.setNumberFormat('@');
+      expCell.setValue(payload.expiryDate ? String(payload.expiryDate).slice(0, 10) : '');
       // 【本次新增】食材的熱量／蛋白質／脂肪／糖被修改後，試算表這邊也直接把
       // 「過去用過這項食材」的所有 Logs 紀錄（不限日期）重新算一次，不依賴
       // 前端一定要成功把每一筆 updateLog 都送回來——就算前端網路中斷、
