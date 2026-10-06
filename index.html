@@ -452,12 +452,13 @@
     }
 
     /* ---- 藥品紀錄（只在 150 頁面顯示） ---- */
-    .med-status { margin-top: 6px; display: flex; flex-direction: column; gap: 5px; }
-    .med-line { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 10px;
+    .med-status { margin-top: 6px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
+      max-width: calc(100% - 56px); }
+    .med-line { display: flex; align-items: center; gap: 8px; padding: 6px 9px; max-width: 100%; box-sizing: border-box; border-radius: 10px;
       background: var(--protein-tint); border: 1px solid var(--line); font-size: 12px; color: var(--ink); }
     .med-line.warn { background: #FBF1DE; border-color: var(--fat); }
     .med-line.danger { background: #F8E4DE; border-color: var(--danger); }
-    .med-line .med-text { flex: 1; min-width: 0; cursor: pointer; line-height: 1.45; }
+    .med-line .med-text { flex: 0 1 auto; min-width: 0; cursor: pointer; line-height: 1.45; }
     .med-line .med-text b { font-family: var(--font-num); }
     .med-line .med-text small { display: block; color: var(--ink-soft); font-size: 11px; }
     .med-today-btn { flex: none; border: 1px solid var(--protein-dark); background: var(--card); color: var(--protein-dark);
