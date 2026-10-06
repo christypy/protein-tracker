@@ -1005,8 +1005,8 @@ function medRowValues(payload, id) {
     person: payload.person || 'A',
     name: payload.name ? String(payload.name) : '',
     startDate: payload.startDate || '',
-    limitWeeks: Math.max(1, Math.round(Number(payload.limitWeeks)) || 12),
-    warnWeeks: Math.max(1, Math.round(Number(payload.warnWeeks)) || 8),
+    limitWeeks: Math.max(1, Math.round(Number(payload.limitWeeks)) || 6),
+    warnWeeks: Math.max(1, Math.round(Number(payload.warnWeeks)) || 4),
     usedDates: parseUsedDates(payload.usedDates, tz).join(','),
     note: payload.note ? String(payload.note) : '',
     active: payload.active === false || String(payload.active).toLowerCase() === 'false' ? false : true
@@ -1031,8 +1031,8 @@ function readMeds() {
       person: r[map['person']] || 'A',
       name: String(r[map['name']] || ''),
       startDate: formatDateCell(r[map['startDate']], tz),
-      limitWeeks: Math.max(1, Number(r[map['limitWeeks']]) || 12),
-      warnWeeks: Math.max(1, Number(r[map['warnWeeks']]) || 8),
+      limitWeeks: Math.max(1, Number(r[map['limitWeeks']]) || 6),
+      warnWeeks: Math.max(1, Number(r[map['warnWeeks']]) || 4),
       usedDates: parseUsedDates(r[map['usedDates']], tz),
       note: map.hasOwnProperty('note') ? String(r[map['note']] || '') : '',
       active: !(act === false || String(act).toLowerCase() === 'false')

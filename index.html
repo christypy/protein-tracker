@@ -3442,8 +3442,8 @@
         <div class="med-block"><label for="medName">藥品名稱</label><input type="text" id="medName" placeholder="例如：袪痘素凝膠" autocomplete="off"></div>
         <div class="med-block"><label for="medStart">開始使用日期</label><input type="date" id="medStart"></div>
         <div class="med-pair">
-          <div class="med-block"><label for="medWarnWeeks">提醒週數（建議評估）</label><input type="number" id="medWarnWeeks" min="1" step="1" value="8" inputmode="numeric"></div>
-          <div class="med-block"><label for="medLimitWeeks">連續使用上限（週）</label><input type="number" id="medLimitWeeks" min="1" step="1" value="12" inputmode="numeric"></div>
+          <div class="med-block"><label for="medWarnWeeks">提醒週數（建議評估）</label><input type="number" id="medWarnWeeks" min="1" step="1" value="4" inputmode="numeric"></div>
+          <div class="med-block"><label for="medLimitWeeks">連續使用上限（週）</label><input type="number" id="medLimitWeeks" min="1" step="1" value="6" inputmode="numeric"></div>
         </div>
         <div class="med-block"><label for="medNoteInput">備註</label><input type="text" id="medNoteInput" placeholder="例如：睡前薄擦" autocomplete="off"></div>
         <div class="med-used-wrap" id="medUsedBox" style="display:none;">
@@ -3455,7 +3455,7 @@
             <button type="button" class="btn btn-ghost" id="medAddDateBtn">補記</button>
           </div>
         </div>
-        <p class="hint" style="margin-top:16px;">袪痘素凝膠連續使用不宜超過 8 至 12 週。已擦天數以「已擦」按鈕記錄的日期為準（按的是目前查看的那一天，可用上方日期切換補記），剩餘天數＝上限 − 已擦天數。</p>
+        <p class="hint" style="margin-top:16px;">袪痘素凝膠連續使用建議不超過 6 週。已擦天數以「已擦」按鈕記錄的日期為準（按的是目前查看的那一天，可用上方日期切換補記），剩餘天數＝上限 − 已擦天數。</p>
       </div>
       <div class="sheet-footer">
         <div class="btn-row">
@@ -8551,8 +8551,8 @@
         m.person = m.person || MED_PERSON;
         m.name = m.name || '';
         m.startDate = m.startDate || todayStr();
-        m.limitWeeks = Math.max(1, Math.round(Number(m.limitWeeks)) || 12);
-        m.warnWeeks = Math.min(m.limitWeeks, Math.max(1, Math.round(Number(m.warnWeeks)) || 8));
+        m.limitWeeks = Math.max(1, Math.round(Number(m.limitWeeks)) || 6);
+        m.warnWeeks = Math.min(m.limitWeeks, Math.max(1, Math.round(Number(m.warnWeeks)) || 4));
         var seen = {};
         m.usedDates = (Array.isArray(m.usedDates) ? m.usedDates : []).filter(function (d) {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || seen[d]) return false;
@@ -8649,8 +8649,8 @@
         document.getElementById('medSheetTitle').textContent = m ? '編輯藥品紀錄' : '新增藥品紀錄';
         document.getElementById('medName').value = m ? m.name : '袪痘素凝膠';
         document.getElementById('medStart').value = m ? m.startDate : todayStr();
-        document.getElementById('medWarnWeeks').value = m ? m.warnWeeks : 8;
-        document.getElementById('medLimitWeeks').value = m ? m.limitWeeks : 12;
+        document.getElementById('medWarnWeeks').value = m ? m.warnWeeks : 4;
+        document.getElementById('medLimitWeeks').value = m ? m.limitWeeks : 6;
         document.getElementById('medNoteInput').value = m ? m.note : '';
         document.getElementById('medAddDate').value = todayStr();
         document.getElementById('medDeleteBtn').style.display = m ? '' : 'none';
