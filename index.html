@@ -1780,6 +1780,14 @@
       gap: 2px;
     }
 
+    .expiry-alert { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+    .expiry-line { font-size: 13px; padding: 6px 10px; border-radius: 8px; background: #fff6e0; color: #7a5200; }
+    .expiry-line small { margin-left: 8px; opacity: .7; }
+    .expiry-line.urgent { background: #ffe8e0; color: #a33a10; }
+    .expiry-line.expired { background: #ffd9d9; color: #9b1c1c; }
+    .food-row .fexpiry { font-style: normal; font-size: 11px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: #fff6e0; color: #7a5200; }
+    .food-row .fexpiry.urgent { background: #ffe8e0; color: #a33a10; }
+    .food-row .fexpiry.expired { background: #ffd9d9; color: #9b1c1c; }
     .food-row .fstats {
       font-family: var(--font-num);
       font-size: 11.5px;
@@ -3011,6 +3019,7 @@
           <span class="goal-head-title">今日目標 · <b id="profileDesc"></b></span>
           <div class="both-protein-goals" id="bothProteinGoals"></div>
           <div class="med-status" id="medStatus"></div>
+          <div class="expiry-alert" id="expiryAlert"></div>
         </div>
       </div>
       <div class="section-body goal-section-body">
@@ -3546,6 +3555,11 @@
             <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="fFat" min="0" step="0.1"></div>
             <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="fSugar" min="0" step="0.1"></div>
           </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>製造日期</label><input type="date" id="fMfg"></div>
+            <div class="field"><label>保存期限（到期日）</label><input type="date" id="fExpiry"></div>
+          </div>
+          <p class="hint" style="margin:4px 0 0;">到期前 2 週通知 1 次、最後 1 週通知 3 次（不填就不通知）。</p>
           <label for="fOutOfStock" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);">
             <input type="checkbox" id="fOutOfStock" style="width:16px;height:16px;flex:none;">
             目前缺貨中（勾選後不會出現在「新增這一餐」的選擇清單裡）
@@ -3598,6 +3612,11 @@
             <div class="field"><label>脂肪 (g／每份)</label><input type="number" id="feFat" min="0" step="0.1"></div>
             <div class="field"><label>糖（Sugar）(g／每份)</label><input type="number" id="feSugar" min="0" step="0.1"></div>
           </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>製造日期</label><input type="date" id="feMfg"></div>
+            <div class="field"><label>保存期限（到期日）</label><input type="date" id="feExpiry"></div>
+          </div>
+          <p class="hint" style="margin:4px 0 0;">到期前 2 週通知 1 次、最後 1 週通知 3 次（不填就不通知）。</p>
           <label for="feOutOfStock" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);">
             <input type="checkbox" id="feOutOfStock" style="width:16px;height:16px;flex:none;">
             目前缺貨中（勾選後不會出現在「新增這一餐」的選擇清單裡）
@@ -4293,6 +4312,7 @@
         if (!base || base <= 0) return { error: '基礎一份克數必須大於 0' };
         if (!servings || servings <= 0) servings = 1;
         if (isNaN(protein) || protein < 0) return { error: '請輸入有效的蛋白質克數' };
+        if (input.mfgDate && input.expiryDate && input.expiryDate < input.mfgDate) return { error: '保存期限不能早於製造日期' };
 
         var cal = (input.cal !== '' && input.cal !== undefined && input.cal !== null)
           ? Number(input.cal)
@@ -4311,6 +4331,8 @@
             categories: normalizeCategories(categories),
             category: normalizeCategories(categories)[0] || '',
             outOfStock: !!input.outOfStock,
+            mfgDate: normDateStr(input.mfgDate),
+            expiryDate: normDateStr(input.expiryDate),
           }
         };
       }
@@ -5439,12 +5461,49 @@
         countEl.textContent = '已選 ' + state.foodDeleteSelected.length + ' 項';
       }
 
+      // ---------- 保存期限 ----------
+      // 通知節奏：到期前 14 天通知 1 次（兩週前）；最後一週通知 3 次（7、4、1 天前）。
+      // 後端 Code.gs 的每日信件用同一組數字（EXPIRY_NOTIFY_DAYS），改的時候兩邊一起改。
+      var EXPIRY_NOTIFY_DAYS = [14, 7, 4, 1];
+      function normDateStr(v) {
+        v = (v == null ? '' : String(v)).trim();
+        return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : '';
+      }
+      function daysUntilDate(dateStr) {
+        var d = normDateStr(dateStr);
+        if (!d) return null;
+        var t = todayStr();
+        var a = Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10));
+        var b = Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
+        return Math.round((b - a) / 86400000);
+      }
+      function expiryInfo(f) {
+        var n = daysUntilDate(f && f.expiryDate);
+        if (n === null) return null;
+        var level = n < 0 ? 'expired' : (n <= 7 ? 'urgent' : (n <= 14 ? 'soon' : 'ok'));
+        var text = n < 0 ? ('已過期 ' + (-n) + ' 天') : (n === 0 ? '今天到期' : ('剩 ' + n + ' 天到期'));
+        return { days: n, level: level, text: text };
+      }
+      function renderExpiryAlert() {
+        var el = document.getElementById('expiryAlert');
+        if (!el) return;
+        var list = state.foods.map(function (f) { return { f: f, info: expiryInfo(f) }; })
+          .filter(function (x) { return x.info && !x.f.outOfStock && x.info.days <= 14; })
+          .sort(function (a, b) { return a.info.days - b.info.days; });
+        el.innerHTML = list.map(function (x) {
+          return '<div class="expiry-line ' + x.info.level + '">⏰ ' + escapeHtml(x.f.name) + '　<b>' + x.info.text +
+            '</b><small>' + escapeHtml(x.f.expiryDate) + '</small></div>';
+        }).join('');
+      }
+
       // 單一食材列：跟今日紀錄的 renderLogRow 用同一套手勢——一般瀏覽模式下
       // 點兩下直接編輯、向左滑出現「刪除」；批次刪除模式下維持勾選外觀，不套用手勢。
       function renderFoodRow(f) {
         var d = foodDisplayRow(f);
         var catBadge = categoryBadges(f);
         var stockBadge = f.outOfStock ? '<em class="fstock">缺貨中</em>' : '';
+        var ex = expiryInfo(f);
+        if (ex && ex.level !== 'ok') stockBadge += '<em class="fexpiry ' + ex.level + '">' + ex.text + '</em>';
         var deleteMode = state.foodMode === 'delete';
         var checked = deleteMode && state.foodDeleteSelected.indexOf(f.id) > -1;
         var rowCls = 'food-row' + (deleteMode ? ' selectable-row' : '') + (checked ? ' picked' : '') + (f.outOfStock ? ' out-of-stock' : '');
@@ -5459,6 +5518,7 @@
           tail +
           '</div>' +
           '<div class="fstats" title="' + escapeHtml(d.baseTitle || '') + '">' + stats + '</div>' +
+          ((f.mfgDate || f.expiryDate) ? '<div class="fstats">' + (f.mfgDate ? '<b>製造</b>' + escapeHtml(normDateStr(f.mfgDate)) + ' ' : '') + (f.expiryDate ? '<b>期限</b>' + escapeHtml(normDateStr(f.expiryDate)) + (ex ? '（' + ex.text + '）' : '') : '') + '</div>' : '') +
           '</div>';
 
         if (deleteMode) return rowHtml;
@@ -5796,6 +5856,7 @@
         renderLogList();
         renderWorkoutList();
         renderMedStatus();
+        renderExpiryAlert();
         renderFoodTable();
         renderPickerList();
         renderSnackNow();
@@ -6001,6 +6062,8 @@
         document.getElementById('fBase').value = 100;
         document.getElementById('fServings').value = 1;
         document.getElementById('fOutOfStock').checked = false;
+        document.getElementById('fMfg').value = '';
+        document.getElementById('fExpiry').value = '';
         setFCategory('');
         document.getElementById('fCategoryNewRow').style.display = 'none';
         document.getElementById('fCategoryNewInput').value = '';
@@ -7213,6 +7276,8 @@
         document.getElementById('feSugar').value = foodRawNutrient(food, 'sugar');
         document.getElementById('feCal').value = foodRawNutrient(food, 'cal');
         document.getElementById('feOutOfStock').checked = !!food.outOfStock;
+        document.getElementById('feMfg').value = normDateStr(food.mfgDate);
+        document.getElementById('feExpiry').value = normDateStr(food.expiryDate);
         setFECategory(foodCategories(food));
         document.getElementById('feCategoryNewRow').style.display = 'none';
         document.getElementById('feCategoryNewInput').value = '';
@@ -7274,6 +7339,8 @@
             sugar: document.getElementById('feSugar').value,
             cal: document.getElementById('feCal').value,
             outOfStock: document.getElementById('feOutOfStock').checked,
+            mfgDate: document.getElementById('feMfg').value,
+            expiryDate: document.getElementById('feExpiry').value,
           }, state.editingFoodId, state.feCategorySelected);
 
           if (result.error) { alert(result.error); return; }
@@ -7494,6 +7561,8 @@
             sugar: document.getElementById('fSugar').value,
             cal: document.getElementById('fCal').value,
             outOfStock: document.getElementById('fOutOfStock').checked,
+            mfgDate: document.getElementById('fMfg').value,
+            expiryDate: document.getElementById('fExpiry').value,
           }, null, state.fCategorySelected);
 
           if (result.error) { alert(result.error); return; }

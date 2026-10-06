@@ -25,7 +25,7 @@
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100', 'mfgDate', 'expiryDate'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order', 'groupId', 'pairId'];
 // 【本次新增】Logs 新增了 pairId 欄位：「兩人均分」這一餐時，同一樣食材拆成
 // A、B 兩筆紀錄，這兩筆會共用同一個 pairId，代表「這兩筆是同一份、均分出來
@@ -44,7 +44,7 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v22-meds';
+var APP_BACKEND_VERSION = 'v23-expiry';
 
 // 【v22 新增】藥品紀錄：一列＝一項藥品（例如袪痘素凝膠）的一個療程。
 //   startDate  開始使用日；limitWeeks 連續使用上限（週）；warnWeeks 提醒週數
@@ -274,7 +274,7 @@ function readDeletedIds(type) {
 // "2026-08-13" 這種字串認成日期物件，讀回來的時候前端拿字串比對
 // (l.date === state.currentDate) 就永遠對不上，紀錄因此「連了試算表反而不見」。
 // 'note'（運動紀錄備註）也一併設成純文字，避免以「=」「+」「-」開頭的備註被當成公式。
-var TEXT_FORMAT_COLUMNS = ['date', 'time', 'note', 'startDate', 'usedDates'];
+var TEXT_FORMAT_COLUMNS = ['date', 'time', 'note', 'startDate', 'usedDates', 'mfgDate', 'expiryDate'];
 
 function getSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -490,6 +490,7 @@ function serializeFoodCategories(categories) {
 }
 
 function readFoods() {
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
   var sheet = getFoodsSheet();
   var map = headerIndexMap(sheet);
   var rows = sheet.getDataRange().getValues();
@@ -517,7 +518,9 @@ function readFoods() {
       protein100: Number(r[map['protein100']]) || 0,
       fat100: Number(r[map['fat100']]) || 0,
       sugar100: Number(r[map['sugar100']]) || 0,
-      cal100: Number(r[map['cal100']]) || 0
+      cal100: Number(r[map['cal100']]) || 0,
+      mfgDate: map.hasOwnProperty('mfgDate') ? String(formatDateCell(r[map['mfgDate']], tz) || '') : '',
+      expiryDate: map.hasOwnProperty('expiryDate') ? String(formatDateCell(r[map['expiryDate']], tz) || '') : ''
     });
   }
   return foods;
@@ -608,7 +611,9 @@ function addFood(payload) {
     protein100: Number(payload.protein100) || 0,
     fat100: Number(payload.fat100) || 0,
     sugar100: Number(sugarVal) || 0,
-    cal100: Number(payload.cal100) || 0
+    cal100: Number(payload.cal100) || 0,
+    mfgDate: payload.mfgDate ? String(payload.mfgDate).slice(0, 10) : '',
+    expiryDate: payload.expiryDate ? String(payload.expiryDate).slice(0, 10) : ''
   });
   SpreadsheetApp.flush();
   return { success: true, id: id };
@@ -660,6 +665,16 @@ function updateFood(payload) {
       sheet.getRange(rowNum, map['fat100'] + 1).setValue(Number(payload.fat100) || 0);
       sheet.getRange(rowNum, map['sugar100'] + 1).setValue(Number(sugarVal) || 0);
       sheet.getRange(rowNum, map['cal100'] + 1).setValue(Number(payload.cal100) || 0);
+      ['mfgDate', 'expiryDate'].forEach(function (h) {
+        if (!map.hasOwnProperty(h)) {
+          var c = sheet.getLastColumn() + 1;
+          sheet.getRange(1, c).setValue(h);
+          map[h] = c - 1;
+        }
+        var cell = sheet.getRange(rowNum, map[h] + 1);
+        cell.setNumberFormat('@');
+        cell.setValue(payload[h] ? String(payload[h]).slice(0, 10) : '');
+      });
       // 【本次新增】食材的熱量／蛋白質／脂肪／糖被修改後，試算表這邊也直接把
       // 「過去用過這項食材」的所有 Logs 紀錄（不限日期）重新算一次，不依賴
       // 前端一定要成功把每一筆 updateLog 都送回來——就算前端網路中斷、
@@ -1286,4 +1301,88 @@ function dedupeSheetById(sheet) {
   }
   if (rowsToDelete.length > 0) SpreadsheetApp.flush();
   return rowsToDelete.length;
+}
+
+// ======================================================================
+// 【v23 新增】食材保存期限通知
+//   通知節奏：到期前 14 天通知 1 次；最後一週通知 3 次（7、4、1 天前）。
+//   做法：每天早上由「時間驅動觸發條件」跑一次 checkFoodExpiry()，
+//   把剛好落在這幾個倒數天數的食材整理成一封信寄給你（Gmail）。
+//   前端 index.html 的 EXPIRY_NOTIFY_DAYS 要跟這裡一致。
+//
+//   設定步驟（只需做一次）：
+//   1) 貼上新版 Code.gs → 部署 → 管理部署作業 → 編輯 → 新版本 → 部署。
+//   2) 在編輯器函式下拉選 setupExpiryTrigger → 執行（第一次會要求授權寄信權限）。
+//   3) 想先測試：選 testExpiryNotify 執行，會把「14 天內到期」的全部寄給你。
+//   寄信對象預設是你自己的 Google 帳號；想寄到別的信箱，到「專案設定 →
+//   指令碼屬性」新增 EXPIRY_EMAIL，值填信箱（可用逗號寄給多人）。
+// ======================================================================
+var EXPIRY_NOTIFY_DAYS = [14, 7, 4, 1];
+var EXPIRY_SENT_PROPERTY = 'EXPIRY_SENT_KEYS';
+
+function setupExpiryTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'checkFoodExpiry') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('checkFoodExpiry').timeBased().everyDays(1).atHour(8).create();
+  return 'trigger created: 每天 08:00 左右檢查食材保存期限';
+}
+
+function daysUntilExpiry_(dateStr, tz) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ''));
+  if (!m) return null;
+  var t = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd').split('-');
+  var a = Date.UTC(+t[0], +t[1] - 1, +t[2]);
+  var b = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  return Math.round((b - a) / 86400000);
+}
+
+function buildExpiryDigest_(onlyScheduled) {
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
+  var props = PropertiesService.getScriptProperties();
+  var sent = {};
+  try { sent = JSON.parse(props.getProperty(EXPIRY_SENT_PROPERTY) || '{}'); } catch (e) { sent = {}; }
+  var today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var items = [];
+  readFoods().forEach(function (f) {
+    if (f.outOfStock || !f.expiryDate) return;
+    var d = daysUntilExpiry_(f.expiryDate, tz);
+    if (d === null || d < 0 || d > 14) return;
+    if (onlyScheduled) {
+      // 只在 14／7／4／1 天前通知；每個「食材＋到期日＋倒數天數」一天只寄一次。
+      if (EXPIRY_NOTIFY_DAYS.indexOf(d) === -1) return;
+      var key = f.id + '|' + f.expiryDate + '|' + d;
+      if (sent[key]) return;
+      sent[key] = today;
+    }
+    items.push({ name: f.name, expiry: f.expiryDate, days: d });
+  });
+  items.sort(function (a, b) { return a.days - b.days; });
+  return { items: items, sent: sent };
+}
+
+function sendExpiryMail_(items) {
+  if (!items.length) return 0;
+  var to = PropertiesService.getScriptProperties().getProperty('EXPIRY_EMAIL') || Session.getEffectiveUser().getEmail();
+  var lines = items.map(function (it) {
+    return '・' + it.name + '：' + (it.days === 0 ? '今天到期' : '還有 ' + it.days + ' 天到期') + '（' + it.expiry + '）';
+  });
+  MailApp.sendEmail(to, '【食材到期提醒】' + items.length + ' 項食材快到期', lines.join('\n') + '\n\n請盡快食用或處理。');
+  return items.length;
+}
+
+// 每天由觸發條件呼叫。
+function checkFoodExpiry() {
+  var r = buildExpiryDigest_(true);
+  var n = sendExpiryMail_(r.items);
+  // 只保留最近 60 天的已寄紀錄，避免屬性無限成長。
+  var cutoff = Utilities.formatDate(new Date(Date.now() - 60 * 86400000), Session.getScriptTimeZone() || 'Asia/Taipei', 'yyyy-MM-dd');
+  Object.keys(r.sent).forEach(function (k) { if (r.sent[k] < cutoff) delete r.sent[k]; });
+  PropertiesService.getScriptProperties().setProperty(EXPIRY_SENT_PROPERTY, JSON.stringify(r.sent));
+  return { sent: n };
+}
+
+// 手動測試：不管天數節奏，把 14 天內到期的全部寄一次（不影響已寄紀錄）。
+function testExpiryNotify() {
+  return { sent: sendExpiryMail_(buildExpiryDigest_(false).items) };
 }
