@@ -6435,7 +6435,8 @@
         batchListEl.addEventListener('focusin', function (e) {
           if (e.target.tagName !== 'INPUT' || e.target.type !== 'number') return;
           lastBatchInput = e.target;
-          try { e.target.select(); } catch (err) { /* 部分瀏覽器不支援，略過 */ }
+          // 點進去修改時直接清空數值，不用先手動刪除；沒輸入就離開會在 focusout 還原。
+          e.target.value = '';
           setBatchEditing(true, e.target);
           // 主要靠 wireViewportKeyboard() 在鍵盤高度確定後重新捲動；
           // 這裡再補一次，涵蓋不支援 visualViewport 的舊瀏覽器。
@@ -6443,7 +6444,13 @@
           setTimeout(function () { scrollBatchInputIntoView(target); }, 300);
         });
 
-        batchListEl.addEventListener('focusout', function () {
+        batchListEl.addEventListener('focusout', function (e) {
+          // 清空後沒有輸入新數值就離開：還原成原本的數值（state 沒被改動）。
+          var t = e.target;
+          if (t && t.tagName === 'INPUT' && t.type === 'number' && t.value === '') {
+            var rid = t.getAttribute('data-batch-grams') || t.getAttribute('data-batch-servings') || t.getAttribute('data-batch-grams-b');
+            if (rid) syncBatchRowUI(rid);
+          }
           // 從一個輸入框切到下一個時會先 focusout 再 focusin，稍等一下再判斷是不是真的離開了。
           setTimeout(function () {
             var a = document.activeElement;
