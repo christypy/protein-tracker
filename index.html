@@ -3700,8 +3700,8 @@
         <span class="chev">▾</span>
       </div>
       <div class="section-body">
-        <p class="hint">貼上你部署好的 Apps Script 網頁應用程式網址，即可把食材庫與紀錄同步到 Google 試算表。留空則只儲存在本機。</p>
-        <div class="row">
+        <p class="hint">試算表網址已經固定，只要填寫同步密鑰並按「儲存並連線」即可。填過的密鑰會一直保留，不會被清掉。</p>
+        <div class="row" style="display:none;">
           <div class="field">
             <label>Web App URL</label>
             <input type="text" id="sheetUrl" name="proteinDiaryWebAppUrl" placeholder="https://script.google.com/macros/s/xxxx/exec"
@@ -3711,7 +3711,7 @@
         </div>
         <div class="row" style="margin-top:8px;">
           <div class="field">
-            <label>同步密鑰（選填）</label>
+            <label>同步密鑰</label>
             <input type="text" id="sheetToken" name="proteinDiarySyncToken" placeholder="只有在後端有設定 SYNC_TOKEN 時才需要填"
                    autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
                    data-lpignore="true" data-1p-ignore data-form-type="other">
@@ -3719,7 +3719,6 @@
         </div>
         <p class="hint" style="margin:4px 0 0;">如果你在 Apps Script 的指令碼屬性有設定 SYNC_TOKEN，這裡要填一模一樣的字串，網址才呼叫得通；沒有設定的話這欄留空即可，不影響原本的使用方式。</p>
         <div class="btn-row">
-          <button class="btn btn-ghost" id="sheetClearBtn" style="margin-right:8px;">清除連結</button>
           <button class="btn btn-ghost" id="sheetResyncBtn" style="margin-right:8px;">立即重新同步</button>
           <button class="btn btn-primary" id="sheetSaveBtn">儲存並連線</button>
         </div>
@@ -3743,7 +3742,7 @@
     (function () {
       "use strict";
 
-      var DEFAULT_SHEET_URL = "";
+      var DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbwrP9mXcuIwY5XbF3VR5ID1J3_3f7R3eChfOO-lQKCtppoJZwhAXk0GLe3FUBi6LKix/exec";
 
       var PROFILES = {
         A: {
@@ -3927,6 +3926,11 @@
             }
           });
         } catch (e) { state.settings = { sheetUrl: DEFAULT_SHEET_URL, token: '', profile: 'A', goals: defaultGoalsSet() }; }
+        // 網址固定，不能被改掉或清掉；已經填過的同步密鑰也一律保留。
+        if (state.settings.sheetUrl !== DEFAULT_SHEET_URL) {
+          state.settings.sheetUrl = DEFAULT_SHEET_URL;
+          await storeSetRaw('settings', JSON.stringify(state.settings));
+        }
         try {
           var dfi = await storeGetRaw('deletedFoodIds');
           state.deletedFoodIds = dfi ? JSON.parse(dfi) : [];
@@ -7762,40 +7766,24 @@
         document.getElementById('sheetToken').value = state.settings.token || '';
         document.getElementById('syncDot').addEventListener('click', function () {
           document.getElementById('secSettings').classList.remove('collapsed');
-          document.getElementById('sheetUrl').focus();
+          document.getElementById('sheetToken').focus();
         });
         var syncFloatBtn = document.getElementById('syncFloatBtn');
         if (syncFloatBtn) syncFloatBtn.addEventListener('click', doManualResync);
         updateSyncFloatBtn();
 
         document.getElementById('sheetSaveBtn').addEventListener('click', async function () {
-          var url = document.getElementById('sheetUrl').value.trim();
           var token = document.getElementById('sheetToken').value.trim();
-          state.settings.sheetUrl = url;
-          state.settings.token = token;
+          // 網址固定；密鑰欄位留空時保留原本填過的，不會被清掉。
+          state.settings.sheetUrl = DEFAULT_SHEET_URL;
+          if (token) state.settings.token = token;
+          document.getElementById('sheetToken').value = state.settings.token || '';
           await saveLocalSettings();
-          if (!url) {
-            setSheetStatus('已清除試算表連結，切換為純本機模式。', 'ok');
-            document.getElementById('syncDot').className = 'sync-dot';
-            document.getElementById('syncLabel').textContent = '本機儲存';
-          } else {
-            setSheetStatus('正在測試連線…', '');
-            refreshFromSheet(true);
-          }
+          setSheetStatus('正在測試連線…', '');
+          refreshFromSheet(true);
           updateSyncFloatBtn();
         });
         document.getElementById('sheetResyncBtn').addEventListener('click', doManualResync);
-        document.getElementById('sheetClearBtn').addEventListener('click', async function () {
-          document.getElementById('sheetUrl').value = '';
-          document.getElementById('sheetToken').value = '';
-          state.settings.sheetUrl = '';
-          state.settings.token = '';
-          await saveLocalSettings();
-          setSheetStatus('已清除試算表連結，切換為純本機模式。', 'ok');
-          document.getElementById('syncDot').className = 'sync-dot';
-          document.getElementById('syncLabel').textContent = '本機儲存';
-          updateSyncFloatBtn();
-        });
       }
 
       // 需求 1：數字輸入欄位在聚焦時，滑鼠滾輪不應該拿來增減數值（否則使用者
