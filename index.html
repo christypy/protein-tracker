@@ -3736,7 +3736,7 @@
       </div>
     </div>
 
-    <footer>資料一律先存在此裝置，操作不會卡著等試算表；設定 Google 試算表網址後會在背景同步、雙邊合併，不會互相蓋掉。<br><small>前端版本 v24-goals</small></footer>
+    <footer>資料一律先存在此裝置，操作不會卡著等試算表；設定 Google 試算表網址後會在背景同步、雙邊合併，不會互相蓋掉。<br><small>前端版本 v24-goals</small><br><small id="goalSyncInfo">目標同步：尚未執行</small></footer>
   </div>
 
   <script>
@@ -3981,8 +3981,8 @@
 
       async function sheetGet() {
         var url = state.settings.sheetUrl.trim() + (state.settings.sheetUrl.includes('?') ? '&' : '?') +
-          'action=getData&token=' + encodeURIComponent(state.settings.token || '');
-        var res = await fetch(url, { method: 'GET' });
+          'action=getData&token=' + encodeURIComponent(state.settings.token || '') + '&_=' + Date.now();
+        var res = await fetch(url, { method: 'GET', cache: 'no-store' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var data = await res.json();
         if (data.error) throw new Error(data.error);
@@ -4112,6 +4112,26 @@
         return changedLocal;
       }
 
+      function setGoalSyncInfo(msg) {
+        var el = document.getElementById('goalSyncInfo');
+        if (el) el.textContent = msg;
+      }
+      async function syncGoalsFromData(data) {
+        var t = nowTime();
+        try {
+          if (!data || !data.goals || typeof data.goals !== 'object' || Array.isArray(data.goals)) {
+            setGoalSyncInfo('目標同步：' + t + ' 後端沒有回傳 goals（請確認 Code.gs 已部署新版本）');
+            return;
+          }
+          var keys = Object.keys(data.goals).join(',') || '（空）';
+          var changed = await reconcileGoals(data.goals);
+          if (changed) { try { renderHero(); } catch (e2) { } }
+          setGoalSyncInfo('目標同步：' + t + ' 成功' + (changed ? '（已套用雲端目標）' : '（本機與雲端一致）') + ' 雲端身份：' + keys);
+        } catch (e) {
+          setGoalSyncInfo('目標同步：' + t + ' 失敗 ' + ((e && e.message) ? e.message : e));
+        }
+      }
+
       // 每次連上試算表（開啟 App、重新整理、或按「立即重新同步」）都會做這件事：
       // 1) 抓試算表目前的資料 2) 比對哪些本機資料試算表還沒有 3) 有的話自動補傳，
       // 並把同步燈號改成準確反映「是不是真的全部同步完成」，不會再一直卡在
@@ -4121,6 +4141,10 @@
         var label = document.getElementById('syncLabel');
         try {
           var data = await sheetGet();
+
+          // 每日目標：跨裝置以較新的一邊為準。放在最前面、獨立 try/catch，
+          // 這樣後面食材／紀錄合併就算出錯，目標也一定會先同步到。
+          await syncGoalsFromData(data);
 
           // 【v14 新增】把試算表這邊「大家共同知道的刪除紀錄」併進本機的
           // tombstone 清單。這是修「換一台裝置、或分頁本來就開著沒重新整理，
@@ -4169,10 +4193,6 @@
           if (backendHasMeds) {
             state.meds = mergeById(data.meds, state.meds, state.deletedMedIds).map(normalizeMed);
             await saveLocalMeds();
-          }
-          // 每日目標：跨裝置以較新的一邊為準（舊版後端沒有 goals 時略過）
-          if (data.goals && typeof data.goals === 'object') {
-            if (await reconcileGoals(data.goals)) { try { renderHero(); } catch (e2) { } }
           }
           var pendingCount = pendingFoods.length + pendingLogs.length + pendingWorkouts.length + pendingMeds.length;
           if (pendingCount > 0) {
