@@ -607,11 +607,21 @@
     }
 
     .goal-compact-bar {
+      position: relative;
       height: 4px;
       border-radius: 2px;
       background: var(--line);
       overflow: hidden;
       display: flex;
+    }
+
+    .gc-min-tick {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--ink);
+      opacity: 0.55;
     }
 
     .goal-compact-bar>span {
@@ -3044,12 +3054,20 @@
         <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
         <div id="goalsBox" style="display:none;margin-top:12px;">
           <div class="row">
-            <div class="field"><label>熱量目標 (kcal)</label><input type="number" id="gCal" min="0" step="1"></div>
-            <div class="field"><label>蛋白質目標 (g)</label><input type="number" id="gProtein" min="0" step="1"></div>
+            <div class="field"><label>熱量下限 (kcal)</label><input type="number" id="gCalMin" min="0" step="any"></div>
+            <div class="field"><label>熱量上限 (kcal)</label><input type="number" id="gCalMax" min="0" step="any"></div>
           </div>
           <div class="row" style="margin-top:8px;">
-            <div class="field"><label>脂肪目標 (g)</label><input type="number" id="gFat" min="0" step="1"></div>
-            <div class="field"><label>糖（Sugar）目標 (g)</label><input type="number" id="gSugar" min="0" step="1"></div>
+            <div class="field"><label>蛋白質下限 (g)</label><input type="number" id="gProteinMin" min="0" step="any"></div>
+            <div class="field"><label>蛋白質上限 (g)</label><input type="number" id="gProteinMax" min="0" step="any"></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>脂肪下限 (g)</label><input type="number" id="gFatMin" min="0" step="any"></div>
+            <div class="field"><label>脂肪上限 (g)</label><input type="number" id="gFatMax" min="0" step="any"></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field"><label>糖（Sugar）下限 (g)</label><input type="number" id="gSugarMin" min="0" step="any"></div>
+            <div class="field"><label>糖（Sugar）上限 (g)</label><input type="number" id="gSugarMax" min="0" step="any"></div>
           </div>
           <div class="btn-row" style="justify-content:space-between;">
             <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
@@ -3730,11 +3748,13 @@
       var PROFILES = {
         A: {
           key: 'A', name: '150', desc: '150cm・43kg・無運動習慣',
-          goals: { protein: 43, fat: 42, sugar: 35, cal: 1250 }
+          // 每項營養都有下限與上限：protein／fat／sugar／cal 為既有欄位
+          // （蛋白質＝下限，其餘＝上限，維持舊資料相容），另加 proteinMax／fatMin／sugarMin／calMin。
+          goals: { protein: 43, proteinMax: 65, fatMin: 30, fat: 42, sugarMin: 0, sugar: 35, calMin: 1100, cal: 1250 }
         },
         B: {
           key: 'B', name: '177', desc: '177cm・68kg・慢跑＋重訓',
-          goals: { protein: 102, fat: 80, sugar: 60, cal: 2500 }
+          goals: { protein: 102, proteinMax: 140, fatMin: 60, fat: 80, sugarMin: 0, sugar: 60, calMin: 2200, cal: 2500 }
         }
       };
       var PROFILE_ORDER = ['A', 'B'];
@@ -3829,7 +3849,17 @@
       function goalsFor(p) {
         if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
         if (!state.settings.goals[p]) state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
-        return state.settings.goals[p];
+        var g = state.settings.goals[p];
+        // 舊版只存單一目標值：缺少的下限／上限用身份預設值補齊，並確保下限 ≤ 上限。
+        var d = PROFILES[p].goals;
+        ['proteinMax', 'fatMin', 'sugarMin', 'calMin'].forEach(function (k) {
+          if (typeof g[k] !== 'number' || isNaN(g[k])) g[k] = d[k];
+        });
+        if (g.proteinMax < g.protein) g.proteinMax = g.protein;
+        if (g.fatMin > g.fat) g.fatMin = g.fat;
+        if (g.sugarMin > g.sugar) g.sugarMin = g.sugar;
+        if (g.calMin > g.cal) g.calMin = g.cal;
+        return g;
       }
 
       // ---------- helpers ----------
@@ -4414,10 +4444,10 @@
         var goals = currentGoals();
 
         var active = document.activeElement ? document.activeElement.id : '';
-        if (active !== 'gProtein') document.getElementById('gProtein').value = goals.protein;
-        if (active !== 'gFat') document.getElementById('gFat').value = goals.fat;
-        if (active !== 'gSugar') document.getElementById('gSugar').value = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
-        if (active !== 'gCal') document.getElementById('gCal').value = goals.cal;
+        var sg = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
+        var gvals = { gCalMin: goals.calMin, gCalMax: goals.cal, gProteinMin: goals.protein, gProteinMax: goals.proteinMax,
+          gFatMin: goals.fatMin, gFatMax: goals.fat, gSugarMin: goals.sugarMin, gSugarMax: sg };
+        Object.keys(gvals).forEach(function (id) { if (active !== id) document.getElementById(id).value = gvals[id]; });
 
         renderProfileTabs();
         renderProgressGrid(totals, goals, pendingMealTotals());
@@ -4695,10 +4725,6 @@
         pending = pending || { protein: 0, fat: 0, sugar: 0, cal: 0 };
         var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
 
-        var proteinLeft = round1(goals.protein - totals.protein);
-        var fatLeft = round1(goals.fat - totals.fat);
-        var sugarLeft = round1(sugarGoal - totals.sugar);
-        var calLeft = Math.round(goals.cal - totals.cal);
 
         function bar(pct, pendingPct, color) {
           var clamped = Math.max(0, Math.min(100, pct));
@@ -4718,42 +4744,34 @@
         // 每個指標一律同時顯示「攝取」與「剩餘」兩個數值，不用再切換或用推算的，
         // 一眼就能看到目前吃了多少、還能吃（或還差）多少；有正在組合的這一餐時，
         // 「剩餘」會直接改成算進暫估量之後的預覽值。
-        function targetItem(label, amt, left, goal, unit, pendingAmt) {
-          var previewLeft = round1(left - pendingAmt);
-          var reached = previewLeft <= 0 && goal > 0;
-          var pct = goal > 0 ? (amt / goal) * 100 : 0;
-          var pendingPct = goal > 0 ? (pendingAmt / goal) * 100 : 0;
-          var remainLine = reached ? '已達標 ✓' : ('剩餘 ' + previewLeft + '<small>' + unit + '</small>');
-          return '<div class="goal-compact-item' + (reached ? ' done' : '') + '">' +
+        // 每項營養都有下限與上限：低於下限＝還差多少、介於之間＝範圍內、超過上限＝超標。
+        // 長條以「上限」為滿格，下限位置用一小段刻度標示；有暫估量時，判斷會算進去。
+        function rangeItem(color, label, amt, min, max, unit, pendingAmt) {
+          var total = round1(amt + pendingAmt);
+          var below = total < min, over = total > max;
+          var barColor = over ? 'var(--danger)' : color;
+          var pct = max > 0 ? (amt / max) * 100 : 0;
+          var pendingPct = max > 0 ? (pendingAmt / max) * 100 : 0;
+          var tick = (max > 0 && min > 0) ? '<i class="gc-min-tick" style="left:' + Math.min(100, (min / max) * 100).toFixed(0) + '%;"></i>' : '';
+          var remainLine = over ? ('超標 ' + round1(total - max) + '<small>' + unit + '</small>')
+            : (below ? ('距下限 ' + round1(min - total) + '<small>' + unit + '</small>')
+              : ('範圍內 ✓'));
+          var cls = over ? ' over' : (below ? '' : ' done');
+          return '<div class="goal-compact-item' + cls + '">' +
             '<div class="gc-label">' + label + '</div>' +
             '<div class="gc-value">' +
-            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small>' + pendingNote(pendingAmt, unit) + '</span>' +
+            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small></span>' +
             '<span class="gc-line gc-sub">' + remainLine + '</span>' +
+            '<span class="gc-line gc-sub" style="font-weight:500;">' + round1(min) + '–' + round1(max) + unit + '</span>' +
             '</div>' +
-            bar(pct, pendingPct, 'var(--protein)') +
-            '</div>';
-        }
-        function limitItem(cls, label, amt, left, goal, unit, pendingAmt) {
-          var previewLeft = round1(left - pendingAmt);
-          var over = previewLeft < 0;
-          var pct = goal > 0 ? (amt / goal) * 100 : 0;
-          var pendingPct = goal > 0 ? (pendingAmt / goal) * 100 : 0;
-          var color = over ? 'var(--danger)' : ('var(' + '--' + (cls === 'sugar' ? 'carb' : cls) + ')');
-          var remainLine = over ? ('超標 ' + Math.abs(previewLeft) + '<small>' + unit + '</small>') : ('剩餘 ' + previewLeft + '<small>' + unit + '</small>');
-          return '<div class="goal-compact-item' + (over ? ' over' : '') + '">' +
-            '<div class="gc-label">' + label + '</div>' +
-            '<div class="gc-value">' +
-            '<span class="gc-line">攝取 ' + amt + '<small>' + unit + '</small>' + pendingNote(pendingAmt, unit) + '</span>' +
-            '<span class="gc-line gc-sub">' + remainLine + '</span>' +
-            '</div>' +
-            bar(pct, pendingPct, color) +
+            bar(pct, pendingPct, barColor).replace('</div>', tick + '</div>') +
             '</div>';
         }
 
-        return limitItem('cal', '熱量', Math.round(totals.cal), calLeft, goals.cal, 'kcal', pending.cal) +
-          targetItem('蛋白質', round1(totals.protein), proteinLeft, goals.protein, 'g', pending.protein) +
-          limitItem('fat', '脂肪', round1(totals.fat), fatLeft, goals.fat, 'g', pending.fat) +
-          limitItem('sugar', '糖', round1(totals.sugar), sugarLeft, sugarGoal, 'g', pending.sugar);
+        return rangeItem('var(--cal)', '熱量', Math.round(totals.cal), goals.calMin || 0, goals.cal, 'kcal', pending.cal) +
+          rangeItem('var(--protein)', '蛋白質', round1(totals.protein), goals.protein, goals.proteinMax, 'g', pending.protein) +
+          rangeItem('var(--fat)', '脂肪', round1(totals.fat), goals.fatMin || 0, goals.fat, 'g', pending.fat) +
+          rangeItem('var(--carb)', '糖', round1(totals.sugar), goals.sugarMin || 0, sugarGoal, 'g', pending.sugar);
       }
 
       function renderProgressGrid(totals, goals, pending) {
@@ -6289,21 +6307,37 @@
       }
 
       function wireGoalsBox() {
-        document.getElementById('toggleGoals').addEventListener('click', function () {
-          var box = document.getElementById('goalsBox');
-          box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+        var toggleEl = document.getElementById('toggleGoals');
+        var boxEl = document.getElementById('goalsBox');
+        function setGoalsOpen(open) {
+          boxEl.style.display = open ? 'block' : 'none';
+          toggleEl.textContent = '依身材與運動量調整目標 ' + (open ? '－' : '＋');
+        }
+        toggleEl.addEventListener('click', function () {
+          setGoalsOpen(boxEl.style.display === 'none');
         });
         document.getElementById('gSaveBtn').addEventListener('click', async function () {
+          function val(id) {
+            var raw = document.getElementById(id).value;
+            return raw === '' ? NaN : Number(raw);
+          }
+          var v = {
+            calMin: val('gCalMin'), cal: val('gCalMax'),
+            protein: val('gProteinMin'), proteinMax: val('gProteinMax'),
+            fatMin: val('gFatMin'), fat: val('gFatMax'),
+            sugarMin: val('gSugarMin'), sugar: val('gSugarMax')
+          };
+          var bad = Object.keys(v).some(function (k) { return isNaN(v[k]) || v[k] < 0; });
+          if (bad) { alert('請把每一項的下限與上限都填成 0 以上的數字'); return; }
+          var pairs = [['熱量', 'calMin', 'cal'], ['蛋白質', 'protein', 'proteinMax'], ['脂肪', 'fatMin', 'fat'], ['糖', 'sugarMin', 'sugar']];
+          for (var i = 0; i < pairs.length; i++) {
+            if (v[pairs[i][1]] > v[pairs[i][2]]) { alert(pairs[i][0] + '的下限不能大於上限'); return; }
+          }
           var goals = currentGoals();
-          var np = Number(document.getElementById('gProtein').value);
-          var nf = Number(document.getElementById('gFat').value);
-          var ns = Number(document.getElementById('gSugar').value);
-          var nk = Number(document.getElementById('gCal').value);
-          if (!isNaN(np) && np >= 0) goals.protein = np;
-          if (!isNaN(nf) && nf >= 0) goals.fat = nf;
-          if (!isNaN(ns) && ns >= 0) goals.sugar = ns;
-          if (!isNaN(nk) && nk >= 0) goals.cal = nk;
+          Object.keys(v).forEach(function (k) { goals[k] = v[k]; });
           await saveLocalSettings();
+          if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+          setGoalsOpen(false);
           renderHero();
         });
         document.getElementById('gResetBtn').addEventListener('click', async function () {
