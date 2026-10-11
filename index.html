@@ -4058,6 +4058,60 @@
         return results;
       }
 
+      // ---------- 每日目標同步（跨裝置） ----------
+      var GOAL_FIELDS = ['calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar'];
+      function goalPayload(p) {
+        var g = goalsFor(p);
+        var o = { person: p, updatedAt: g.updatedAt || Date.now() };
+        GOAL_FIELDS.forEach(function (k) { o[k] = g[k]; });
+        return o;
+      }
+      function goalsEqual(a, b) {
+        return GOAL_FIELDS.every(function (k) { return Number(a[k]) === Number(b[k]); });
+      }
+      function pushGoals(p) {
+        if (!hasSheet()) return Promise.resolve();
+        return sheetPost('saveGoals', goalPayload(p)).catch(function (e) {
+          var msg = (e && e.message) ? e.message : String(e);
+          if (/unknown action/i.test(msg)) setSheetStatus('目標目前只存在這台裝置：後端 Code.gs 還不是最新版，請貼上新版並重新部署。', 'err');
+          else setSheetStatus('目標同步失敗：' + msg + '（已保留在本機，下次連線會自動重試）', 'err');
+        });
+      }
+      // 以 updatedAt 較新的一邊為準；雲端沒有、本機有自訂過就上傳。
+      async function reconcileGoals(remote) {
+        var changedLocal = false;
+        for (var i = 0; i < PROFILE_ORDER.length; i++) {
+          var p = PROFILE_ORDER[i];
+          var local = goalsFor(p);
+          var r = remote && remote[p];
+          var lt = local.updatedAt || 0;
+          if (r && (r.updatedAt || 0) > lt) {
+            var ng = {};
+            GOAL_FIELDS.forEach(function (k) { ng[k] = r[k]; });
+            ng.updatedAt = r.updatedAt || 0;
+            state.settings.goals[p] = ng;
+            changedLocal = true;
+          } else if (r && (r.updatedAt || 0) === lt && !goalsEqual(r, local)) {
+            // 時間相同但內容不同（舊資料）：以雲端為準，確保各裝置一致
+            var ng2 = {};
+            GOAL_FIELDS.forEach(function (k) { ng2[k] = r[k]; });
+            ng2.updatedAt = r.updatedAt || 0;
+            state.settings.goals[p] = ng2;
+            changedLocal = true;
+          } else if (!r || (r.updatedAt || 0) < lt) {
+            // 雲端沒有或較舊：本機有自訂過（有時間戳，或內容與預設不同）才上傳
+            var d = PROFILES[p].goals;
+            var custom = lt > 0 || !goalsEqual(local, d);
+            if (custom) {
+              if (!local.updatedAt) { local.updatedAt = Date.now(); changedLocal = true; }
+              await pushGoals(p);
+            }
+          }
+        }
+        if (changedLocal) await saveLocalSettings();
+        return changedLocal;
+      }
+
       // 每次連上試算表（開啟 App、重新整理、或按「立即重新同步」）都會做這件事：
       // 1) 抓試算表目前的資料 2) 比對哪些本機資料試算表還沒有 3) 有的話自動補傳，
       // 並把同步燈號改成準確反映「是不是真的全部同步完成」，不會再一直卡在
@@ -4115,6 +4169,10 @@
           if (backendHasMeds) {
             state.meds = mergeById(data.meds, state.meds, state.deletedMedIds).map(normalizeMed);
             await saveLocalMeds();
+          }
+          // 每日目標：跨裝置以較新的一邊為準（舊版後端沒有 goals 時略過）
+          if (data.goals && typeof data.goals === 'object') {
+            if (await reconcileGoals(data.goals)) { try { renderHero(); } catch (e2) { } }
           }
           var pendingCount = pendingFoods.length + pendingLogs.length + pendingWorkouts.length + pendingMeds.length;
           if (pendingCount > 0) {
@@ -6335,15 +6393,18 @@
           }
           var goals = currentGoals();
           Object.keys(v).forEach(function (k) { goals[k] = v[k]; });
+          goals.updatedAt = Date.now();
           await saveLocalSettings();
+          pushGoals(activeProfile());
           if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
           setGoalsOpen(false);
           renderHero();
         });
         document.getElementById('gResetBtn').addEventListener('click', async function () {
           var p = activeProfile();
-          state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
+          state.settings.goals[p] = Object.assign({}, PROFILES[p].goals, { updatedAt: Date.now() });
           await saveLocalSettings();
+          pushGoals(p);
           renderHero();
         });
       }

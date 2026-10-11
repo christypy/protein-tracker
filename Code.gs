@@ -44,7 +44,14 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v23-expiry';
+var APP_BACKEND_VERSION = 'v24-goals';
+
+// 【v24 新增】每日目標同步：新增 Goals 分頁，一列＝一個身份（person = A／B）的目標。
+// 這樣不同裝置（手機、電腦）看到的目標會一致。updatedAt 是最後修改時間（毫秒），
+// 前端用它判斷「哪一邊比較新」，較新的那邊蓋掉較舊的。
+var GOALS_SHEET_NAME = 'Goals';
+var GOALS_HEADERS = ['person', 'calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar', 'updatedAt'];
+var GOALS_NUM_FIELDS = ['calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar'];
 
 // 【v22 新增】藥品紀錄：一列＝一項藥品（例如袪痘素凝膠）的一個療程。
 //   startDate  開始使用日；limitWeeks 連續使用上限（週）；warnWeeks 提醒週數
@@ -184,6 +191,7 @@ function doPost(e) {
       case 'addWorkout': result = addWorkout(payload); break;
       case 'updateWorkout': result = updateWorkout(payload); break;
       case 'deleteWorkout': result = deleteWorkout(payload); break;
+      case 'saveGoals': result = saveGoals(payload); break;
       case 'addMed': result = addMed(payload); break;
       case 'updateMed': result = updateMed(payload); break;
       case 'deleteMed': result = deleteMed(payload); break;
@@ -207,6 +215,7 @@ function getFoodsSheet() { return getSheet(FOODS_SHEET_NAME, FOODS_HEADERS); }
 function getLogsSheet() { return getSheet(LOGS_SHEET_NAME, LOGS_HEADERS); }
 function getDeletedSheet() { return getSheet(DELETED_SHEET_NAME, DELETED_HEADERS); }
 function getWorkoutsSheet() { return getSheet(WORKOUTS_SHEET_NAME, WORKOUTS_HEADERS); }
+function getGoalsSheet() { return getSheet(GOALS_SHEET_NAME, GOALS_HEADERS); }
 function getMedsSheet() { return getSheet(MEDS_SHEET_NAME, MEDS_HEADERS); }
 
 // 把一批「已刪除」的 id 記進 DeletedIds 分頁。同一個 type+id 已經記錄過
@@ -458,7 +467,9 @@ function getData() {
     deletedWorkoutIds: readDeletedIds('workout'),
     // 【v22 新增】藥品紀錄與它的刪除清單。
     meds: readMeds(),
-    deletedMedIds: readDeletedIds('med')
+    deletedMedIds: readDeletedIds('med'),
+    // 【v24 新增】每日目標（依身份）。
+    goals: readGoals()
   };
 }
 
@@ -994,6 +1005,48 @@ function deleteWorkout(payload) {
   recordDeletion('workout', [targetId]);
   SpreadsheetApp.flush();
   return { success: true, deletedCount: deletedCount };
+}
+
+// ---------- goals（每日目標） ----------
+
+function readGoals() {
+  var sheet = getGoalsSheet();
+  var map = headerIndexMap(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var out = {};
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var p = String(r[map['person']] == null ? '' : r[map['person']]).trim();
+    if (!p) continue;
+    var g = {};
+    var ok = true;
+    GOALS_NUM_FIELDS.forEach(function (f) {
+      var raw = map.hasOwnProperty(f) ? r[map[f]] : '';
+      if (raw === '' || raw === null || isNaN(Number(raw))) ok = false; else g[f] = Number(raw);
+    });
+    if (!ok) continue;
+    g.updatedAt = Number(map.hasOwnProperty('updatedAt') ? r[map['updatedAt']] : 0) || 0;
+    out[p] = g;
+  }
+  return out;
+}
+
+// upsert：每個身份永遠只有一列。
+function saveGoals(payload) {
+  if (!payload || !payload.person) return { error: 'missing person' };
+  var vals = { person: String(payload.person) };
+  for (var i = 0; i < GOALS_NUM_FIELDS.length; i++) {
+    var f = GOALS_NUM_FIELDS[i];
+    var n = Number(payload[f]);
+    if (payload[f] === '' || payload[f] === null || payload[f] === undefined || isNaN(n) || n < 0) {
+      return { error: 'invalid ' + f };
+    }
+    vals[f] = n;
+  }
+  vals.updatedAt = Number(payload.updatedAt) || new Date().getTime();
+  upsertRowByHeader(getGoalsSheet(), GOALS_HEADERS, 'person', vals);
+  SpreadsheetApp.flush();
+  return { success: true };
 }
 
 // ---------- meds（藥品紀錄） ----------
