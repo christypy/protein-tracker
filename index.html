@@ -4120,7 +4120,7 @@
         var t = nowTime();
         try {
           if (!data || !data.goals || typeof data.goals !== 'object' || Array.isArray(data.goals)) {
-            setGoalSyncInfo('目標同步：' + t + ' 後端沒有回傳 goals（請確認 Code.gs 已部署新版本）');
+            setGoalSyncInfo('目標同步：' + t + ' 後端沒有回傳 goals。後端回傳的欄位：' + Object.keys(data || {}).join(',') + '｜網址結尾：…' + String(state.settings.sheetUrl || '').trim().slice(-14));
             return;
           }
           var keys = Object.keys(data.goals).join(',') || '（空）';
