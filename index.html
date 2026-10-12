@@ -5213,6 +5213,13 @@
         if (state.foodCategoryFilter) {
           list = list.filter(function (f) { return hasFoodCategory(f, state.foodCategoryFilter); });
         }
+        // 缺貨的食材一律排到最下面（其餘維持原本順序），標成缺貨或補貨後馬上重排。
+        var idx = {};
+        list.forEach(function (f, i) { idx[f.id] = i; });
+        list.sort(function (x, y) {
+          var d = (x.outOfStock ? 1 : 0) - (y.outOfStock ? 1 : 0);
+          return d || (idx[x.id] - idx[y.id]);
+        });
         return list;
       }
 
