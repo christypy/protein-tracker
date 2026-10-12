@@ -1794,11 +1794,16 @@
       gap: 2px;
     }
 
-    .expiry-alert { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
-    .expiry-line { font-size: 13px; padding: 6px 10px; border-radius: 8px; background: #fff6e0; color: #7a5200; }
-    .expiry-line small { margin-left: 8px; opacity: .7; }
-    .expiry-line.urgent { background: #ffe8e0; color: #a33a10; }
-    .expiry-line.expired { background: #ffd9d9; color: #9b1c1c; }
+    /* 到期提醒：預設只顯示一行小字摘要，點一下才展開細項，不搶版面。 */
+    .expiry-alert { margin-top: 4px; display: flex; flex-direction: column; gap: 1px; }
+    .expiry-summary { align-self: flex-start; font-size: 11px; color: #7a5200; cursor: pointer; padding: 2px 0; user-select: none; }
+    .expiry-summary.urgent { color: #a33a10; }
+    .expiry-summary.expired { color: #9b1c1c; }
+    .expiry-summary .expiry-chev { margin-left: 4px; font-size: 9px; opacity: .6; }
+    .expiry-line { font-size: 11px; padding: 1px 0 1px 16px; color: var(--ink-soft); }
+    .expiry-line small { margin-left: 6px; opacity: .7; }
+    .expiry-line.urgent b { color: #a33a10; }
+    .expiry-line.expired b { color: #9b1c1c; }
     .food-row .fexpiry { font-style: normal; font-size: 11px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: #fff6e0; color: #7a5200; }
     .food-row .fexpiry.urgent { background: #ffe8e0; color: #a33a10; }
     .food-row .fexpiry.expired { background: #ffd9d9; color: #9b1c1c; }
@@ -5590,10 +5595,23 @@
         var list = state.foods.map(function (f) { return { f: f, info: expiryInfo(f) }; })
           .filter(function (x) { return x.info && !x.f.outOfStock && x.info.days <= 14; })
           .sort(function (a, b) { return a.info.days - b.info.days; });
-        el.innerHTML = list.map(function (x) {
-          return '<div class="expiry-line ' + x.info.level + '">⏰ ' + escapeHtml(x.f.name) + '　<b>' + x.info.text +
-            '</b><small>' + escapeHtml(x.f.expiryDate) + '</small></div>';
-        }).join('');
+        if (!list.length) { el.innerHTML = ''; return; }
+        var expiredCount = list.filter(function (x) { return x.info.days < 0; }).length;
+        var soonCount = list.length - expiredCount;
+        var parts = [];
+        if (expiredCount) parts.push(expiredCount + ' 項已過期');
+        if (soonCount) parts.push(soonCount + ' 項快到期');
+        var worst = expiredCount ? 'expired' : list[0].info.level;
+        var open = !!state.expiryOpen;
+        var html = '<div class="expiry-summary ' + worst + '" data-expiry-toggle="1">⏰ ' + parts.join('、') +
+          '<span class="expiry-chev">' + (open ? '▴' : '▾') + '</span></div>';
+        if (open) {
+          html += list.map(function (x) {
+            return '<div class="expiry-line ' + x.info.level + '">' + escapeHtml(x.f.name) + '　<b>' + x.info.text +
+              '</b><small>' + escapeHtml(x.f.expiryDate) + '</small></div>';
+          }).join('');
+        }
+        el.innerHTML = html;
       }
 
       // 單一食材列：跟今日紀錄的 renderLogRow 用同一套手勢——一般瀏覽模式下
@@ -8871,6 +8889,11 @@
           if (!c || !medForm) return;
           medForm.usedDates = medForm.usedDates.filter(function (d) { return d !== c.getAttribute('data-med-rm'); });
           renderMedUsedChips();
+        });
+        document.getElementById('expiryAlert').addEventListener('click', function (e) {
+          if (!e.target.closest('[data-expiry-toggle]')) return;
+          state.expiryOpen = !state.expiryOpen;
+          renderExpiryAlert();
         });
         document.getElementById('medStatus').addEventListener('click', function (e) {
           var t = e.target.closest('[data-med-today]');
