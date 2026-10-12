@@ -1415,6 +1415,74 @@
       font-weight: 700;
     }
 
+    /* 空狀態文字橫跨整個方格，不會被擠在一個小格子裡 */
+    .food-list>.empty {
+      grid-column: 1 / -1;
+    }
+
+    /* ---- 管理食材：跟「選食材」同一套方格，一眼看完、單點就能編輯 ---- */
+    .food-chip.manage-chip .fname {
+      -webkit-line-clamp: 2;
+    }
+
+    .food-chip.manage-chip .fmacro {
+      line-height: 1.3;
+    }
+
+    .food-chip.manage-chip .fmacro.fm-p {
+      color: var(--protein-dark);
+      font-weight: 700;
+    }
+
+    .food-chip.manage-chip.out-of-stock {
+      opacity: .55;
+      border-style: dashed;
+    }
+
+    /* 管理食材的方格比選食材多一行資訊，允許依內容稍微長高（同一排會一起拉齊）。 */
+    .food-chip.manage-chip {
+      aspect-ratio: auto;
+      min-height: 84px;
+    }
+
+    .food-chip .ftag {
+      margin-bottom: 2px;
+      font-style: normal;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 2px 5px;
+      border-radius: 999px;
+      background: #F5E4DE;
+      color: var(--danger);
+      white-space: nowrap;
+    }
+
+    .food-chip .ftag.soon {
+      background: #fff6e0;
+      color: #7a5200;
+    }
+
+    .food-chip .ftag.urgent {
+      background: #ffe8e0;
+      color: #a33a10;
+    }
+
+    .food-chip .ftag.expired {
+      background: #ffd9d9;
+      color: #9b1c1c;
+    }
+
+    /* 批次刪除時，被勾選的格子改成紅色系，避免跟「選食材」的綠色勾選搞混 */
+    .food-chip.selected.del-mode {
+      background: #F5E4DE;
+      border-color: var(--danger);
+    }
+
+    .food-chip.selected.del-mode::after {
+      background: var(--danger);
+    }
+
     /* 面板本體：填份量時需要比較多空間，允許到 86% 高 */
     #pickerDetail {
       max-height: min(86vh, calc(var(--vvh, 100vh) - 12px));
@@ -1921,46 +1989,6 @@
 
     .meal-sub-list .log-swipe.swiped>.log-item {
       transform: translateX(-60px);
-    }
-
-    /* ---- 食材庫每一列的左滑刪除，跟今日紀錄用同一套手勢 ---- */
-    .food-swipe {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .food-swipe-action {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 72px;
-      background: var(--danger);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12.5px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .food-swipe>.food-row {
-      position: relative;
-      background: var(--card);
-      touch-action: pan-y;
-    }
-
-    .food-swipe.dragging>.food-row {
-      transition: none;
-    }
-
-    .food-swipe:not(.dragging)>.food-row {
-      transition: transform .18s ease;
-    }
-
-    .food-swipe.swiped>.food-row {
-      transform: translateX(-72px);
     }
 
     /* ---- Log list ---- */
@@ -3215,8 +3243,8 @@
         <div class="chip-scroll" id="pickerCategoryChips" style="margin-bottom:10px;"></div>
         <div class="food-list" id="pickerList"></div>
 
-        <!-- 管理食材：跟上面共用同一組搜尋與類別篩選，列出同一批食材，
-             在這裡新增、編輯（點兩下）、左滑刪除、批次刪除、看營養密度。 -->
+        <!-- 管理食材：跟上面共用同一組搜尋與類別篩選，用同樣的方格列出同一批食材，
+             在這裡新增、點一下編輯（編輯面板內可刪除）、批次刪除、看營養密度。 -->
         <div id="foodManagePane">
           <div class="list-toolbar">
             <button type="button" class="btn btn-primary" id="foodAddOpenBtn" style="margin-right:auto;">＋ 新增食材</button>
@@ -3230,7 +3258,7 @@
             </span>
           </div>
           <div class="food-table-wrap">
-            <div id="foodTable"></div>
+            <div class="food-list" id="foodTable"></div>
           </div>
           <div class="btn-row" style="justify-content:flex-start;margin-top:14px;">
             <button type="button" class="btn btn-ghost" id="per100ToggleBtn">查看每份100克營養密度</button>
@@ -3801,6 +3829,7 @@
         </div>
         <div class="sheet-footer">
           <div class="btn-row">
+            <button type="button" class="btn-danger" id="feDeleteBtn" style="margin-right:auto;font-size:13px;">🗑 刪除這項食材</button>
             <button class="btn btn-ghost" id="feCancelBtn">取消</button>
             <button class="btn btn-primary" id="feSaveBtn">儲存修改</button>
           </div>
@@ -5331,7 +5360,7 @@
         if (wrap && wrap.style.display === 'none') return;
         var list = per100Foods();
         if (!list.length) {
-          el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
+          el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，按上方「＋ 新增食材」開始吧。') + '</div>';
           return;
         }
         el.innerHTML = list.map(function (f) {
@@ -5730,35 +5759,27 @@
         el.innerHTML = html;
       }
 
-      // 單一食材列：跟今日紀錄的 renderLogRow 用同一套手勢——一般瀏覽模式下
-      // 點兩下直接編輯、向左滑出現「刪除」；批次刪除模式下維持勾選外觀，不套用手勢。
+      // 單一食材方格：跟「選食材」同一種大方格，點一下就開啟編輯；
+      // 批次刪除模式下改成點選勾選（紅色勾）。刪除單項請在編輯面板按「刪除這項食材」。
       function renderFoodRow(f) {
         var d = foodDisplayRow(f);
-        var catBadge = categoryBadges(f);
-        var stockBadge = f.outOfStock ? '<em class="fstock">缺貨中</em>' : '';
         var ex = expiryInfo(f);
-        if (ex && ex.level !== 'ok') stockBadge += '<em class="fexpiry ' + ex.level + '">' + ex.text + '</em>';
         var deleteMode = state.foodMode === 'delete';
         var checked = deleteMode && state.foodDeleteSelected.indexOf(f.id) > -1;
-        var rowCls = 'food-row' + (deleteMode ? ' selectable-row' : '') + (checked ? ' picked' : '') + (f.outOfStock ? ' out-of-stock' : '');
-        var tail = deleteMode
-          ? '<span class="food-actions"><span class="row-check"><input type="checkbox" ' + (checked ? 'checked' : '') + ' tabindex="-1"></span></span>'
-          : '';
-        var stats = '<b>每份</b>' + escapeHtml(d.baseLabel) + ' · <b>熱量</b>' + d.cal + 'kcal · <b>蛋白</b>' + d.protein +
-          'g · <b>脂肪</b>' + d.fat + 'g · <b>糖</b>' + d.sugar + 'g · <b>共</b>' + d.servings + '份';
-        var rowHtml = '<div class="' + rowCls + '" data-food-id="' + escapeHtml(f.id) + '">' +
-          '<div class="frow-top">' +
-          '<span class="fname">' + escapeHtml(f.name) + catBadge + stockBadge + '</span>' +
-          tail +
-          '</div>' +
-          '<div class="fstats" title="' + escapeHtml(d.baseTitle || '') + '">' + stats + '</div>' +
-          ((f.expiryDate) ? '<div class="fstats">' + (f.expiryDate ? '<b>期限</b>' + escapeHtml(normDateStr(f.expiryDate)) + (ex ? '（' + ex.text + '）' : '') : '') + '</div>' : '') +
-          '</div>';
-
-        if (deleteMode) return rowHtml;
-        return '<div class="food-swipe" data-swipe-food-id="' + escapeHtml(f.id) + '">' +
-          '<div class="food-swipe-action" data-food-swipe-delete="' + escapeHtml(f.id) + '">刪除</div>' +
-          rowHtml +
+        var tag = '';
+        if (f.outOfStock) tag = '<em class="ftag">缺貨</em>';
+        else if (ex && ex.level !== 'ok') {
+          var shortTxt = ex.days < 0 ? '已過期' : (ex.days === 0 ? '今天到期' : ('剩 ' + ex.days + ' 天'));
+          tag = '<em class="ftag ' + ex.level + '">' + shortTxt + '</em>';
+        }
+        var cls = 'food-chip manage-chip' + (checked ? ' selected del-mode' : '') + (f.outOfStock ? ' out-of-stock' : '');
+        var title = d.baseTitle + ' 熱量' + d.cal + 'kcal・蛋白' + d.protein + 'g・脂肪' + d.fat + 'g・糖' + d.sugar + 'g・共' + d.servings + '份' +
+          (f.expiryDate ? '・期限 ' + normDateStr(f.expiryDate) : '');
+        return '<div class="' + cls + '" data-food-id="' + escapeHtml(f.id) + '" title="' + escapeHtml(title) + '">' +
+          tag +
+          '<span class="fname">' + escapeHtml(f.name) + '</span>' +
+          '<span class="fmacro fm-p">蛋白 ' + d.protein + 'g</span>' +
+          '<span class="fmacro">' + d.cal + ' kcal</span>' +
           '</div>';
       }
 
@@ -5771,7 +5792,7 @@
         renderFoodSelectBar();
         var list = sortedFoods();
         if (!list.length) {
-          el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，從上面表單開始新增吧。') + '</div>';
+          el.innerHTML = '<div class="empty">' + (state.foods.length ? '這個類別目前沒有食材。' : '尚未新增任何食材，按上方「＋ 新增食材」開始吧。') + '</div>';
         } else {
           el.innerHTML = list.map(renderFoodRow).join('');
         }
@@ -6619,7 +6640,7 @@
             b.classList.toggle('active', b === btn);
           });
           document.getElementById('pickerHint').textContent = manage
-            ? '下表數值是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖）。單筆食材點兩下可以編輯、向左滑會出現「刪除」；要一次刪除多項，按「批次刪除」勾選後再確認。上方搜尋與類別篩選同樣適用。'
+            ? '點一下食材就能編輯（刪除單項也在編輯面板裡）；要一次刪除多項，按「批次刪除」勾選後再確認。上方搜尋與類別篩選同樣適用。'
             : '從食材庫挑選，輸入攝取的份數或克數（g）皆可；也可以按右上角「手動輸入」直接填蛋白質、脂肪與糖（Sugar）。';
           if (!manage) { state.foodMode = ''; state.foodDeleteSelected = []; }
           renderFoodTable();
@@ -7628,6 +7649,12 @@
           updateFoodEditPreview();
         });
 
+        document.getElementById('feDeleteBtn').addEventListener('click', function () {
+          var id = state.editingFoodId;
+          var food = state.foods.find(function (f) { return f.id === id; });
+          if (!food) return;
+          if (confirm('確定要刪除「' + food.name + '」這項食材嗎？')) deleteFood(id);
+        });
         document.getElementById('feCancelBtn').addEventListener('click', clearFoodEditForm);
         document.getElementById('feCloseBtn').addEventListener('click', clearFoodEditForm);
 
@@ -7652,116 +7679,14 @@
         });
       }
 
-      // 食材庫左滑刪除的手勢處理，邏輯跟 wireLogSwipe 一致：只在一般瀏覽模式
-      // （不是批次刪除中）才會啟用，對應 renderFoodRow 產生的 .food-swipe 包裹層。
-      function wireFoodSwipe(listEl) {
-        var OPEN_X = 72;
-        var active = null;
-
-        function closeSwipes(exceptId) {
-          listEl.querySelectorAll('.food-swipe.swiped').forEach(function (w) {
-            if (exceptId && w.getAttribute('data-swipe-food-id') === exceptId) return;
-            w.classList.remove('swiped');
-          });
-        }
-
-        listEl.addEventListener('pointerdown', function (e) {
-          var wrap = e.target.closest('.food-swipe');
-          if (e.target.closest('.food-swipe-action')) return; // 交給下面的 click 處理刪除
-          if (!wrap) { closeSwipes(); return; }
-          var content = wrap.querySelector(':scope > .food-row');
-          if (!content) return;
-          active = {
-            wrap: wrap,
-            content: content,
-            startX: e.clientX,
-            startY: e.clientY,
-            baseX: wrap.classList.contains('swiped') ? -OPEN_X : 0,
-            dragging: false,
-            moved: false,
-            pointerId: e.pointerId
-          };
-        });
-
-        listEl.addEventListener('pointermove', function (e) {
-          if (!active || active.pointerId !== e.pointerId) return;
-          var dx = e.clientX - active.startX;
-          var dy = e.clientY - active.startY;
-          if (!active.dragging) {
-            if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-            if (Math.abs(dy) > Math.abs(dx)) { active = null; return; } // 判斷是垂直捲動，放棄滑動處理
-            active.dragging = true;
-            active.wrap.classList.add('dragging');
-            closeSwipes(active.wrap.getAttribute('data-swipe-food-id'));
-          }
-          active.moved = true;
-          var x = Math.min(0, Math.max(-OPEN_X - 24, active.baseX + dx));
-          active.content.style.transform = 'translateX(' + x + 'px)';
-          e.preventDefault();
-        });
-
-        function endDrag(e) {
-          if (!active || active.pointerId !== e.pointerId) return;
-          var wrap = active.wrap, content = active.content, moved = active.moved, baseX = active.baseX, startX = active.startX;
-          wrap.classList.remove('dragging');
-          content.style.transform = '';
-          if (moved) {
-            var finalX = baseX + (e.clientX - startX);
-            if (finalX < -OPEN_X / 2) wrap.classList.add('swiped'); else wrap.classList.remove('swiped');
-          }
-          active = null;
-        }
-        listEl.addEventListener('pointerup', endDrag);
-        listEl.addEventListener('pointercancel', endDrag);
-
-        document.addEventListener('pointerdown', function (e) {
-          if (!e.target.closest('.food-swipe')) closeSwipes();
-        });
-
-        // 滑開後點紅色「刪除」按鈕：確認後刪除這項食材。
-        listEl.addEventListener('click', function (e) {
-          var delBtn = e.target.closest('[data-food-swipe-delete]');
-          if (!delBtn) return;
-          var id = delBtn.getAttribute('data-food-swipe-delete');
-          var food = state.foods.find(function (f) { return f.id === id; });
-          if (food && confirm('確定要刪除「' + food.name + '」這項食材嗎？')) {
-            deleteFood(id);
-          }
-        });
-      }
-
-      // 兩下快速點擊同一項食材＝直接開啟編輯（只在一般瀏覽模式下生效），
-      // 跟今日紀錄的 handleLogDoubleTap 是同一套邏輯。
-      var lastFoodTap = { id: null, time: 0 };
-      function handleFoodDoubleTap(id) {
-        var now = Date.now();
-        var isDouble = lastFoodTap.id === id && (now - lastFoodTap.time) < 400;
-        lastFoodTap = isDouble ? { id: null, time: 0 } : { id: id, time: now };
-        if (isDouble) {
-          var food = state.foods.find(function (f) { return f.id === id; });
-          if (food) loadFoodIntoEditSheet(food);
-          return true;
-        }
-        return false;
-      }
-
       function wireFoodTable() {
         var foodTable = document.getElementById('foodTable');
-        wireFoodSwipe(foodTable);
-
         foodTable.addEventListener('click', function (e) {
-          var row = e.target.closest('.food-row');
-          if (!row) return;
-          var id = row.getAttribute('data-food-id');
+          var tile = e.target.closest('[data-food-id]');
+          if (!tile) return;
+          var id = tile.getAttribute('data-food-id');
 
-          // 如果這一列已經左滑開著「刪除」按鈕，點內容區域先收回去就好，
-          // 不要順便觸發選取／雙擊編輯等其他動作。
-          var swipeWrap = row.closest('.food-swipe');
-          if (swipeWrap && swipeWrap.classList.contains('swiped')) {
-            swipeWrap.classList.remove('swiped');
-            return;
-          }
-
+          // 批次刪除模式：點格子＝勾選／取消勾選。
           if (state.foodMode === 'delete') {
             var idx = state.foodDeleteSelected.indexOf(id);
             if (idx === -1) state.foodDeleteSelected.push(id); else state.foodDeleteSelected.splice(idx, 1);
@@ -7769,8 +7694,9 @@
             return;
           }
 
-          // 一般瀏覽模式：兩下快速點擊同一項＝直接開啟編輯。
-          handleFoodDoubleTap(id);
+          // 一般模式：點一下就開啟編輯面板（跟「選食材」一樣單點就有反應）。
+          var food = state.foods.find(function (f) { return f.id === id; });
+          if (food) loadFoodIntoEditSheet(food);
         });
 
         document.getElementById('foodDeleteToggle').addEventListener('click', function () {
