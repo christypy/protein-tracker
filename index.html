@@ -3000,6 +3000,67 @@
       }
     }
 
+  
+    /* =====================================================================
+       寬螢幕（電腦）版面：螢幕夠寬時，「今日紀錄」不再用彈出視窗，
+       直接固定顯示在主欄右側；主欄、懸浮按鈕、底部面板都改成對齊主欄，
+       整組版面（主欄 640 + 間距 24 + 紀錄欄 440）水平置中。
+       手機／窄視窗完全不受影響，維持原本的彈出視窗。
+       ===================================================================== */
+    @media (min-width: 1160px) {
+      :root {
+        --wide-left: max(16px, calc((100vw - 1104px) / 2));
+        --main-right: calc(var(--wide-left) + 640px);
+      }
+
+      .app {
+        margin-left: var(--wide-left);
+        margin-right: 0;
+      }
+
+      /* 今日紀錄：固定在主欄右側、可獨立捲動 */
+      #logsOverlay {
+        display: block;
+        position: fixed;
+        inset: auto;
+        top: 16px;
+        left: calc(var(--main-right) + 24px);
+        width: 440px;
+        padding: 0;
+        background: transparent;
+        z-index: 20;
+      }
+
+      #logsOverlay > .card-block {
+        max-width: none;
+        width: 100%;
+        max-height: calc(100vh - 32px);
+        max-height: calc(100dvh - 32px);
+        padding: 18px;
+      }
+
+      /* 彈出視窗專用的開關在這個版面用不到 */
+      #logsCloseBtn,
+      #jumpLogsBtn {
+        display: none;
+      }
+
+      /* 右側懸浮按鈕改貼在主欄右緣，不要跑到紀錄欄上方 */
+      .profile-tabs,
+      .bottom-jump-col {
+        right: calc(100vw - var(--main-right) + 10px);
+      }
+
+      /* 底部固定面板與勾選列：以主欄為中心，而不是整個視窗 */
+      .food-detail {
+        left: calc(var(--wide-left) + 320px);
+      }
+
+      .select-bar {
+        left: calc(var(--wide-left) + 320px);
+        width: 604px;
+      }
+    }
   </style>
 </head>
 
