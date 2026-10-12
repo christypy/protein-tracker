@@ -2513,8 +2513,11 @@
     }
 
     #secWorkout {
-      scroll-margin-top: 130px;
+      width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; margin: 0;
+      -webkit-overflow-scrolling: touch;
     }
+    #secWorkout .section-head { cursor: default; }
+    #secWorkout .section-head .head-btn { margin-right: 8px; }
 
     .wk-toolbar {
       display: flex;
@@ -3363,11 +3366,12 @@
     <!-- 3.5 運動紀錄：記錄今天練了什麼（部位、動作、重量、次數、組數、組間休息），
          某一組力竭、休息比較久或次數不同，可以在「逐組調整」裡個別標出來。
          新增／編輯都是固定貼在畫面下方的面板（workoutEditBox），跟飲食的操作方式一致。 -->
+    <div class="logs-overlay" id="workoutOverlay">
     <div class="section" id="secWorkout">
-      <div class="section-head" data-toggle="secWorkout">
+      <div class="section-head">
         <h2>🏋️ 運動紀錄</h2>
         <button type="button" class="btn btn-primary head-btn" id="wkOpenBtn">＋ 新增運動</button>
-        <span class="chev">▾</span>
+        <button type="button" class="calendar-close-btn" id="wkOverlayCloseBtn" aria-label="關閉">✕</button>
       </div>
       <div class="section-body">
         <p class="hint">點一下動作可以編輯，向左滑可以刪除。訓練量＝重量 × 次數（每手重量以兩手計，自體重量不計）。</p>
@@ -3377,6 +3381,7 @@
         </div>
         <div class="wk-list" id="wkList"></div>
       </div>
+    </div>
     </div>
 
     <!-- 新增／編輯運動 -->
@@ -8435,11 +8440,8 @@
           return;
         }
         closeWorkoutEditSheet();
-        var sec = document.getElementById('secWorkout');
-        if (sec) {
-          sec.classList.remove('collapsed');
-          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        var wkOv = document.getElementById('workoutOverlay');
+        if (wkOv) wkOv.classList.add('open');
       }
 
       function wkStep(field, dir) {
@@ -8726,8 +8728,13 @@
           e.stopPropagation();
           openWorkoutSheet(null);
         });
+        var wkOv = document.getElementById('workoutOverlay');
         var fab = document.getElementById('jumpWorkoutBtn');
-        if (fab) fab.addEventListener('click', function () { openWorkoutSheet(null); });
+        if (fab && wkOv) fab.addEventListener('click', function () { wkOv.classList.add('open'); });
+        if (wkOv) {
+          document.getElementById('wkOverlayCloseBtn').addEventListener('click', function () { wkOv.classList.remove('open'); });
+          wkOv.addEventListener('click', function (e) { if (e.target === wkOv) wkOv.classList.remove('open'); });
+        }
         document.getElementById('wkCopyOpenBtn').addEventListener('click', openWorkoutCopySheet);
         document.getElementById('wkCopyCloseBtn').addEventListener('click', closeWorkoutCopySheet);
         document.getElementById('wkCopyList').addEventListener('click', function (e) {
