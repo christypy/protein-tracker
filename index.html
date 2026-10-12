@@ -1977,8 +1977,14 @@
     }
     .logs-overlay.open { display: flex; }
     .logs-overlay > .card-block {
-      width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; margin: 0; padding: 18px;
-      -webkit-overflow-scrolling: touch;
+      width: 100%; max-width: 560px; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); overflow-y: auto; margin: 0; padding: 18px;
+    }
+    @media (max-width: 520px) {
+      .logs-overlay { padding: 10px; }
+      .logs-overlay > .card-block { padding: 14px; }
+      .logs-overlay .log-item { flex-wrap: wrap; row-gap: 2px; }
+      .logs-overlay .log-macros { flex-basis: 100%; gap: 12px; padding-left: 48px; }
+      .logs-overlay .meal-sub-list { padding-left: 10px; margin-left: 2px; }
     }
 
     .hero-logs-title {
@@ -2370,7 +2376,7 @@
       font-weight: 700;
       position: fixed;
       left: 50%;
-      bottom: 14px;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
       transform: translateX(-50%);
       width: min(calc(100% - 36px), 604px);
       z-index: 40;
@@ -2518,8 +2524,7 @@
     }
 
     #secWorkout {
-      width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; margin: 0;
-      -webkit-overflow-scrolling: touch;
+      width: 100%; max-width: 560px; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); overflow-y: auto; margin: 0;
     }
     #secWorkout .section-head { cursor: default; }
     #secWorkout .section-head .head-btn { margin-right: 8px; }
@@ -3294,6 +3299,13 @@
       </div>
       <p class="select-hint" id="logEditHint" style="display:none;">點選要編輯的紀錄；點「這一餐」整組可一次改整餐的日期／身份，點裡面單一項目則只編輯該項目本身</p>
       <p class="select-hint mode-combine" id="logCombineHint" style="display:none;">勾選至少 2 筆想合併成一餐的紀錄（也可以直接勾選「這一餐」整組，把它跟其他筆再合併在一起）</p>
+      <div id="logList"></div>
+
+      <!-- 【本次調整】編輯整餐：不再是「這一餐」子項目下方的獨立按鈕，改成整合
+           進上面的「編輯」模式——按下「編輯」後點「這一餐」整組標頭就會打開，
+           一次把整批（同一個 groupId）紀錄的日期／身份一起改掉，不用逐筆進入
+           「編輯這筆紀錄」重複改 N 次；熱量／蛋白質等每一項的數值不受影響。 -->
+    </div>
       <div class="select-bar" id="logSelectBar" style="display:none;">
         <span id="logSelectCount">已選 0 筆</span>
         <span class="select-actions">
@@ -3308,7 +3320,6 @@
           <button type="button" class="btn-mini confirm mode-combine" id="logCombineConfirm">組成一餐</button>
         </span>
       </div>
-      <div id="logList"></div>
       <div class="food-detail" id="logEditBox" style="display:none;">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
@@ -3343,11 +3354,6 @@
           </div>
         </div>
       </div>
-
-      <!-- 【本次調整】編輯整餐：不再是「這一餐」子項目下方的獨立按鈕，改成整合
-           進上面的「編輯」模式——按下「編輯」後點「這一餐」整組標頭就會打開，
-           一次把整批（同一個 groupId）紀錄的日期／身份一起改掉，不用逐筆進入
-           「編輯這筆紀錄」重複改 N 次；熱量／蛋白質等每一項的數值不受影響。 -->
       <div class="food-detail" id="groupEditBox" style="display:none;">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
@@ -3368,7 +3374,6 @@
           </div>
         </div>
       </div>
-    </div>
     </div>
 
     <!-- 3.5 運動紀錄：記錄今天練了什麼（部位、動作、重量、次數、組數、組間休息），
