@@ -456,18 +456,17 @@
     }
 
     /* ---- 藥品紀錄（只在 150 頁面顯示） ---- */
-    .med-status { margin-top: 6px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
+    .med-status { margin-top: 3px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
       max-width: calc(100% - 56px); }
-    .med-line { display: flex; align-items: center; gap: 8px; padding: 6px 9px; max-width: 100%; box-sizing: border-box; border-radius: 10px;
-      background: var(--protein-tint); border: 1px solid var(--line); font-size: 12px; color: var(--ink); }
-    .med-line.warn { background: #FBF1DE; border-color: var(--fat); }
-    .med-line.danger { background: #F8E4DE; border-color: var(--danger); }
+    .med-line { display: flex; align-items: center; gap: 6px; padding: 0; max-width: 100%; box-sizing: border-box;
+      font-size: 11.5px; color: var(--ink-soft); }
+    .med-line.warn .med-text { color: #a36a00; }
+    .med-line.danger .med-text { color: var(--danger); }
     .med-line .med-text { flex: 0 1 auto; min-width: 0; cursor: pointer; line-height: 1.45; }
     .med-line .med-text b { font-family: var(--font-num); }
-    .med-line .med-text small { display: block; color: var(--ink-soft); font-size: 11px; }
-    .med-today-btn { flex: none; border: 1px solid var(--protein-dark); background: var(--card); color: var(--protein-dark);
-      border-radius: 999px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
-    .med-today-btn.done { background: var(--protein-dark); color: #fff; }
+    .med-today-btn { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--protein-dark);
+      border-radius: 999px; padding: 0 7px; height: 22px; line-height: 20px; font-size: 12px; cursor: pointer; opacity: .75; }
+    .med-today-btn.done { background: var(--protein-tint); border-color: var(--protein-dark); opacity: 1; font-weight: 700; }
     .med-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
     .med-chip { border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px;
       font-family: var(--font-num); background: var(--card); cursor: pointer; }
@@ -1800,6 +1799,11 @@
     .expiry-summary.urgent { color: #a33a10; }
     .expiry-summary.expired { color: #9b1c1c; }
     .expiry-summary .expiry-chev { margin-left: 4px; font-size: 9px; opacity: .6; }
+    .goal-info-row { margin-top: 3px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; }
+    .goal-info-row .both-protein-goals { margin-top: 0; }
+    .goal-info-row .expiry-alert { display: contents; }
+    .goal-info-row .expiry-summary { font-family: var(--font-num); font-size: 11.5px; padding: 0; align-self: baseline; }
+    .goal-info-row .expiry-line { flex-basis: 100%; }
     .expiry-line { font-size: 11px; padding: 1px 0 1px 16px; color: var(--ink-soft); }
     .expiry-line small { margin-left: 6px; opacity: .7; }
     .expiry-line.urgent b { color: #a33a10; }
@@ -1957,9 +1961,19 @@
     /* ---- Log list ---- */
     .hero-logs-head {
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 8px;
+    }
+    .hero-logs-head .hero-logs-title { flex: 1; }
+    .logs-overlay {
+      position: fixed; inset: 0; background: rgba(43, 38, 33, 0.35); z-index: 55;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .logs-overlay.open { display: flex; }
+    .logs-overlay > .card-block {
+      width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; margin: 0; padding: 18px;
+      -webkit-overflow-scrolling: touch;
     }
 
     .hero-logs-title {
@@ -3002,6 +3016,7 @@
            面板）、「新增食材」（直接打開新增食材面板）、「跳到資料同步設定」，不管目前捲到哪裡都能直接用，不用先找到
            對應的卡片。 -->
       <div class="bottom-jump-col" id="bottomJumpCol">
+        <button type="button" class="sync-float-btn" id="jumpLogsBtn" title="今日紀錄">📋</button>
         <button type="button" class="sync-float-btn" id="jumpAddMealBtn" title="新增這一餐">🍽️</button>
         <button type="button" class="sync-float-btn" id="jumpWorkoutBtn" title="新增運動紀錄">🏋️</button>
         <button type="button" class="sync-float-btn" id="jumpMedBtn" title="新增藥品紀錄" style="display:none;">💊</button>
@@ -3036,9 +3051,11 @@
       <div class="section-head goal-head">
         <div class="goal-head-text">
           <span class="goal-head-title">今日目標 · <b id="profileDesc"></b></span>
-          <div class="both-protein-goals" id="bothProteinGoals"></div>
+          <div class="goal-info-row">
+            <div class="both-protein-goals" id="bothProteinGoals"></div>
+            <div class="expiry-alert" id="expiryAlert"></div>
+          </div>
           <div class="med-status" id="medStatus"></div>
-          <div class="expiry-alert" id="expiryAlert"></div>
         </div>
       </div>
       <div class="section-body goal-section-body">
@@ -3251,10 +3268,12 @@
     </div>
 
     <!-- 3. 今日紀錄 -->
+    <div class="logs-overlay" id="logsOverlay">
     <div class="card-block" id="blockLogs">
       <div class="hero-logs-head">
         <span class="hero-logs-title">今日紀錄</span>
         <span class="hero-logs-count" id="logCount"></span>
+        <button type="button" class="calendar-close-btn" id="logsCloseBtn" aria-label="關閉">✕</button>
       </div>
       <p class="hint" style="margin:0 0 8px;">依輸入時間排序，最早輸入的在最上面。單筆紀錄點兩下可以直接編輯、向左滑會出現「刪除」；要一次處理多筆，可以用下面的「編輯」「組成一餐」「刪除」。</p>
       <div class="list-toolbar">
@@ -3338,6 +3357,7 @@
           </div>
         </div>
       </div>
+    </div>
     </div>
 
     <!-- 3.5 運動紀錄：記錄今天練了什麼（部位、動作、重量、次數、組數、組間休息），
@@ -6255,6 +6275,13 @@
             if (focusEl) setTimeout(function () { focusEl.focus(); }, 350);
           }
         }
+        var logsOv = document.getElementById('logsOverlay');
+        var logsBtn = document.getElementById('jumpLogsBtn');
+        if (logsBtn && logsOv) {
+          logsBtn.addEventListener('click', function () { logsOv.classList.add('open'); });
+          document.getElementById('logsCloseBtn').addEventListener('click', function () { logsOv.classList.remove('open'); });
+          logsOv.addEventListener('click', function (e) { if (e.target === logsOv) logsOv.classList.remove('open'); });
+        }
         var addMealBtn = document.getElementById('jumpAddMealBtn');
         if (addMealBtn) addMealBtn.addEventListener('click', function () { openManualSheet(); });
         var foodBtn = document.getElementById('jumpFoodListBtn');
@@ -8781,11 +8808,10 @@
           var s = medStats(m);
           var doneToday = m.usedDates.indexOf(viewDate) > -1;
           return '<div class="med-line ' + s.level + '">' +
-            '<div class="med-text" data-med-edit="' + escapeHtml(m.id) + '">💊 ' + escapeHtml(m.name) +
-            '　已擦 <b>' + s.used + '</b> 天・' + (s.left > 0 ? '剩餘 <b>' + s.left + '</b> 天' : '<b>已達上限</b>') +
-            '<small>' + escapeHtml(s.tip) + '</small></div>' +
-            '<button type="button" class="med-today-btn' + (doneToday ? ' done' : '') + '" data-med-today="' + escapeHtml(m.id) + '">' +
-            (doneToday ? '✓ ' + dayLabel + '已擦' : dayLabel + '已擦') + '</button></div>';
+            '<button type="button" class="med-today-btn' + (doneToday ? ' done' : '') + '" data-med-today="' + escapeHtml(m.id) +
+            '" title="' + dayLabel + (doneToday ? '已擦（再按一次取消）' : '還沒擦（按一下記錄）') + '">' + (doneToday ? '💊✓' : '💊') + '</button>' +
+            '<span class="med-text" data-med-edit="' + escapeHtml(m.id) + '" title="' + escapeHtml(s.tip) + '">' + escapeHtml(m.name) +
+            '　已擦 <b>' + s.used + '</b> 天・' + (s.left > 0 ? '剩 <b>' + s.left + '</b> 天' : '<b>已達上限</b>') + '</span></div>';
         }).join('');
       }
 
