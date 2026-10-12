@@ -2523,6 +2523,11 @@
       --wk-warn: #9A6620;
     }
 
+    #secSnackNow {
+      width: 100%; max-width: 560px; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); overflow-y: auto; margin: 0;
+    }
+    #secSnackNow .section-head { cursor: default; }
+
     #secWorkout {
       width: 100%; max-width: 560px; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); overflow-y: auto; margin: 0;
     }
@@ -3004,12 +3009,12 @@
     /* =====================================================================
        寬螢幕（電腦）版面：螢幕夠寬時，「今日紀錄」不再用彈出視窗，
        直接固定顯示在主欄右側；主欄、懸浮按鈕、底部面板都改成對齊主欄，
-       整組版面（主欄 640 + 間距 24 + 紀錄欄 440）水平置中。
+       整組版面（主欄 640 + 間距 24 + 紀錄欄 440 + 按鈕欄 56）水平置中。
        手機／窄視窗完全不受影響，維持原本的彈出視窗。
        ===================================================================== */
-    @media (min-width: 1160px) {
+    @media (min-width: 1220px) {
       :root {
-        --wide-left: max(16px, calc((100vw - 1104px) / 2));
+        --wide-left: max(16px, calc((100vw - 1160px) / 2));
         --main-right: calc(var(--wide-left) + 640px);
       }
 
@@ -3045,10 +3050,11 @@
         display: none;
       }
 
-      /* 右側懸浮按鈕改貼在主欄右緣，不要跑到紀錄欄上方 */
+      /* 右側懸浮按鈕移到紀錄欄右邊的空白欄（整組版面最右側），
+         不蓋住主欄與紀錄欄的內容 */
       .profile-tabs,
       .bottom-jump-col {
-        right: calc(100vw - var(--main-right) + 10px);
+        right: calc(100vw - var(--wide-left) - 1104px - 52px);
       }
 
       /* 底部固定面板與勾選列：以主欄為中心，而不是整個視窗 */
@@ -3094,6 +3100,7 @@
         <button type="button" class="sync-float-btn" id="jumpAddMealBtn" title="新增這一餐">🍽️</button>
         <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="新增食材">➕</button>
         <div class="more-jump-group" id="moreJumpGroup">
+          <button type="button" class="sync-float-btn" id="jumpSnackBtn" title="現在可以吃什麼">🍪</button>
           <button type="button" class="sync-float-btn" id="jumpWorkoutBtn" title="運動紀錄">🏋️</button>
           <button type="button" class="sync-float-btn" id="jumpMedBtn" title="新增藥品紀錄" style="display:none;">💊</button>
           <button type="button" class="sync-float-btn" id="jumpSettingsBtn" title="跳到資料同步設定">⚙️</button>
@@ -3601,10 +3608,11 @@
     </div>
 
     <!-- 4. 現在可以吃什麼（零食類別，扣掉晚餐預留熱量後還能吃多少） -->
-    <div class="section collapsed" id="secSnackNow">
-      <div class="section-head" data-toggle="secSnackNow">
+    <div class="logs-overlay" id="snackOverlay">
+    <div class="section" id="secSnackNow">
+      <div class="section-head">
         <h2>🍪 現在可以吃什麼</h2>
-        <span class="chev">▾</span>
+        <button type="button" class="calendar-close-btn" id="snackCloseBtn" aria-label="關閉">✕</button>
       </div>
       <div class="section-body">
         <p class="select-hint">從「零食」類別的食材裡，扣掉晚餐可能吃掉的熱量之後，抓出現在最多還能吃多少份量。</p>
@@ -3636,6 +3644,7 @@
 
         <div class="snack-list" id="snackFoodList"></div>
       </div>
+    </div>
     </div>
 
     <!-- 食材庫管理已經併入「食材列表」卡片：新增食材直接按標題列右邊的
@@ -6381,6 +6390,13 @@
           logsBtn.addEventListener('click', function () { logsOv.classList.add('open'); });
           document.getElementById('logsCloseBtn').addEventListener('click', function () { logsOv.classList.remove('open'); });
           logsOv.addEventListener('click', function (e) { if (e.target === logsOv) logsOv.classList.remove('open'); });
+        }
+        var snackOv = document.getElementById('snackOverlay');
+        var snackBtn = document.getElementById('jumpSnackBtn');
+        if (snackBtn && snackOv) {
+          snackBtn.addEventListener('click', function () { snackOv.classList.add('open'); renderSnackNow(); });
+          document.getElementById('snackCloseBtn').addEventListener('click', function () { snackOv.classList.remove('open'); });
+          snackOv.addEventListener('click', function (e) { if (e.target === snackOv) snackOv.classList.remove('open'); });
         }
         var addMealBtn = document.getElementById('jumpAddMealBtn');
         if (addMealBtn) addMealBtn.addEventListener('click', function () { openManualSheet(); });
