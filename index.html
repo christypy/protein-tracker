@@ -2523,6 +2523,13 @@
       --wk-warn: #9A6620;
     }
 
+    /* 新增這一餐的「選食材／管理食材」切換 */
+    .food-mode-seg { margin-bottom: 0; }
+    .food-mode-seg .qty-mode-btn { flex: 1; }
+    #foodManagePane { display: none; }
+    #secAdd.manage-mode #foodManagePane { display: block; }
+    #secAdd.manage-mode #pickerList { display: none; }
+
     #secSnackNow {
       width: 100%; max-width: 560px; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); overflow-y: auto; margin: 0;
     }
@@ -3195,7 +3202,11 @@
         <span class="chev">▾</span>
       </div>
       <div class="section-body">
-        <p class="hint">從食材庫挑選，輸入攝取的份數或克數（g）皆可；也可以按右上角「手動輸入」直接填蛋白質、脂肪與糖（Sugar）。</p>
+        <div class="bx-seg food-mode-seg" id="foodModeSeg">
+          <button type="button" class="qty-mode-btn active" data-food-mode="pick">選食材</button>
+          <button type="button" class="qty-mode-btn" data-food-mode="manage">管理食材</button>
+        </div>
+        <p class="hint" id="pickerHint" style="margin-top:10px;">從食材庫挑選，輸入攝取的份數或克數（g）皆可；也可以按右上角「手動輸入」直接填蛋白質、脂肪與糖（Sugar）。</p>
 
         <div class="search-wrap">
           <input type="text" id="foodSearch" placeholder="搜尋食材，例如：雞胸肉">
@@ -3203,6 +3214,36 @@
         <p class="chip-field-label">類別</p>
         <div class="chip-scroll" id="pickerCategoryChips" style="margin-bottom:10px;"></div>
         <div class="food-list" id="pickerList"></div>
+
+        <!-- 管理食材：跟上面共用同一組搜尋與類別篩選，列出同一批食材，
+             在這裡新增、編輯（點兩下）、左滑刪除、批次刪除、看營養密度。 -->
+        <div id="foodManagePane">
+          <div class="list-toolbar">
+            <button type="button" class="btn btn-primary" id="foodAddOpenBtn" style="margin-right:auto;">＋ 新增食材</button>
+            <button type="button" class="tool-btn" id="foodDeleteToggle">批次刪除</button>
+          </div>
+          <div class="select-bar" id="foodSelectBar" style="display:none;">
+            <span id="foodSelectCount">已選 0 項</span>
+            <span class="select-actions">
+              <button type="button" class="btn-mini cancel" id="foodSelectCancel">取消</button>
+              <button type="button" class="btn-mini confirm" id="foodSelectConfirm">刪除選取</button>
+            </span>
+          </div>
+          <div class="food-table-wrap">
+            <div id="foodTable"></div>
+          </div>
+          <div class="btn-row" style="justify-content:flex-start;margin-top:14px;">
+            <button type="button" class="btn btn-ghost" id="per100ToggleBtn">查看每份100克營養密度</button>
+          </div>
+          <div id="per100Wrap" style="display:none;margin-top:10px;">
+            <p class="hint" style="margin:0 0 8px;">
+              下表把每項食材換算成「每100克」的熱量／蛋白質／脂肪／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
+              克，100 克就約等於 2.7 份）。</p>
+            <div class="food-table-wrap">
+              <div id="per100Table"></div>
+            </div>
+          </div>
+        </div>
         <div class="food-detail" id="pickerDetail" style="display:none;">
           <div class="sheet-handle"></div>
           <div class="sheet-header" id="pickerSheetHeader">
@@ -3407,7 +3448,7 @@
             <div class="field"><label>克數 (g)</label><input type="number" id="leGrams" min="0" step="any"></div>
           </div>
           <p class="hint" id="leLockedHint" style="display:none;margin:6px 0 0;">
-            這筆紀錄連結食材庫，只能調整克數，熱量／蛋白質／脂肪／糖會自動換算。如需調整食材本身的營養數值，請到下方「食材庫管理」修改。</p>
+            這筆紀錄連結食材庫，只能調整克數，熱量／蛋白質／脂肪／糖會自動換算。如需調整食材本身的營養數值，請到「新增這一餐」→「管理食材」修改。</p>
           <div class="row" style="margin-top:8px;">
             <div class="field"><label>熱量 (kcal)</label><input type="number" id="leCal" min="0" step="1"></div>
             <div class="field"><label>蛋白質 (g)</label><input type="number" id="leProtein" min="0" step="0.1"></div>
@@ -3762,49 +3803,6 @@
           <div class="btn-row">
             <button class="btn btn-ghost" id="feCancelBtn">取消</button>
             <button class="btn btn-primary" id="feSaveBtn">儲存修改</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 食材列表：篩選／瀏覽／刪除都在這張卡片；新增與編輯都是固定貼在畫面下方
-         的面板（foodAddBox／foodEditBox，定義在上面），按標題列右邊的
-         「＋ 新增食材」或點兩下列表項目就會打開，不需要另外一張「食材庫管理」卡片。 -->
-    <div class="section collapsed" id="secFoodList">
-      <div class="section-head" data-toggle="secFoodList">
-        <h2>食材列表</h2>
-        <button type="button" class="btn btn-primary head-btn" id="foodAddOpenBtn">＋ 新增食材</button>
-        <span class="chev">▾</span>
-      </div>
-      <div class="section-body">
-        <p class="chip-field-label">依類別篩選</p>
-        <div class="chip-scroll" id="foodCategoryChips" style="margin-bottom:6px;"></div>
-
-        <div class="list-toolbar" style="margin-top:14px;">
-          <button type="button" class="tool-btn" id="foodDeleteToggle">批次刪除</button>
-        </div>
-        <div class="select-bar" id="foodSelectBar" style="display:none;">
-          <span id="foodSelectCount">已選 0 項</span>
-          <span class="select-actions">
-            <button type="button" class="btn-mini cancel" id="foodSelectCancel">取消</button>
-            <button type="button" class="btn-mini confirm" id="foodSelectConfirm">刪除選取</button>
-          </span>
-        </div>
-
-        <p class="hint" style="margin-top:10px;">下表顯示的數值就是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖），不會另外做任何換算。單筆食材點兩下可以直接編輯、向左滑會出現「刪除」；要一次刪除多項，按上方「批次刪除」勾選後再確認。</p>
-        <div class="food-table-wrap" style="margin-top:10px;">
-          <div id="foodTable"></div>
-        </div>
-
-        <div class="btn-row" style="justify-content:flex-start;margin-top:14px;">
-          <button type="button" class="btn btn-ghost" id="per100ToggleBtn">查看每份100克營養密度</button>
-        </div>
-        <div id="per100Wrap" style="display:none;margin-top:10px;">
-          <p class="hint" style="margin:0 0 8px;">
-            下表把每項食材換算成「每100克」的熱量／蛋白質／脂肪／糖，方便比較營養密度；依蛋白質高到低排序，蛋白質相同時再依熱量高到低排序。份數是「100 ÷ 一份克數」，代表 100 克相當於原本幾份（例如一份 37
-            克，100 克就約等於 2.7 份）。</p>
-          <div class="food-table-wrap">
-            <div id="per100Table"></div>
           </div>
         </div>
       </div>
@@ -5283,11 +5281,17 @@
         };
       }
 
+      // 管理食材與「選食材」共用同一組搜尋字與類別篩選。
+      function foodsMatchingPickerFilter() {
+        var q = ((document.getElementById('foodSearch') || {}).value || '').trim().toLowerCase();
+        var cat = state.pickerCategoryFilter;
+        return state.foods.filter(function (f) {
+          return (!q || String(f.name || '').toLowerCase().indexOf(q) > -1) && (!cat || hasFoodCategory(f, cat));
+        });
+      }
+
       function sortedFoods() {
-        var list = state.foods.slice();
-        if (state.foodCategoryFilter) {
-          list = list.filter(function (f) { return hasFoodCategory(f, state.foodCategoryFilter); });
-        }
+        var list = foodsMatchingPickerFilter();
         // 缺貨的食材一律排到最下面（其餘維持原本順序），標成缺貨或補貨後馬上重排。
         var idx = {};
         list.forEach(function (f, i) { idx[f.id] = i; });
@@ -5309,10 +5313,7 @@
       }
 
       function per100Foods() {
-        var list = state.foods.slice();
-        if (state.foodCategoryFilter) {
-          list = list.filter(function (f) { return hasFoodCategory(f, state.foodCategoryFilter); });
-        }
+        var list = foodsMatchingPickerFilter();
         list.sort(function (a, b) {
           var pa = per100Value(a, 'protein'), pb = per100Value(b, 'protein');
           if (pa !== pb) return pb - pa;
@@ -5400,7 +5401,7 @@
 
         var foods = snackCategoryFoods();
         if (!foods.length) {
-          listEl.innerHTML = '<div class="empty">目前沒有符合條件的「零食」食材。請到下方「食材庫管理」新增食材。</div>';
+          listEl.innerHTML = '<div class="empty">目前沒有符合條件的「零食」食材。請到「新增這一餐」→「管理食材」新增食材。</div>';
           renderSnackMultiResult(budget);
           return;
         }
@@ -6599,12 +6600,29 @@
       }
 
       function wirePicker() {
-        document.getElementById('foodSearch').addEventListener('input', renderPickerList);
+        document.getElementById('foodSearch').addEventListener('input', function () { renderPickerList(); renderFoodTable(); });
         document.getElementById('pickerCategoryChips').addEventListener('click', function (e) {
           var chip = e.target.closest('[data-picker-cat]');
           if (!chip) return;
           state.pickerCategoryFilter = chip.getAttribute('data-picker-cat');
           renderPickerList();
+          renderFoodTable();
+        });
+
+        // 選食材／管理食材 切換
+        document.getElementById('foodModeSeg').addEventListener('click', function (e) {
+          var btn = e.target.closest('[data-food-mode]');
+          if (!btn) return;
+          var manage = btn.getAttribute('data-food-mode') === 'manage';
+          document.getElementById('secAdd').classList.toggle('manage-mode', manage);
+          Array.prototype.forEach.call(this.querySelectorAll('[data-food-mode]'), function (b) {
+            b.classList.toggle('active', b === btn);
+          });
+          document.getElementById('pickerHint').textContent = manage
+            ? '下表數值是你當初輸入的原始紀錄（一份克數、熱量、蛋白質、脂肪、糖）。單筆食材點兩下可以編輯、向左滑會出現「刪除」；要一次刪除多項，按「批次刪除」勾選後再確認。上方搜尋與類別篩選同樣適用。'
+            : '從食材庫挑選，輸入攝取的份數或克數（g）皆可；也可以按右上角「手動輸入」直接填蛋白質、脂肪與糖（Sugar）。';
+          if (!manage) { state.foodMode = ''; state.foodDeleteSelected = []; }
+          renderFoodTable();
         });
 
         document.getElementById('pickerList').addEventListener('click', function (e) {
@@ -7730,13 +7748,6 @@
       function wireFoodTable() {
         var foodTable = document.getElementById('foodTable');
         wireFoodSwipe(foodTable);
-
-        document.getElementById('foodCategoryChips').addEventListener('click', function (e) {
-          var chip = e.target.closest('[data-cat-filter]');
-          if (!chip) return;
-          state.foodCategoryFilter = chip.getAttribute('data-cat-filter');
-          renderFoodTable();
-        });
 
         foodTable.addEventListener('click', function (e) {
           var row = e.target.closest('.food-row');
