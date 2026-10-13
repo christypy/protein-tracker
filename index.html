@@ -410,6 +410,10 @@
     }
     .preset-chip.active { background: var(--protein-dark); border-color: var(--protein-dark); color: #fff; }
     .preset-chip .preset-default { font-style: normal; font-size: 10px; font-weight: 500; margin-left: 5px; opacity: .75; }
+    /* 黏在最上方的快速切換列：捲到哪裡都能一鍵切換當天方案 */
+    .topbar-presets { display: flex; gap: 6px; margin-top: 8px; padding-right: 52px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .topbar-presets::-webkit-scrollbar { display: none; }
+    .topbar-presets .preset-chip { flex: none; white-space: nowrap; padding: 5px 11px; font-size: 12.5px; }
     .preset-hint { font-size: 11.5px; color: var(--muted, #888); margin: 0 0 10px; line-height: 1.5; }
     #goalsBox .preset-name-row { margin-bottom: 10px; }
     #goalsBox .btn[disabled] { opacity: .4; cursor: not-allowed; }
@@ -3136,6 +3140,7 @@
         <div class="sync-dot" id="syncDot" title="點擊查看同步設定"><span class="dot"></span><span id="syncLabel">本機儲存</span>
         </div>
       </div>
+      <div class="topbar-presets" id="topbarPresets"></div>
       <div class="profile-tabs" id="profileFloatCol">
         <button type="button" class="sync-float-btn" id="syncFloatBtn" title="立即重新同步" style="display:none;">⟳</button>
         <div id="profileTabs" style="display:contents;"></div>
@@ -4482,6 +4487,12 @@
           return '<button type="button" class="preset-chip' + (pr.id === curId ? ' active' : '') + '" data-preset="' + escapeHtml(pr.id) + '">' +
             escapeHtml(pr.name) + (pr.id === defId ? '<i class="preset-default">預設</i>' : '') + '</button>';
         }).join('');
+        var topEl = document.getElementById('topbarPresets');
+        if (topEl) {
+          topEl.innerHTML = list.map(function (pr) {
+            return '<button type="button" class="preset-chip' + (pr.id === curId ? ' active' : '') + '" data-preset="' + escapeHtml(pr.id) + '">' + escapeHtml(pr.name) + '</button>';
+          }).join('');
+        }
         var nameEl = document.getElementById('gPresetName');
         if (nameEl && document.activeElement !== nameEl) nameEl.value = presetFor(p, state.currentDate).name;
         var defBtn = document.getElementById('gDefaultBtn');
@@ -6825,9 +6836,11 @@
         toggleEl.addEventListener('click', function () {
           setGoalsOpen(boxEl.style.display === 'none');
         });
-        document.getElementById('presetBar').addEventListener('click', function (e) {
-          var chip = e.target.closest('[data-preset]');
-          if (chip) selectGoalPreset(chip.getAttribute('data-preset'));
+        ['presetBar', 'topbarPresets'].forEach(function (barId) {
+          document.getElementById(barId).addEventListener('click', function (e) {
+            var chip = e.target.closest('[data-preset]');
+            if (chip) selectGoalPreset(chip.getAttribute('data-preset'));
+          });
         });
         // 儲存：更新「目前這一天正在用的那個方案」（名稱與 8 個數字）。
         document.getElementById('gSaveBtn').addEventListener('click', async function () {
@@ -6838,6 +6851,7 @@
           var name = document.getElementById('gPresetName').value.trim() || pr.name;
           var dup = livePresets(p).some(function (x) { return x.id !== pr.id && x.name === name; });
           if (dup) { alert('已經有一個叫「' + name + '」的方案了，請換個名字'); return; }
+          if (name !== pr.name && !window.confirm('這會把方案「' + pr.name + '」改名成「' + name + '」並覆蓋它的數字，原方案不會保留。\n\n如果想保留原方案、另外新增一個，請按「取消」，改按「另存為新方案」。')) return;
           Object.keys(v).forEach(function (k) { pr[k] = v[k]; });
           pr.name = name;
           pr.updatedAt = Date.now();
