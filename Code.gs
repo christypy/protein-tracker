@@ -1,5 +1,10 @@
 /**
- * 身體管理 - Google Apps Script 後端（v21-workouts）
+ * 身體管理 - Google Apps Script 後端（v25-goal-presets）
+ *
+ * 【v25 新增】目標方案：新增 GoalPresets 分頁（一列＝一個可命名的目標方案，例如
+ * 「沒運動」「運動」）與 GoalDays 分頁（記錄「哪個身份、哪一天用哪個方案」，
+ * 日期為 default 的那一列＝該身份的預設方案）。新增 saveGoalPreset／setGoalDay
+ * 兩個動作，getData 也會回傳 goalPresets／goalDays。更新後要重新部署新版本。
  *
  * 【v21 新增】運動紀錄：新增 Workouts 分頁與 addWorkout／updateWorkout／
  * deleteWorkout 三個動作，getData 也會回傳 workouts。更新這份程式碼後，
@@ -44,7 +49,7 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v24-goals';
+var APP_BACKEND_VERSION = 'v25-goal-presets';
 
 // 【v24 新增】每日目標同步：新增 Goals 分頁，一列＝一個身份（person = A／B）的目標。
 // 這樣不同裝置（手機、電腦）看到的目標會一致。updatedAt 是最後修改時間（毫秒），
@@ -52,6 +57,17 @@ var APP_BACKEND_VERSION = 'v24-goals';
 var GOALS_SHEET_NAME = 'Goals';
 var GOALS_HEADERS = ['person', 'calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar', 'updatedAt'];
 var GOALS_NUM_FIELDS = ['calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar'];
+
+// 【v25 新增】目標方案（可儲存、可切換）：
+//   GoalPresets：一列＝一個方案。person 身份、name 方案名稱，其餘為 8 個目標數字。
+//     order 排序；deleted 為 TRUE 代表已刪除（軟刪除，讓其他裝置也能同步到「被刪了」）；
+//     updatedAt 最後修改時間（毫秒），前端以較新的一邊為準。
+//   GoalDays：一列＝「某身份在某一天選用哪個方案」。key = person|date（唯一）。
+//     date 是 yyyy-MM-dd；date 為 default 的那一列代表該身份的預設方案（沒特別指定的日子都用它）。
+var GOAL_PRESETS_SHEET_NAME = 'GoalPresets';
+var GOAL_PRESETS_HEADERS = ['id', 'person', 'name', 'calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar', 'order', 'deleted', 'updatedAt'];
+var GOAL_DAYS_SHEET_NAME = 'GoalDays';
+var GOAL_DAYS_HEADERS = ['key', 'person', 'date', 'presetId', 'updatedAt'];
 
 // 【v22 新增】藥品紀錄：一列＝一項藥品（例如袪痘素凝膠）的一個療程。
 //   startDate  開始使用日；limitWeeks 連續使用上限（週）；warnWeeks 提醒週數
@@ -192,6 +208,8 @@ function doPost(e) {
       case 'updateWorkout': result = updateWorkout(payload); break;
       case 'deleteWorkout': result = deleteWorkout(payload); break;
       case 'saveGoals': result = saveGoals(payload); break;
+      case 'saveGoalPreset': result = saveGoalPreset(payload); break;
+      case 'setGoalDay': result = setGoalDay(payload); break;
       case 'addMed': result = addMed(payload); break;
       case 'updateMed': result = updateMed(payload); break;
       case 'deleteMed': result = deleteMed(payload); break;
@@ -216,6 +234,8 @@ function getLogsSheet() { return getSheet(LOGS_SHEET_NAME, LOGS_HEADERS); }
 function getDeletedSheet() { return getSheet(DELETED_SHEET_NAME, DELETED_HEADERS); }
 function getWorkoutsSheet() { return getSheet(WORKOUTS_SHEET_NAME, WORKOUTS_HEADERS); }
 function getGoalsSheet() { return getSheet(GOALS_SHEET_NAME, GOALS_HEADERS); }
+function getGoalPresetsSheet() { return getSheet(GOAL_PRESETS_SHEET_NAME, GOAL_PRESETS_HEADERS); }
+function getGoalDaysSheet() { return getSheet(GOAL_DAYS_SHEET_NAME, GOAL_DAYS_HEADERS); }
 function getMedsSheet() { return getSheet(MEDS_SHEET_NAME, MEDS_HEADERS); }
 
 // 把一批「已刪除」的 id 記進 DeletedIds 分頁。同一個 type+id 已經記錄過
@@ -469,7 +489,10 @@ function getData() {
     meds: readMeds(),
     deletedMedIds: readDeletedIds('med'),
     // 【v24 新增】每日目標（依身份）。
-    goals: readGoals()
+    goals: readGoals(),
+    // 【v25 新增】目標方案與「每天用哪個方案」。
+    goalPresets: readGoalPresets(),
+    goalDays: readGoalDays()
   };
 }
 
@@ -1045,6 +1068,103 @@ function saveGoals(payload) {
   }
   vals.updatedAt = Number(payload.updatedAt) || new Date().getTime();
   upsertRowByHeader(getGoalsSheet(), GOALS_HEADERS, 'person', vals);
+  SpreadsheetApp.flush();
+  return { success: true };
+}
+
+// ---------- goal presets（目標方案） ----------
+
+function readGoalPresets() {
+  var sheet = getGoalPresetsSheet();
+  var map = headerIndexMap(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var list = [], seen = {};
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var id = String(r[map['id']] == null ? '' : r[map['id']]).trim();
+    if (!id || seen[id]) continue;
+    seen[id] = true;
+    var g = {
+      id: id,
+      person: String(r[map['person']] || 'A'),
+      name: String(r[map['name']] || ''),
+      order: Number(map.hasOwnProperty('order') ? r[map['order']] : 0) || 0,
+      deleted: map.hasOwnProperty('deleted') && (r[map['deleted']] === true || String(r[map['deleted']]).toLowerCase() === 'true'),
+      updatedAt: Number(map.hasOwnProperty('updatedAt') ? r[map['updatedAt']] : 0) || 0
+    };
+    var ok = true;
+    GOALS_NUM_FIELDS.forEach(function (f) {
+      var raw = map.hasOwnProperty(f) ? r[map[f]] : '';
+      if (raw === '' || raw === null || isNaN(Number(raw))) ok = false; else g[f] = Number(raw);
+    });
+    if (!ok) continue;
+    list.push(g);
+  }
+  return list;
+}
+
+// upsert：同一個方案 id 永遠只有一列；刪除＝deleted 設為 TRUE（軟刪除）。
+function saveGoalPreset(payload) {
+  if (!payload || !payload.id) return { error: 'missing id' };
+  if (!payload.person) return { error: 'missing person' };
+  var vals = {
+    id: String(payload.id),
+    person: String(payload.person),
+    name: payload.name ? String(payload.name) : '方案',
+    order: Number(payload.order) || 0,
+    deleted: payload.deleted === true || String(payload.deleted).toLowerCase() === 'true',
+    updatedAt: Number(payload.updatedAt) || new Date().getTime()
+  };
+  for (var i = 0; i < GOALS_NUM_FIELDS.length; i++) {
+    var f = GOALS_NUM_FIELDS[i];
+    var n = Number(payload[f]);
+    if (payload[f] === '' || payload[f] === null || payload[f] === undefined || isNaN(n) || n < 0) {
+      return { error: 'invalid ' + f };
+    }
+    vals[f] = n;
+  }
+  upsertRowByHeader(getGoalPresetsSheet(), GOAL_PRESETS_HEADERS, 'id', vals);
+  SpreadsheetApp.flush();
+  return { success: true, id: vals.id };
+}
+
+function readGoalDays() {
+  var sheet = getGoalDaysSheet();
+  var map = headerIndexMap(sheet);
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
+  var rows = sheet.getDataRange().getValues();
+  var list = [], seen = {};
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var person = String(r[map['person']] == null ? '' : r[map['person']]).trim();
+    var date = String(formatDateCell(r[map['date']], tz) || '').trim();
+    if (!person || !date) continue;
+    var key = person + '|' + date;
+    if (seen[key]) continue;
+    seen[key] = true;
+    list.push({
+      person: person,
+      date: date,
+      presetId: String(r[map['presetId']] == null ? '' : r[map['presetId']]).trim(),
+      updatedAt: Number(map.hasOwnProperty('updatedAt') ? r[map['updatedAt']] : 0) || 0
+    });
+  }
+  return list;
+}
+
+// upsert：key = person|date。date 為 'default' 代表該身份的預設方案。
+function setGoalDay(payload) {
+  if (!payload || !payload.person || !payload.date) return { error: 'missing person/date' };
+  var date = String(payload.date).trim();
+  if (date !== 'default' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: 'invalid date' };
+  var person = String(payload.person);
+  upsertRowByHeader(getGoalDaysSheet(), GOAL_DAYS_HEADERS, 'key', {
+    key: person + '|' + date,
+    person: person,
+    date: date,
+    presetId: payload.presetId ? String(payload.presetId) : '',
+    updatedAt: Number(payload.updatedAt) || new Date().getTime()
+  });
   SpreadsheetApp.flush();
   return { success: true };
 }

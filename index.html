@@ -400,6 +400,20 @@
       color: #fff;
     }
 
+    /* ---- 目標方案（沒運動／運動…）：一排可點選的方案按鈕 ---- */
+    .preset-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; }
+    .preset-label { font-size: 12px; color: var(--muted, #888); margin-right: 2px; }
+    .preset-chip {
+      font-family: var(--font-body); font-size: 13px; font-weight: 600;
+      padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--card); color: var(--ink); cursor: pointer; line-height: 1.2;
+    }
+    .preset-chip.active { background: var(--protein-dark); border-color: var(--protein-dark); color: #fff; }
+    .preset-chip .preset-default { font-style: normal; font-size: 10px; font-weight: 500; margin-left: 5px; opacity: .75; }
+    .preset-hint { font-size: 11.5px; color: var(--muted, #888); margin: 0 0 10px; line-height: 1.5; }
+    #goalsBox .preset-name-row { margin-bottom: 10px; }
+    #goalsBox .btn[disabled] { opacity: .4; cursor: not-allowed; }
+
     /* ---- 懸浮「立即重新同步」：跟 A／B 身份切換共用同一條固定在畫面右側的
        浮動欄位，不用特地展開「資料同步設定」卡片才能補傳。只有設定過試算表
        網址時才會出現，同步中會有轉圈動畫。 ---- */
@@ -3178,6 +3192,8 @@
         </div>
       </div>
       <div class="section-body goal-section-body">
+        <div class="preset-bar" id="presetBar"></div>
+        <p class="preset-hint">點方案只會切換「這一天」的目標；想讓之後每天預設用某個方案，展開下方「依身材與運動量調整目標」按「設為預設」。</p>
         <div class="goal-compact" id="remainGrid"></div>
 
         <!-- 近7天趨勢（進度條，精簡版面） -->
@@ -3198,6 +3214,7 @@
 
         <div class="toggle-manual" id="toggleGoals" style="margin-top:12px;">依身材與運動量調整目標 ＋</div>
         <div id="goalsBox" style="display:none;margin-top:12px;">
+          <div class="field preset-name-row"><label>方案名稱（例如：沒運動、運動）</label><input type="text" id="gPresetName" maxlength="20" placeholder="方案名稱"></div>
           <div class="row">
             <div class="field"><label>熱量下限 (kcal)</label><input type="number" id="gCalMin" min="0" step="any"></div>
             <div class="field"><label>熱量上限 (kcal)</label><input type="number" id="gCalMax" min="0" step="any"></div>
@@ -3216,7 +3233,12 @@
           </div>
           <div class="btn-row" style="justify-content:space-between;">
             <span class="toggle-manual" id="gResetBtn" style="margin:0;">還原此身份建議值</span>
-            <button class="btn btn-primary" id="gSaveBtn">儲存目標</button>
+            <button class="btn btn-primary" id="gSaveBtn">儲存此方案</button>
+          </div>
+          <div class="btn-row" style="justify-content:space-between;">
+            <button class="btn btn-ghost" id="gSaveAsBtn" type="button">另存為新方案</button>
+            <button class="btn btn-ghost" id="gDefaultBtn" type="button">設為預設</button>
+            <button class="btn btn-danger" id="gDeleteBtn" type="button">刪除此方案</button>
           </div>
         </div>
       </div>
@@ -3879,7 +3901,7 @@
       </div>
     </div>
 
-    <footer>資料一律先存在此裝置，操作不會卡著等試算表；設定 Google 試算表網址後會在背景同步、雙邊合併，不會互相蓋掉。<br><small>前端版本 v24-goals</small><br><small id="goalSyncInfo">目標同步：尚未執行</small></footer>
+    <footer>資料一律先存在此裝置，操作不會卡著等試算表；設定 Google 試算表網址後會在背景同步、雙邊合併，不會互相蓋掉。<br><small>前端版本 v25-goal-presets</small><br><small id="goalSyncInfo">目標同步：尚未執行</small></footer>
   </div>
 
   <script>
@@ -3986,14 +4008,22 @@
       function canDualPerson() {
         return PROFILE_ORDER.length === 2;
       }
+      // 目前畫面上檢視的那一天（state.currentDate）所使用的目標方案內容。
       function currentGoals() {
-        return goalsFor(activeProfile());
+        return goalsFor(activeProfile(), state.currentDate);
       }
-      function goalsFor(p) {
+
+      // ---------- 目標方案（沒運動／運動…，可儲存、可每天切換） ----------
+      // settings.goalPresets[身份] = [{ id, name, order, deleted, updatedAt, 8 個目標數字 }]
+      // settings.goalDays[身份]    = { 'default': {presetId, updatedAt}, 'yyyy-mm-dd': {presetId, updatedAt} }
+      // 某一天用哪個方案：先看那天有沒有指定 → 沒有就用「預設方案」。
+      var GOAL_NUM_KEYS = ['calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar'];
+
+      // 舊版單一目標（Goals 分頁）：只用來產生第一個「預設」方案。
+      function baseGoalsFor(p) {
         if (!state.settings.goals || typeof state.settings.goals !== 'object') state.settings.goals = defaultGoalsSet();
         if (!state.settings.goals[p]) state.settings.goals[p] = Object.assign({}, PROFILES[p].goals);
         var g = state.settings.goals[p];
-        // 舊版只存單一目標值：缺少的下限／上限用身份預設值補齊，並確保下限 ≤ 上限。
         var d = PROFILES[p].goals;
         ['proteinMax', 'fatMin', 'sugarMin', 'calMin'].forEach(function (k) {
           if (typeof g[k] !== 'number' || isNaN(g[k])) g[k] = d[k];
@@ -4002,6 +4032,65 @@
         if (g.fatMin > g.fat) g.fatMin = g.fat;
         if (g.sugarMin > g.sugar) g.sugarMin = g.sugar;
         if (g.calMin > g.cal) g.calMin = g.cal;
+        return g;
+      }
+      function seedPresetFor(p) {
+        var b = baseGoalsFor(p);
+        var seed = { id: 'gp_' + p + '_1', name: '一般', order: 1, deleted: false, updatedAt: b.updatedAt || 0, legacySeed: true };
+        GOAL_NUM_KEYS.forEach(function (k) { seed[k] = b[k]; });
+        return seed;
+      }
+      function ensureGoalStore() {
+        var st = state.settings;
+        if (!st.goalPresets || typeof st.goalPresets !== 'object') st.goalPresets = {};
+        if (!st.goalDays || typeof st.goalDays !== 'object') st.goalDays = {};
+        PROFILE_ORDER.forEach(function (k) {
+          if (!Array.isArray(st.goalPresets[k])) st.goalPresets[k] = [];
+          if (!st.goalDays[k] || typeof st.goalDays[k] !== 'object') st.goalDays[k] = {};
+          if (!st.goalPresets[k].length) st.goalPresets[k].push(seedPresetFor(k));
+        });
+      }
+      function livePresets(p) {
+        ensureGoalStore();
+        var all = state.settings.goalPresets[p];
+        var live = all.filter(function (x) { return !x.deleted; });
+        if (!live.length) {
+          // 理論上不會發生（最後一個不能刪）；跨裝置剛好都刪光時，把最新的那個救回來。
+          var best = all.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); })[0];
+          live = best ? [best] : [];
+        }
+        return live.slice().sort(function (a, b) {
+          return ((a.order || 0) - (b.order || 0)) || String(a.name).localeCompare(String(b.name));
+        });
+      }
+      function presetById(p, id) {
+        return livePresets(p).filter(function (x) { return x.id === id; })[0] || null;
+      }
+      function defaultPresetId(p) {
+        var d = state.settings.goalDays[p] && state.settings.goalDays[p]['default'];
+        if (d && presetById(p, d.presetId)) return d.presetId;
+        return livePresets(p)[0].id;
+      }
+      function presetIdFor(p, date) {
+        ensureGoalStore();
+        var d = date && state.settings.goalDays[p][date];
+        if (d && d.presetId && presetById(p, d.presetId)) return d.presetId;
+        return defaultPresetId(p);
+      }
+      function presetFor(p, date) {
+        return presetById(p, presetIdFor(p, date)) || livePresets(p)[0];
+      }
+      // 某身份在某一天的目標（沒給日期就用目前檢視的那一天）。
+      function goalsFor(p, date) {
+        var pr = presetFor(p, date || state.currentDate);
+        var g = {};
+        GOAL_NUM_KEYS.forEach(function (k) { g[k] = Number(pr[k]) || 0; });
+        if (g.proteinMax < g.protein) g.proteinMax = g.protein;
+        if (g.fatMin > g.fat) g.fatMin = g.fat;
+        if (g.sugarMin > g.sugar) g.sugarMin = g.sugar;
+        if (g.calMin > g.cal) g.calMin = g.cal;
+        g.presetId = pr.id;
+        g.presetName = pr.name;
         return g;
       }
 
@@ -4209,7 +4298,7 @@
       // ---------- 每日目標同步（跨裝置） ----------
       var GOAL_FIELDS = ['calMin', 'cal', 'protein', 'proteinMax', 'fatMin', 'fat', 'sugarMin', 'sugar'];
       function goalPayload(p) {
-        var g = goalsFor(p);
+        var g = baseGoalsFor(p);
         var o = { person: p, updatedAt: g.updatedAt || Date.now() };
         GOAL_FIELDS.forEach(function (k) { o[k] = g[k]; });
         return o;
@@ -4230,7 +4319,7 @@
         var changedLocal = false;
         for (var i = 0; i < PROFILE_ORDER.length; i++) {
           var p = PROFILE_ORDER[i];
-          var local = goalsFor(p);
+          var local = baseGoalsFor(p);
           var r = remote && remote[p];
           var lt = local.updatedAt || 0;
           if (r && (r.updatedAt || 0) > lt) {
@@ -4258,6 +4347,147 @@
         }
         if (changedLocal) await saveLocalSettings();
         return changedLocal;
+      }
+
+      // ---------- 目標方案：同步（跨裝置，以 updatedAt 較新的一邊為準） ----------
+      function handleGoalPushError(e) {
+        var msg = (e && e.message) ? e.message : String(e);
+        if (/unknown action/i.test(msg)) setSheetStatus('目標方案目前只存在這台裝置：後端 Code.gs 還不是最新版，請貼上新版並重新部署。', 'err');
+        else setSheetStatus('目標方案同步失敗：' + msg + '（已保留在本機，下次連線會自動重試）', 'err');
+      }
+      function presetPayload(p, pr) {
+        var o = { id: pr.id, person: p, name: pr.name, order: pr.order || 0, deleted: !!pr.deleted, updatedAt: pr.updatedAt || Date.now() };
+        GOAL_NUM_KEYS.forEach(function (k) { o[k] = pr[k]; });
+        return o;
+      }
+      function pushPreset(p, pr) {
+        if (!hasSheet()) return Promise.resolve();
+        return sheetPost('saveGoalPreset', presetPayload(p, pr)).catch(handleGoalPushError);
+      }
+      function pushGoalDay(p, date) {
+        if (!hasSheet()) return Promise.resolve();
+        var d = state.settings.goalDays[p][date];
+        if (!d) return Promise.resolve();
+        return sheetPost('setGoalDay', { person: p, date: date, presetId: d.presetId, updatedAt: d.updatedAt }).catch(handleGoalPushError);
+      }
+      // 沒改過、純粹從舊目標產生的「預設」方案：舊目標被雲端更新時跟著更新。
+      function refreshSeedPresets() {
+        ensureGoalStore();
+        PROFILE_ORDER.forEach(function (k) {
+          state.settings.goalPresets[k].forEach(function (pr) {
+            if (!pr.legacySeed) return;
+            var b = baseGoalsFor(k);
+            GOAL_NUM_KEYS.forEach(function (key) { pr[key] = b[key]; });
+            pr.updatedAt = b.updatedAt || 0;
+          });
+        });
+      }
+      // 方案一旦被選用、設為預設或編輯，就要先「落地」（有時間戳並上傳），其他裝置才找得到它。
+      function materializePreset(p, pr) {
+        if (!pr || pr.updatedAt) return;
+        pr.updatedAt = Date.now();
+        delete pr.legacySeed;
+        pushPreset(p, pr);
+      }
+      async function syncGoalPresetsFromData(data) {
+        if (!data || !Array.isArray(data.goalPresets) || !Array.isArray(data.goalDays)) return false; // 舊版後端
+        ensureGoalStore();
+        refreshSeedPresets();
+        var changed = false;
+        for (var i = 0; i < PROFILE_ORDER.length; i++) {
+          var p = PROFILE_ORDER[i];
+          var localList = state.settings.goalPresets[p];
+          var remoteList = data.goalPresets.filter(function (r) { return r.person === p; });
+          // 雲端已經有方案時，本機那個沒動過的預設草稿就沒必要留著，避免多出一個陌生的「預設」。
+          if (remoteList.length) {
+            state.settings.goalPresets[p] = localList = localList.filter(function (l) {
+              return l.updatedAt > 0 || remoteList.some(function (r) { return r.id === l.id; });
+            });
+          }
+          remoteList.forEach(function (r) {
+            var l = localList.filter(function (x) { return x.id === r.id; })[0];
+            var copy = { id: r.id, name: r.name, order: r.order || 0, deleted: !!r.deleted, updatedAt: r.updatedAt || 0 };
+            GOAL_NUM_KEYS.forEach(function (k) { copy[k] = r[k]; });
+            if (!l) { localList.push(copy); changed = true; }
+            else if ((r.updatedAt || 0) > (l.updatedAt || 0)) { localList[localList.indexOf(l)] = copy; changed = true; }
+          });
+          for (var a = 0; a < localList.length; a++) {
+            var lp = localList[a];
+            var rp = remoteList.filter(function (x) { return x.id === lp.id; })[0];
+            if (lp.updatedAt > 0 && (!rp || lp.updatedAt > (rp.updatedAt || 0))) await pushPreset(p, lp);
+          }
+          // 每天用哪個方案（含 default）
+          var days = state.settings.goalDays[p];
+          var remoteDays = data.goalDays.filter(function (r) { return r.person === p; });
+          remoteDays.forEach(function (r) {
+            var l = days[r.date];
+            if (!l || (r.updatedAt || 0) > (l.updatedAt || 0)) { days[r.date] = { presetId: r.presetId, updatedAt: r.updatedAt || 0 }; changed = true; }
+          });
+          var dateKeys = Object.keys(days);
+          for (var b = 0; b < dateKeys.length; b++) {
+            var dk = dateKeys[b];
+            var rd = remoteDays.filter(function (x) { return x.date === dk; })[0];
+            if (days[dk].updatedAt > 0 && (!rd || days[dk].updatedAt > (rd.updatedAt || 0))) await pushGoalDay(p, dk);
+          }
+        }
+        await saveLocalSettings();
+        return changed;
+      }
+
+      // ---------- 目標方案：操作 ----------
+      function readGoalInputs() {
+        function val(id) { var raw = document.getElementById(id).value; return raw === '' ? NaN : Number(raw); }
+        var v = {
+          calMin: val('gCalMin'), cal: val('gCalMax'),
+          protein: val('gProteinMin'), proteinMax: val('gProteinMax'),
+          fatMin: val('gFatMin'), fat: val('gFatMax'),
+          sugarMin: val('gSugarMin'), sugar: val('gSugarMax')
+        };
+        var bad = Object.keys(v).some(function (k) { return isNaN(v[k]) || v[k] < 0; });
+        if (bad) { alert('請把每一項的下限與上限都填成 0 以上的數字'); return null; }
+        var pairs = [['熱量', 'calMin', 'cal'], ['蛋白質', 'protein', 'proteinMax'], ['脂肪', 'fatMin', 'fat'], ['糖', 'sugarMin', 'sugar']];
+        for (var i = 0; i < pairs.length; i++) {
+          if (v[pairs[i][1]] > v[pairs[i][2]]) { alert(pairs[i][0] + '的下限不能大於上限'); return null; }
+        }
+        return v;
+      }
+      async function selectGoalPreset(id) {
+        var p = activeProfile();
+        var pr = presetById(p, id);
+        if (!pr) return;
+        materializePreset(p, pr);
+        state.settings.goalDays[p][state.currentDate] = { presetId: id, updatedAt: Date.now() };
+        await saveLocalSettings();
+        pushGoalDay(p, state.currentDate);
+        renderHero();
+      }
+      async function setDefaultGoalPreset() {
+        var p = activeProfile();
+        var pr = presetFor(p, state.currentDate);
+        materializePreset(p, pr);
+        state.settings.goalDays[p]['default'] = { presetId: pr.id, updatedAt: Date.now() };
+        await saveLocalSettings();
+        pushGoalDay(p, 'default');
+        renderHero();
+      }
+      function renderPresetBar() {
+        var el = document.getElementById('presetBar');
+        if (!el) return;
+        var p = activeProfile();
+        var list = livePresets(p);
+        var curId = presetIdFor(p, state.currentDate);
+        var defId = defaultPresetId(p);
+        var dayLabel = state.currentDate === todayStr() ? '今天' : state.currentDate;
+        el.innerHTML = '<span class="preset-label">' + escapeHtml(dayLabel) + '的目標方案</span>' + list.map(function (pr) {
+          return '<button type="button" class="preset-chip' + (pr.id === curId ? ' active' : '') + '" data-preset="' + escapeHtml(pr.id) + '">' +
+            escapeHtml(pr.name) + (pr.id === defId ? '<i class="preset-default">預設</i>' : '') + '</button>';
+        }).join('');
+        var nameEl = document.getElementById('gPresetName');
+        if (nameEl && document.activeElement !== nameEl) nameEl.value = presetFor(p, state.currentDate).name;
+        var defBtn = document.getElementById('gDefaultBtn');
+        if (defBtn) { defBtn.disabled = (curId === defId); defBtn.textContent = curId === defId ? '已是預設' : '設為預設'; }
+        var delBtn = document.getElementById('gDeleteBtn');
+        if (delBtn) delBtn.disabled = list.length <= 1;
       }
 
       function setGoalSyncInfo(msg) {
@@ -4293,6 +4523,13 @@
           // 每日目標：跨裝置以較新的一邊為準。放在最前面、獨立 try/catch，
           // 這樣後面食材／紀錄合併就算出錯，目標也一定會先同步到。
           await syncGoalsFromData(data);
+          try {
+            var presetsChanged = await syncGoalPresetsFromData(data);
+            if (presetsChanged) { try { renderHero(); } catch (e3) { } }
+            if (!Array.isArray(data.goalPresets) && state.settings.goalPresets) {
+              setSheetStatus('目標方案目前只存在這台裝置：後端 Code.gs 還不是最新版，請貼上新版並重新部署。', 'err');
+            }
+          } catch (ePreset) { /* 方案同步失敗不影響其他資料，下次連線會再重試 */ }
 
           // 【v14 新增】把試算表這邊「大家共同知道的刪除紀錄」併進本機的
           // tombstone 清單。這是修「換一台裝置、或分頁本來就開著沒重新整理，
@@ -4676,6 +4913,7 @@
         Object.keys(gvals).forEach(function (id) { if (active !== id) document.getElementById(id).value = gvals[id]; });
 
         renderProfileTabs();
+        renderPresetBar();
         renderProgressGrid(totals, goals, pendingMealTotals());
         renderWeekDotsGrid();
       }
@@ -5028,7 +5266,7 @@
         var bothEl = document.getElementById('bothProteinGoals');
         if (bothEl) {
           bothEl.innerHTML = PROFILE_ORDER.map(function (k) {
-            var g = goalsFor(k);
+            var g = goalsFor(k, state.currentDate);
             var intake = proteinTotalForPerson(k);
             var left = round1(g.protein - intake);
             var reached = left <= 0 && g.protein > 0;
@@ -5247,8 +5485,7 @@
         var el = document.getElementById('weekDotsGrid');
         if (!el) return;
         var data = weekTotals();
-        var goals = currentGoals();
-        var sugarGoal = goals.sugar !== undefined ? goals.sugar : (goals.carb || 0);
+        var weekProfile = activeProfile();
         var today = todayStr();
 
         function bar(value, goal, isLimitType, noData, titleBase, baseColor) {
@@ -5264,6 +5501,9 @@
         }
 
         var dayCols = data.map(function (d) {
+          // 每一天各自用「那一天選的方案」當目標（例如運動日 vs 沒運動日）。
+          var goals = goalsFor(weekProfile, d.date);
+          var sugarGoal = goals.sugar;
           var noData = !d.hasData;
           var cBar = bar(d.cal, goals.cal, true, noData, '熱量', 'var(--cal)');
           var pBar = bar(d.protein, goals.protein, false, noData, '蛋白質', 'var(--protein)');
@@ -6585,37 +6825,86 @@
         toggleEl.addEventListener('click', function () {
           setGoalsOpen(boxEl.style.display === 'none');
         });
+        document.getElementById('presetBar').addEventListener('click', function (e) {
+          var chip = e.target.closest('[data-preset]');
+          if (chip) selectGoalPreset(chip.getAttribute('data-preset'));
+        });
+        // 儲存：更新「目前這一天正在用的那個方案」（名稱與 8 個數字）。
         document.getElementById('gSaveBtn').addEventListener('click', async function () {
-          function val(id) {
-            var raw = document.getElementById(id).value;
-            return raw === '' ? NaN : Number(raw);
-          }
-          var v = {
-            calMin: val('gCalMin'), cal: val('gCalMax'),
-            protein: val('gProteinMin'), proteinMax: val('gProteinMax'),
-            fatMin: val('gFatMin'), fat: val('gFatMax'),
-            sugarMin: val('gSugarMin'), sugar: val('gSugarMax')
-          };
-          var bad = Object.keys(v).some(function (k) { return isNaN(v[k]) || v[k] < 0; });
-          if (bad) { alert('請把每一項的下限與上限都填成 0 以上的數字'); return; }
-          var pairs = [['熱量', 'calMin', 'cal'], ['蛋白質', 'protein', 'proteinMax'], ['脂肪', 'fatMin', 'fat'], ['糖', 'sugarMin', 'sugar']];
-          for (var i = 0; i < pairs.length; i++) {
-            if (v[pairs[i][1]] > v[pairs[i][2]]) { alert(pairs[i][0] + '的下限不能大於上限'); return; }
-          }
-          var goals = currentGoals();
-          Object.keys(v).forEach(function (k) { goals[k] = v[k]; });
-          goals.updatedAt = Date.now();
+          var v = readGoalInputs();
+          if (!v) return;
+          var p = activeProfile();
+          var pr = presetFor(p, state.currentDate);
+          var name = document.getElementById('gPresetName').value.trim() || pr.name;
+          var dup = livePresets(p).some(function (x) { return x.id !== pr.id && x.name === name; });
+          if (dup) { alert('已經有一個叫「' + name + '」的方案了，請換個名字'); return; }
+          Object.keys(v).forEach(function (k) { pr[k] = v[k]; });
+          pr.name = name;
+          pr.updatedAt = Date.now();
+          delete pr.legacySeed;
           await saveLocalSettings();
-          pushGoals(activeProfile());
+          pushPreset(p, pr);
           if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+          setGoalsOpen(false);
+          renderHero();
+        });
+        // 另存為新方案：用目前輸入框的數字＋名稱建立新方案，並套用到目前這一天。
+        document.getElementById('gSaveAsBtn').addEventListener('click', async function () {
+          var v = readGoalInputs();
+          if (!v) return;
+          var p = activeProfile();
+          var name = document.getElementById('gPresetName').value.trim();
+          if (!name) { alert('請先在「方案名稱」填上名字，例如：運動'); return; }
+          if (livePresets(p).some(function (x) { return x.name === name; })) {
+            alert('已經有一個叫「' + name + '」的方案了。要修改它請按「儲存此方案」，要新增請換個名字。'); return;
+          }
+          materializePreset(p, presetFor(p, state.currentDate));
+          var maxOrder = state.settings.goalPresets[p].reduce(function (m, x) { return Math.max(m, x.order || 0); }, 0);
+          var np = { id: uid('gp'), name: name, order: maxOrder + 1, deleted: false, updatedAt: Date.now() };
+          Object.keys(v).forEach(function (k) { np[k] = v[k]; });
+          state.settings.goalPresets[p].push(np);
+          state.settings.goalDays[p][state.currentDate] = { presetId: np.id, updatedAt: Date.now() };
+          await saveLocalSettings();
+          pushPreset(p, np);
+          pushGoalDay(p, state.currentDate);
+          if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+          setGoalsOpen(false);
+          renderHero();
+        });
+        document.getElementById('gDefaultBtn').addEventListener('click', setDefaultGoalPreset);
+        document.getElementById('gDeleteBtn').addEventListener('click', async function () {
+          var p = activeProfile();
+          var list = livePresets(p);
+          if (list.length <= 1) { alert('至少要保留一個方案'); return; }
+          var pr = presetFor(p, state.currentDate);
+          if (!window.confirm('刪除方案「' + pr.name + '」？\n用到這個方案的日子會改用預設方案。')) return;
+          pr.deleted = true;
+          pr.updatedAt = Date.now();
+          delete pr.legacySeed;
+          await saveLocalSettings();
+          pushPreset(p, pr);
+          // 預設方案被刪掉時，改指到剩下的第一個方案。
+          var d = state.settings.goalDays[p]['default'];
+          if (!d || d.presetId === pr.id) {
+            var next = livePresets(p).filter(function (x) { return x.id !== pr.id; })[0];
+            if (next) {
+              materializePreset(p, next);
+              state.settings.goalDays[p]['default'] = { presetId: next.id, updatedAt: Date.now() };
+              await saveLocalSettings();
+              pushGoalDay(p, 'default');
+            }
+          }
           setGoalsOpen(false);
           renderHero();
         });
         document.getElementById('gResetBtn').addEventListener('click', async function () {
           var p = activeProfile();
-          state.settings.goals[p] = Object.assign({}, PROFILES[p].goals, { updatedAt: Date.now() });
+          var pr = presetFor(p, state.currentDate);
+          GOAL_NUM_KEYS.forEach(function (k) { pr[k] = PROFILES[p].goals[k]; });
+          pr.updatedAt = Date.now();
+          delete pr.legacySeed;
           await saveLocalSettings();
-          pushGoals(p);
+          pushPreset(p, pr);
           renderHero();
         });
       }
