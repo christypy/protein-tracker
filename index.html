@@ -410,10 +410,23 @@
     }
     .preset-chip.active { background: var(--protein-dark); border-color: var(--protein-dark); color: #fff; }
     .preset-chip .preset-default { font-style: normal; font-size: 10px; font-weight: 500; margin-left: 5px; opacity: .75; }
-    /* 黏在最上方的快速切換列：捲到哪裡都能一鍵切換當天方案 */
-    .topbar-presets { display: flex; gap: 6px; margin-top: 8px; padding-right: 52px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-    .topbar-presets::-webkit-scrollbar { display: none; }
-    .topbar-presets .preset-chip { flex: none; white-space: nowrap; padding: 5px 11px; font-size: 12.5px; }
+    /* 兩段式開關：左＝第一個方案、右＝第二個方案，點一下就切換 */
+    .preset-switch {
+      position: relative; display: inline-grid; grid-template-columns: 1fr 1fr;
+      padding: 3px; border: 1px solid var(--line); border-radius: 999px;
+      background: var(--card); cursor: pointer; font-family: var(--font-body);
+      font-size: 13px; font-weight: 600; user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .preset-switch .knob {
+      position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 2);
+      border-radius: 999px; background: var(--protein-dark); transition: transform .2s ease;
+    }
+    .preset-switch.right .knob { transform: translateX(100%); }
+    .preset-switch .lbl { position: relative; z-index: 1; padding: 6px 16px; text-align: center; color: var(--ink); white-space: nowrap; transition: color .2s; }
+    .preset-switch .lbl.on { color: #fff; }
+    .preset-switch .lbl i { font-style: normal; font-size: 10px; font-weight: 500; margin-left: 4px; opacity: .75; }
+    .preset-switch.single { cursor: default; opacity: .6; grid-template-columns: 1fr; }
+    .preset-switch.single .knob { width: calc(100% - 6px); }
     .preset-hint { font-size: 11.5px; color: var(--muted, #888); margin: 0 0 10px; line-height: 1.5; }
     #goalsBox .preset-name-row { margin-bottom: 10px; }
     #goalsBox .btn[disabled] { opacity: .4; cursor: not-allowed; }
@@ -3140,7 +3153,6 @@
         <div class="sync-dot" id="syncDot" title="點擊查看同步設定"><span class="dot"></span><span id="syncLabel">本機儲存</span>
         </div>
       </div>
-      <div class="topbar-presets" id="topbarPresets"></div>
       <div class="profile-tabs" id="profileFloatCol">
         <button type="button" class="sync-float-btn" id="syncFloatBtn" title="立即重新同步" style="display:none;">⟳</button>
         <div id="profileTabs" style="display:contents;"></div>
@@ -3198,7 +3210,7 @@
       </div>
       <div class="section-body goal-section-body">
         <div class="preset-bar" id="presetBar"></div>
-        <p class="preset-hint">點方案只會切換「這一天」的目標；想讓之後每天預設用某個方案，展開下方「依身材與運動量調整目標」按「設為預設」。</p>
+        <p class="preset-hint">開關只會切換「這一天」的目標；想讓之後每天預設用某個方案，展開下方「依身材與運動量調整目標」按「設為預設」。</p>
         <div class="goal-compact" id="remainGrid"></div>
 
         <!-- 近7天趨勢（進度條，精簡版面） -->
@@ -4466,6 +4478,13 @@
         pushGoalDay(p, state.currentDate);
         renderHero();
       }
+      function toggleGoalPreset() {
+        var p = activeProfile();
+        var two = livePresets(p).slice(0, 2);
+        if (two.length < 2) return;
+        var cur = presetIdFor(p, state.currentDate);
+        selectGoalPreset(cur === two[0].id ? two[1].id : two[0].id);
+      }
       async function setDefaultGoalPreset() {
         var p = activeProfile();
         var pr = presetFor(p, state.currentDate);
@@ -4483,16 +4502,20 @@
         var curId = presetIdFor(p, state.currentDate);
         var defId = defaultPresetId(p);
         var dayLabel = state.currentDate === todayStr() ? '今天' : state.currentDate;
-        el.innerHTML = '<span class="preset-label">' + escapeHtml(dayLabel) + '的目標方案</span>' + list.map(function (pr) {
-          return '<button type="button" class="preset-chip' + (pr.id === curId ? ' active' : '') + '" data-preset="' + escapeHtml(pr.id) + '">' +
-            escapeHtml(pr.name) + (pr.id === defId ? '<i class="preset-default">預設</i>' : '') + '</button>';
-        }).join('');
-        var topEl = document.getElementById('topbarPresets');
-        if (topEl) {
-          topEl.innerHTML = list.map(function (pr) {
-            return '<button type="button" class="preset-chip' + (pr.id === curId ? ' active' : '') + '" data-preset="' + escapeHtml(pr.id) + '">' + escapeHtml(pr.name) + '</button>';
-          }).join('');
+        function lbl(pr, on) {
+          return '<span class="lbl' + (on ? ' on' : '') + '">' + escapeHtml(pr.name) + (pr.id === defId ? '<i>預設</i>' : '') + '</span>';
         }
+        var two = list.slice(0, 2);
+        var sw;
+        if (two.length < 2) {
+          sw = '<div class="preset-switch single" title="再用「另存為新方案」新增第二個方案後，就能切換">' +
+            '<span class="knob"></span>' + lbl(two[0], true) + '</div>';
+        } else {
+          var rightOn = curId === two[1].id;
+          sw = '<button type="button" class="preset-switch' + (rightOn ? ' right' : '') + '" data-preset-toggle="1" role="switch" aria-checked="' + rightOn +
+            '" title="點一下切換方案"><span class="knob"></span>' + lbl(two[0], !rightOn) + lbl(two[1], rightOn) + '</button>';
+        }
+        el.innerHTML = '<span class="preset-label">' + escapeHtml(dayLabel) + '的目標方案</span>' + sw;
         var nameEl = document.getElementById('gPresetName');
         if (nameEl && document.activeElement !== nameEl) nameEl.value = presetFor(p, state.currentDate).name;
         var defBtn = document.getElementById('gDefaultBtn');
@@ -6836,11 +6859,8 @@
         toggleEl.addEventListener('click', function () {
           setGoalsOpen(boxEl.style.display === 'none');
         });
-        ['presetBar', 'topbarPresets'].forEach(function (barId) {
-          document.getElementById(barId).addEventListener('click', function (e) {
-            var chip = e.target.closest('[data-preset]');
-            if (chip) selectGoalPreset(chip.getAttribute('data-preset'));
-          });
+        document.getElementById('presetBar').addEventListener('click', function (e) {
+          if (e.target.closest('[data-preset-toggle]')) toggleGoalPreset();
         });
         // 儲存：更新「目前這一天正在用的那個方案」（名稱與 8 個數字）。
         document.getElementById('gSaveBtn').addEventListener('click', async function () {
@@ -6868,6 +6888,7 @@
           if (!v) return;
           var p = activeProfile();
           var name = document.getElementById('gPresetName').value.trim();
+          if (livePresets(p).length >= 2) { alert('開關只有兩種狀態，所以最多保留兩個方案。\n要調整請按「儲存此方案」，或先刪除其中一個再新增。'); return; }
           if (!name) { alert('請先在「方案名稱」填上名字，例如：運動'); return; }
           if (livePresets(p).some(function (x) { return x.name === name; })) {
             alert('已經有一個叫「' + name + '」的方案了。要修改它請按「儲存此方案」，要新增請換個名字。'); return;
