@@ -3525,6 +3525,7 @@
         </div>
         <div class="sheet-footer">
           <div class="btn-row">
+            <button class="btn btn-ghost" id="leCopyBtn" title="依上方的日期與身份，複製成獨立的一筆新紀錄（原本這筆不變）">複製一份</button>
             <button class="btn btn-ghost" id="leCancelBtn">取消</button>
             <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
           </div>
@@ -3545,6 +3546,7 @@
         </div>
         <div class="sheet-footer">
           <div class="btn-row">
+            <button class="btn btn-ghost" id="geCopyBtn" title="依上方的日期與身份，把整餐複製成新的一餐（原本這餐不變）">複製整餐</button>
             <button class="btn btn-ghost" id="geCancelBtn">取消</button>
             <button class="btn btn-primary" id="geSaveBtn">儲存修改（整餐）</button>
           </div>
@@ -7788,6 +7790,41 @@
         document.getElementById('geCancelBtn').addEventListener('click', closeMealGroupEdit);
         document.getElementById('geCloseBtn').addEventListener('click', closeMealGroupEdit);
 
+        // 複製整餐：依面板上的日期／身份，把整餐每一項複製成新的一餐（原本這餐不變）。
+        document.getElementById('geCopyBtn').addEventListener('click', async function () {
+          if (!state.editingGroupId) return;
+          var groupId = state.editingGroupId;
+          var items = state.logs.filter(function (l) { return l.groupId === groupId; });
+          if (!items.length) { closeMealGroupEdit(); return; }
+
+          var newDate = document.getElementById('geDate').value;
+          if (!newDate) { alert('請選擇日期'); return; }
+          var newPerson = document.getElementById('gePerson').value || 'A';
+          var sameSlot = items[0].date === newDate && (items[0].person || 'A') === newPerson;
+          if (sameSlot && !confirm('日期和身份跟原本相同，會在同一天多出一整餐，確定要複製嗎？')) return;
+
+          var newGroupId = uid('m');
+          var now = nowTime();
+          var copies = items.map(function (l) {
+            var c = Object.assign({}, l, { id: uid('l'), date: newDate, person: newPerson, time: now, groupId: newGroupId });
+            delete c.pairId; delete c.order; delete c.carb;
+            return c;
+          });
+
+          state.logs = state.logs.concat(copies);
+          state.expandedGroups[newGroupId] = true;
+          closeMealGroupEdit();
+          await persistLogsAndRender();
+          if (hasSheet()) {
+            copies.forEach(function (c) {
+              sheetPost('addLog', c).catch(function (e) {
+                setSheetStatus('複製整餐同步失敗：' + e.message + '（已保留在本機）', 'err');
+              });
+            });
+          }
+          alert('已把這一餐（' + copies.length + ' 項）複製到 ' + newDate + '（' + PROFILES[newPerson].name + '），可用上方日期切換過去查看。');
+        });
+
         document.getElementById('geSaveBtn').addEventListener('click', async function () {
           if (!state.editingGroupId) return;
           var groupId = state.editingGroupId;
@@ -7833,6 +7870,54 @@
 
         document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
         document.getElementById('leCloseBtn').addEventListener('click', clearLogEditForm);
+
+        // 複製一份：依面板上的日期／身份，產生一筆獨立的新紀錄（原本那筆不動）。
+        // 適合「只買一次、不想存進食材庫」的手動輸入品項，直接複製到其他天使用。
+        document.getElementById('leCopyBtn').addEventListener('click', async function () {
+          var src = state.logs.find(function (l) { return l.id === state.editingLogId; });
+          if (!src) return;
+          var newDate = document.getElementById('leDate').value;
+          var newPerson = document.getElementById('lePerson').value || 'A';
+          if (!newDate) { alert('請選擇日期'); return; }
+          if (newDate === src.date && newPerson === (src.person || 'A') &&
+              !confirm('日期和身份跟原本相同，會在同一天多一筆，確定要複製嗎？')) return;
+
+          var copy = Object.assign({}, src, {
+            id: uid('l'), date: newDate, person: newPerson, time: nowTime()
+          });
+          // 複製出來的是獨立的一筆：不沿用「這一餐」分組、均分配對與手動排序
+          delete copy.groupId; delete copy.pairId; delete copy.order; delete copy.carb;
+
+          var food = src.foodId ? state.foods.find(function (f) { return f.id === src.foodId; }) : null;
+          if (src.foodId && food) {
+            // 連結食材庫的紀錄：以面板上的克數重新換算
+            var g = Number(document.getElementById('leGrams').value);
+            if (!g || g <= 0) { alert('請輸入有效克數'); return; }
+            var m = computeMacros(food, g);
+            copy.foodName = food.name;
+            copy.grams = round1(g);
+            copy.protein = m.protein; copy.fat = m.fat; copy.sugar = m.sugar; copy.cal = m.cal;
+          } else {
+            // 手動輸入的品項：以面板目前的數值為準，可順便微調
+            var name = document.getElementById('leName').value.trim();
+            if (!name) { alert('請輸入名稱'); return; }
+            copy.foodName = name;
+            copy.protein = round1(Number(document.getElementById('leProtein').value) || 0);
+            copy.fat = round1(Number(document.getElementById('leFat').value) || 0);
+            copy.sugar = round1(Number(document.getElementById('leSugar').value) || 0);
+            copy.cal = Math.round(Number(document.getElementById('leCal').value) || 0);
+          }
+
+          state.logs.push(copy);
+          clearLogEditForm();
+          await persistLogsAndRender();
+          if (hasSheet()) {
+            sheetPost('addLog', copy).catch(function (e) {
+              setSheetStatus('複製紀錄同步失敗：' + e.message + '（已保留在本機）', 'err');
+            });
+          }
+          alert('已複製到 ' + newDate + '（' + PROFILES[newPerson].name + '），可用上方日期切換過去查看。');
+        });
 
         document.getElementById('leSaveBtn').addEventListener('click', async function () {
           if (!state.editingLogId) return;
