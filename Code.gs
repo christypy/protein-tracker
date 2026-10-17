@@ -30,7 +30,7 @@
 
 var FOODS_SHEET_NAME = 'Foods';
 var LOGS_SHEET_NAME = 'Logs';
-var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100', 'expiryDate'];
+var FOODS_HEADERS = ['id', 'name', 'base', 'unit', 'servings', 'category', 'categories', 'outOfStock', 'protein100', 'fat100', 'sugar100', 'cal100', 'expiryDate', 'addedSugar'];
 var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName', 'grams', 'unit', 'protein', 'fat', 'sugar', 'cal', 'order', 'groupId', 'pairId'];
 // 【本次新增】Logs 新增了 pairId 欄位：「兩人均分」這一餐時，同一樣食材拆成
 // A、B 兩筆紀錄，這兩筆會共用同一個 pairId，代表「這兩筆是同一份、均分出來
@@ -49,7 +49,7 @@ var LOGS_HEADERS = ['id', 'person', 'date', 'time', 'type', 'foodId', 'foodName'
 // 分組（維持原本一筆一筆顯示的行為）。
 // 舊欄位名稱 -> 新欄位名稱。ensureHeaders() 會自動把舊欄位的資料合併進新欄位。
 var HEADER_RENAME_MAP = { 'carb100': 'sugar100', 'carb': 'sugar' };
-var APP_BACKEND_VERSION = 'v25-goal-presets';
+var APP_BACKEND_VERSION = 'v26-added-sugar';
 
 // 【v24 新增】每日目標同步：新增 Goals 分頁，一列＝一個身份（person = A／B）的目標。
 // 這樣不同裝置（手機、電腦）看到的目標會一致。updatedAt 是最後修改時間（毫秒），
@@ -496,6 +496,12 @@ function getData() {
   };
 }
 
+// 【新增】addedSugar：這項食材的糖是不是「額外添加糖」。FALSE＝天然糖（水果、牛奶等），
+// 不計入糖攝取；空白或舊資料一律視為 TRUE，維持原本的計算結果。
+function parseAddedSugar(v) {
+  return !(v === false || String(v).toLowerCase() === 'false');
+}
+
 function parseFoodCategories(value, legacyCategory) {
   if (Array.isArray(value)) {
     return value.map(function(v) { return String(v).trim(); }).filter(Boolean);
@@ -553,7 +559,8 @@ function readFoods() {
       fat100: Number(r[map['fat100']]) || 0,
       sugar100: Number(r[map['sugar100']]) || 0,
       cal100: Number(r[map['cal100']]) || 0,
-      expiryDate: map.hasOwnProperty('expiryDate') ? String(formatDateCell(r[map['expiryDate']], tz) || '') : ''
+      expiryDate: map.hasOwnProperty('expiryDate') ? String(formatDateCell(r[map['expiryDate']], tz) || '') : '',
+      addedSugar: map.hasOwnProperty('addedSugar') ? parseAddedSugar(r[map['addedSugar']]) : true
     });
   }
   return foods;
@@ -645,7 +652,8 @@ function addFood(payload) {
     fat100: Number(payload.fat100) || 0,
     sugar100: Number(sugarVal) || 0,
     cal100: Number(payload.cal100) || 0,
-    expiryDate: payload.expiryDate ? String(payload.expiryDate).slice(0, 10) : ''
+    expiryDate: payload.expiryDate ? String(payload.expiryDate).slice(0, 10) : '',
+    addedSugar: parseAddedSugar(payload.addedSugar)
   });
   SpreadsheetApp.flush();
   return { success: true, id: id };
@@ -705,6 +713,13 @@ function updateFood(payload) {
       var expCell = sheet.getRange(rowNum, map['expiryDate'] + 1);
       expCell.setNumberFormat('@');
       expCell.setValue(payload.expiryDate ? String(payload.expiryDate).slice(0, 10) : '');
+      if (!map.hasOwnProperty('addedSugar')) {
+        var addedCol = sheet.getLastColumn() + 1;
+        sheet.getRange(1, addedCol).setValue('addedSugar');
+        map['addedSugar'] = addedCol - 1;
+      }
+      var isAddedSugar = parseAddedSugar(payload.addedSugar);
+      sheet.getRange(rowNum, map['addedSugar'] + 1).setValue(isAddedSugar);
       // 【本次新增】食材的熱量／蛋白質／脂肪／糖被修改後，試算表這邊也直接把
       // 「過去用過這項食材」的所有 Logs 紀錄（不限日期）重新算一次，不依賴
       // 前端一定要成功把每一筆 updateLog 都送回來——就算前端網路中斷、
@@ -712,7 +727,8 @@ function updateFood(payload) {
       var recalced = recalcLogsForFood(payload.id, Number(payload.base) || 100, {
         protein100: Number(payload.protein100) || 0,
         fat100: Number(payload.fat100) || 0,
-        sugar100: Number(sugarVal) || 0,
+        // 天然糖（addedSugar 為 FALSE）不計入，歷史紀錄的糖會重算成 0
+        sugar100: isAddedSugar ? (Number(sugarVal) || 0) : 0,
         cal100: Number(payload.cal100) || 0
       });
       SpreadsheetApp.flush();
