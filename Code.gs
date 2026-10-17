@@ -496,10 +496,10 @@ function getData() {
   };
 }
 
-// 【新增】addedSugar：這項食材的糖是不是「額外添加糖」。FALSE＝天然糖（水果、牛奶等），
-// 不計入糖攝取；空白或舊資料一律視為 TRUE，維持原本的計算結果。
+// 【新增】addedSugar：這項食材的糖是不是「額外添加糖」。預設（空白、舊資料）一律是 FALSE＝
+// 天然糖，不計入糖攝取；只有明確勾選（TRUE）的食材才會把糖算進去。
 function parseAddedSugar(v) {
-  return !(v === false || String(v).toLowerCase() === 'false');
+  return v === true || String(v).toLowerCase() === 'true';
 }
 
 function parseFoodCategories(value, legacyCategory) {
@@ -560,7 +560,7 @@ function readFoods() {
       sugar100: Number(r[map['sugar100']]) || 0,
       cal100: Number(r[map['cal100']]) || 0,
       expiryDate: map.hasOwnProperty('expiryDate') ? String(formatDateCell(r[map['expiryDate']], tz) || '') : '',
-      addedSugar: map.hasOwnProperty('addedSugar') ? parseAddedSugar(r[map['addedSugar']]) : true
+      addedSugar: map.hasOwnProperty('addedSugar') ? parseAddedSugar(r[map['addedSugar']]) : false
     });
   }
   return foods;
