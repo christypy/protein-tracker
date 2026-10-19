@@ -3133,6 +3133,40 @@
         width: 604px;
       }
     }
+
+    /* ---- 訓練計時計次器（⏱️）：全螢幕面板，點開始先跑緩衝倒數再開始計時／計次 ---- */
+    .wkt-ov{position:fixed;inset:0;z-index:80;background:var(--paper);display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .wkt-ov.open{display:block}
+    .wkt-wrap{max-width:640px;margin:0 auto;padding:12px 18px 60px}
+    .wkt-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .wkt-head h2{font-family:var(--font-display);font-size:17px;margin:0}
+    .wkt-x{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;color:var(--ink);cursor:pointer}
+    .wkt-tabs{display:flex;gap:6px;margin-bottom:12px}
+    .wkt-tabs button{flex:1;padding:9px 4px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:var(--radius-sm);font:inherit;font-weight:600;font-size:14px;cursor:pointer}
+    .wkt-tabs button.on{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff}
+    .wkt-set{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13px}
+    .wkt-set label{display:flex;align-items:center;gap:6px;color:var(--ink-soft)}
+    .wkt-set select{font:inherit;padding:3px 6px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+    .wkt-ex{display:flex;width:100%;text-align:left;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:8px;color:var(--ink);font:inherit;cursor:pointer}
+    .wkt-ex b{display:block;font-size:15px}.wkt-ex small{color:var(--ink-soft);font-size:12px}
+    .wkt-ex .go{margin-left:auto;background:var(--protein-dark);color:#fff;border-radius:999px;padding:5px 14px;font-weight:600;font-size:13px;white-space:nowrap}
+    .wkt-ex.done{opacity:.55}.wkt-ex.done .go{background:var(--protein)}
+    .wkt-run{position:fixed;inset:0;z-index:90;background:var(--paper);display:none;flex-direction:column;text-align:center;padding:16px 18px 18px}
+    .wkt-run.show{display:flex}
+    .wkt-run h3{margin:0;font-family:var(--font-display);font-size:21px}
+    .wkt-sub{color:var(--ink-soft);margin-top:2px;font-size:14px}
+    .wkt-note{color:var(--ink-soft);font-size:13px;margin-top:8px;min-height:40px}
+    .wkt-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:20px;margin:12px 0;border:2px solid var(--line);background:var(--card);user-select:none;-webkit-user-select:none;cursor:pointer}
+    .wkt-stage.prep{border-color:var(--fat)}.wkt-stage.work{border-color:var(--protein-dark)}.wkt-stage.rest{border-color:var(--carb)}.wkt-stage.done{border-color:var(--protein)}
+    .wkt-phase{font-size:19px;font-weight:700}
+    .wkt-big{font-family:var(--font-num);font-size:104px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+    .wkt-stage.prep .wkt-big,.wkt-stage.prep .wkt-phase{color:var(--fat)}
+    .wkt-stage.rest .wkt-big,.wkt-stage.rest .wkt-phase{color:var(--carb)}
+    .wkt-stage.done .wkt-big,.wkt-stage.done .wkt-phase{color:var(--protein)}
+    .wkt-hint{color:var(--ink-soft);font-size:13px}
+    .wkt-row{display:flex;gap:8px}.wkt-row+.wkt-row{margin-top:8px}
+    .wkt-row button{flex:1;padding:14px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:600;font-size:16px;cursor:pointer}
+    .wkt-row button.p{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff}
   </style>
 </head>
 
@@ -3165,6 +3199,7 @@
         <button type="button" class="sync-float-btn" id="jumpAddMealBtn" title="新增這一餐">🍽️</button>
         <button type="button" class="sync-float-btn" id="jumpFoodListBtn" title="新增食材">➕</button>
         <button type="button" class="sync-float-btn" id="jumpLogsBtn" title="今日紀錄">📋</button>
+        <button type="button" class="sync-float-btn" id="jumpTimerBtn" title="訓練計時計次器">⏱️</button>
         <a class="sync-float-btn" id="jumpLinksBtn" href="https://christypy.github.io/" title="我的網站（連結頁）" style="display:flex;text-decoration:none;">🔗</a>
         <div class="more-jump-group" id="moreJumpGroup">
           <button type="button" class="sync-float-btn" id="jumpSnackBtn" title="現在可以吃什麼">🍪</button>
@@ -9481,6 +9516,130 @@
         };
       }
     })();
+  </script>
+
+  <!-- 訓練計時計次器（⏱️ 按鈕開啟）：每個動作按「開始」→ 緩衝倒數 → 計時／計次 -->
+  <div class="wkt-ov" id="wktOv">
+    <div class="wkt-wrap">
+      <div class="wkt-head"><h2>訓練計時計次器</h2><button type="button" class="wkt-x" id="wktClose">關閉</button></div>
+      <div class="wkt-tabs" id="wktTabs"></div>
+      <div class="wkt-set">
+        <label>開始緩衝<select id="wktPrep"><option value="3">3 秒</option><option value="5" selected>5 秒</option><option value="10">10 秒</option></select></label>
+        <label>組間休息<select id="wktRest"><option value="60">60 秒</option><option value="90">90 秒</option></select></label>
+        <label>前2週<select id="wktBeg"><option value="1" selected>每動作2組</option><option value="0">照表（3組）</option></select></label>
+        <label>次數計法<select id="wktAuto"><option value="0" selected>手動點一下</option><option value="1">自動節奏</option></select></label>
+      </div>
+      <div id="wktList"></div>
+    </div>
+    <div class="wkt-run" id="wktRun" aria-live="polite">
+      <h3 id="wktRn"></h3><div class="wkt-sub" id="wktRs"></div><div class="wkt-note" id="wktRt"></div>
+      <div class="wkt-stage" id="wktStage"><div class="wkt-phase" id="wktPhase"></div><div class="wkt-big" id="wktBig"></div><div class="wkt-hint" id="wktHint"></div></div>
+      <div class="wkt-row"><button type="button" class="p" id="wktMain"></button></div>
+      <div class="wkt-row"><button type="button" id="wktPause">暫停</button><button type="button" id="wktSkip">跳過</button><button type="button" id="wktEnd">結束</button></div>
+    </div>
+  </div>
+  <script>
+  /* 訓練計時計次器（獨立 IIFE，不影響其他程式） */
+  (function () {
+    var D = {
+      A: [
+        { n: "踩帶高腳杯深蹲", s: 3, r: 15, rg: "12–15", d: "膝蓋對準腳尖；背挺直；蹲到大腿接近平行，慢慢下放。" },
+        { n: "踩帶羅馬尼亞硬舉", s: 3, r: 12, rg: "10–12", d: "髖往後推、膝微彎；背保持平直；站起時夾臀。" },
+        { n: "彈力帶上斜推", s: 3, r: 12, rg: "10–12", d: "往斜上45°推；手肘約45°；肩膀往下壓不聳肩。" },
+        { n: "踩帶俯身划船", s: 3, r: 12, rg: "10–12", d: "先收肩胛再拉手肘；夾背停1秒；下背不拱。" },
+        { n: "低到高飛鳥", s: 3, r: 15, rg: "12–15", d: "手肘微彎固定；從髖側往前上方畫弧；不聳肩。" },
+        { n: "彈力帶拉開", s: 3, r: 15, rg: "15", d: "手臂與胸同高；拉到胸口；後頸放鬆。" },
+        { n: "死蟲式", s: 3, r: 8, rg: "8", side: 1, tempo: 4, d: "下背全程貼地；對側手腳慢慢伸出；呼氣收腹。" },
+        { n: "提踵", s: 3, r: 20, rg: "15–20", d: "前腳掌踩邊緣；頂點停1秒；慢慢放到底。" }],
+      B: [
+        { n: "後撤弓箭步", s: 3, r: 10, rg: "8–10", side: 1, tempo: 4, d: "重心放前腳；上身微前傾；後膝輕輕靠近地面。" },
+        { n: "彈力帶臀橋", s: 3, r: 15, rg: "12–15", d: "腳跟推地；頂點夾臀停1秒；肋骨收住不挺腰。" },
+        { n: "踩帶肩推", s: 3, r: 12, rg: "8–12", d: "肋骨收緊；往正上方推；肩膀不聳。" },
+        { n: "俯趴下拉", s: 3, r: 12, rg: "10–12", d: "手肘往兩側拉到肋骨旁，停1秒；不要抬頭或抬腰。" },
+        { n: "俯趴 Y-T-W", s: 2, r: 8, rg: "8", tempo: 4, d: "拇指朝上；先收肩胛再抬手；動作小而慢。" },
+        { n: "雙手外旋", s: 3, r: 15, rg: "12–15", d: "手肘貼身體彎90°；只轉前臂；用輕阻力慢慢做。" },
+        { n: "側棒式", s: 3, t: 30, rg: "20–30秒", side: 1, d: "身體成一直線；臀部不下沉；肩膀在手肘正上方。" },
+        { n: "踩帶側平舉", s: 3, r: 15, rg: "12–15", d: "手臂微彎抬到肩高即可；不聳肩；不借力。" },
+        { n: "選做：二頭彎舉／三頭過頂伸展", s: 2, r: 12, rg: "12", d: "手肘位置固定，不要靠甩動帶起。" }],
+      P: [
+        { n: "收下巴", s: 1, r: 10, rg: "10（停2秒）", tempo: 4, d: "沿水平方向把頭往後縮；不要低頭或仰頭。" },
+        { n: "門框胸肌伸展", s: 2, t: 30, rg: "每邊30秒×2", side: 1, fixed: 1, d: "手肘與肩同高；身體前傾到有拉感但不痛。" },
+        { n: "跪姿髖屈肌伸展", s: 2, t: 30, rg: "每邊30秒×2", side: 1, fixed: 1, d: "先夾臀、骨盆微後傾，再把身體往前移；不要下背後仰。" },
+        { n: "胸椎伸展", s: 1, r: 10, rg: "8–10", tempo: 4, d: "雙手抱頭，背靠椅背往後仰；動作在胸口位置；吐氣時後仰。" },
+        { n: "靠牆天使", s: 1, r: 10, rg: "10", tempo: 4, d: "頭、背、臀貼牆；下背不要離牆太多。" },
+        { n: "貓牛式", s: 1, r: 10, rg: "10", tempo: 4, d: "吸氣下沉、吐氣拱背；一節一節動。" }]
+    };
+    var TABS = { A: "訓練A", B: "訓練B", P: "姿勢調整" }, tab = "A", done = {}, R = null, tm = null, ac = null, wl = null;
+    var $ = function (i) { return document.getElementById(i); };
+    var ov = $("wktOv"); if (!ov) return;
+    var IDS = ["wktPrep", "wktRest", "wktBeg", "wktAuto"];
+    try { var sv = JSON.parse(localStorage.getItem("wktSettings") || "{}"); IDS.forEach(function (i) { if (sv[i]) $(i).value = sv[i]; }); } catch (e) { }
+    function C() { return { prep: +$("wktPrep").value, rest: +$("wktRest").value, beg: $("wktBeg").value === "1", auto: $("wktAuto").value === "1" }; }
+    function nsets(e) { return (C().beg && !e.fixed && e.s > 2) ? 2 : e.s; }
+    function renderList() {
+      $("wktTabs").innerHTML = Object.keys(TABS).map(function (k) { return '<button type="button" class="' + (k === tab ? "on" : "") + '" data-t="' + k + '">' + TABS[k] + '</button>'; }).join("");
+      $("wktList").innerHTML = D[tab].map(function (e, i) {
+        return '<button type="button" class="wkt-ex' + (done[tab + i] ? " done" : "") + '" data-i="' + i + '"><span><b>' + (i + 1) + ". " + e.n + '</b><small>' + nsets(e) + " 組 × " + e.rg + (e.side && !e.fixed ? "（每側）" : "") + '</small></span><span class="go">' + (done[tab + i] ? "已完成" : "開始") + '</span></button>';
+      }).join("");
+    }
+    $("wktTabs").onclick = function (ev) { var t = ev.target.dataset.t; if (t) { tab = t; renderList(); } };
+    $("wktList").onclick = function (ev) { var b = ev.target.closest(".wkt-ex"); if (b) start(+b.dataset.i); };
+    IDS.forEach(function (i) { $(i).onchange = function () { try { var o = {}; IDS.forEach(function (k) { o[k] = $(k).value; }); localStorage.setItem("wktSettings", JSON.stringify(o)); } catch (e) { } renderList(); }; });
+    var openBtn = $("jumpTimerBtn");
+    if (openBtn) openBtn.addEventListener("click", function () { ov.classList.add("open"); document.body.style.overflow = "hidden"; renderList(); });
+    $("wktClose").onclick = function () { if (R) end(); ov.classList.remove("open"); document.body.style.overflow = ""; };
+
+    function beep(f, ms) { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); var o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.value = .15; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + ms / 1000); } catch (e) { } }
+    function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } }
+    function start(i) {
+      var e = D[tab][i], c = C(), ns = nsets(e), st = [];
+      for (var s = 1; s <= ns; s++) for (var k = 0; k < (e.side ? 2 : 1); k++) st.push({ set: s, side: e.side ? ["左", "右"][k] : null });
+      R = { e: e, key: tab + i, ns: ns, st: st, i: 0, ph: "prep", left: c.prep, reps: 0, tc: 0, paused: false, c: c };
+      $("wktRun").classList.add("show");
+      try { navigator.wakeLock && navigator.wakeLock.request("screen").then(function (l) { wl = l; }).catch(function () { }); } catch (x) { }
+      beep(1, 1); enterPrep(); clearInterval(tm); tm = setInterval(tick, 1000);
+    }
+    function enterPrep() { R.ph = "prep"; R.left = R.c.prep; R.reps = 0; R.tc = 0; draw(); }
+    function enterWork() { R.ph = "work"; R.left = R.e.t || 0; R.reps = 0; R.tc = 0; beep(880, 500); buzz(200); draw(); }
+    function finishStep() {
+      var cur = R.st[R.i], nx = R.st[R.i + 1];
+      if (!nx) { R.ph = "done"; done[R.key] = 1; beep(660, 300); setTimeout(function () { beep(880, 500); }, 350); buzz([200, 100, 200]); draw(); return; }
+      R.i++;
+      if (nx.set !== cur.set) { R.ph = "rest"; R.left = R.c.rest; beep(520, 300); buzz(150); draw(); } else enterPrep();
+    }
+    function tick() {
+      if (!R || R.paused || R.ph === "done") return;
+      var e = R.e;
+      if (R.ph === "prep") { R.left--; if (R.left <= 0) enterWork(); else { if (R.left <= 3) beep(600, 120); draw(); } }
+      else if (R.ph === "rest") { R.left--; if (R.left <= 0) enterPrep(); else { if (R.left <= 3) beep(600, 120); draw(); } }
+      else if (R.ph === "work") {
+        if (e.t) { R.left--; if (R.left <= 0) finishStep(); else { if (R.left <= 3) beep(600, 120); draw(); } }
+        else if (R.c.auto) { R.tc++; var tp = e.tempo || 4; if (R.tc >= tp) { R.tc = 0; R.reps++; beep(700, 80); if (R.reps >= e.r) { finishStep(); return; } } draw(); }
+      }
+    }
+    function bump(d) { if (!R || R.ph !== "work" || R.e.t || R.paused) return; R.reps = Math.max(0, R.reps + d); if (d > 0) { beep(700, 60); buzz(30); } draw(); }
+    function draw() {
+      var e = R.e, st = R.st[R.i], m = $("wktMain");
+      $("wktRn").textContent = e.n; $("wktRt").textContent = e.d;
+      $("wktRs").textContent = R.ph === "done" ? "全部完成" : "第 " + st.set + " / " + R.ns + " 組" + (st.side ? "・" + st.side + (e.t ? "側" : "邊") : "");
+      $("wktStage").className = "wkt-stage " + R.ph;
+      if (R.ph === "prep") { $("wktPhase").textContent = "準備開始"; $("wktBig").textContent = R.left; $("wktHint").textContent = "調整姿勢，倒數結束就開始動作"; m.textContent = "立即開始"; }
+      else if (R.ph === "rest") { $("wktPhase").textContent = "組間休息"; $("wktBig").textContent = R.left; $("wktHint").textContent = "下一組：" + (R.st[R.i].side ? R.st[R.i].side + "側 " : "") + "第" + R.st[R.i].set + "組"; m.textContent = "跳過休息"; }
+      else if (R.ph === "work") {
+        $("wktPhase").textContent = "動作中";
+        if (e.t) { $("wktBig").textContent = R.left; $("wktHint").textContent = "撐住，目標 " + e.t + " 秒"; m.textContent = "提前完成"; }
+        else { $("wktBig").textContent = R.reps + " / " + e.r; $("wktHint").textContent = R.c.auto ? "自動計次中（每下約" + (e.tempo || 4) + "秒）" : "每做完一下，點一下畫面"; m.textContent = R.reps >= e.r ? "完成這組 ✓" : "完成這組"; }
+      } else { $("wktPhase").textContent = "太棒了"; $("wktBig").textContent = "✓"; $("wktHint").textContent = e.n + " 已完成"; m.textContent = "返回清單"; }
+      $("wktPause").style.display = R.ph === "done" ? "none" : "";
+      $("wktPause").textContent = R.paused ? "繼續" : "暫停";
+    }
+    $("wktStage").onclick = function () { if (R && R.ph === "work" && !R.c.auto) bump(1); };
+    $("wktMain").onclick = function () { if (!R) return; if (R.ph === "prep") enterWork(); else if (R.ph === "rest") enterPrep(); else if (R.ph === "work") finishStep(); else end(); };
+    $("wktPause").onclick = function () { if (R) { R.paused = !R.paused; draw(); } };
+    $("wktSkip").onclick = function () { if (R && R.ph !== "done") { if (R.ph === "work" || R.ph === "prep") finishStep(); else enterPrep(); } };
+    $("wktEnd").onclick = end;
+    function end() { clearInterval(tm); R = null; try { wl && wl.release(); } catch (e) { } $("wktRun").classList.remove("show"); renderList(); }
+  })();
   </script>
 </body>
 
