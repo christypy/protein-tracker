@@ -3178,6 +3178,8 @@
     .wkt-day.rest{opacity:.6}
     .wkt-ex input{width:52px;font:inherit;padding:2px 4px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);text-align:center}
     .wkt-tabs button{font-size:13px;padding:9px 2px}
+    .wkt-day{font:inherit;font-size:11px;cursor:pointer}
+    .wkt-day.sel{outline:2px solid var(--fat);outline-offset:1px}
   </style>
 </head>
 
@@ -9539,7 +9541,7 @@
       <div class="wkt-set">
         <label>本週是<select id="wktWk"><option value="1">第1週</option><option value="2">第2週</option></select></label>
         <label>開始緩衝<select id="wktPrep"><option value="3">3 秒</option><option value="5" selected>5 秒</option><option value="10">10 秒</option></select></label>
-        <label>組間休息<select id="wktRest"><option value="60">60 秒</option><option value="90">90 秒</option></select></label>
+        <label>組間休息<select id="wktRest"><option value="20" selected>20 秒</option><option value="60">60 秒</option><option value="90">90 秒</option></select></label>
         <label>前2週<select id="wktBeg"><option value="1" selected>每動作2組</option><option value="0">照表（3組）</option></select></label>
         <label>次數計法<select id="wktAuto"><option value="0">手動點一下</option><option value="1" selected>自動節奏</option></select></label>
       </div>
@@ -9594,7 +9596,7 @@
     var $ = function (i) { return document.getElementById(i); };
     var ov = $("wktOv"); if (!ov) return;
     var IDS = ["wktPrep", "wktRest", "wktBeg", "wktAuto"];
-    try { var sv = JSON.parse(localStorage.getItem("wktSettings") || "{}"); IDS.forEach(function (i) { if (sv[i]) $(i).value = sv[i]; }); } catch (e) { }
+    try { var sv = JSON.parse(localStorage.getItem("wktSettings2") || "{}"); IDS.forEach(function (i) { if (sv[i]) $(i).value = sv[i]; }); } catch (e) { }
     function C() { return { prep: +$("wktPrep").value, rest: +$("wktRest").value, beg: $("wktBeg").value === "1", auto: $("wktAuto").value === "1" }; }
     function nsets(e) { return (C().beg && !e.fixed && e.s > 2) ? 2 : e.s; }
     function renderList() {
@@ -9608,10 +9610,11 @@
     $("wktList").onclick = function (ev) { if (ev.target.tagName === "INPUT") return; var b = ev.target.closest(".wkt-ex"); if (!b) return; if (b.dataset.id) startC(b.dataset.id); else start(+b.dataset.i); };
     $("wktList").onchange = function (ev) { var id = ev.target.dataset.tg; if (id) { var t = jget("wktTgt", {}); t[id] = Math.max(1, Math.min(300, +ev.target.value || 1)); jset("wktTgt", t); renderC(); } };
     $("wktToday").onclick = function (ev) { var t = ev.target.dataset.t; if (t) { tab = t; renderList(); $("wktTabs").scrollIntoView({ behavior: "smooth" }); } };
+    $("wktWeek").onclick = function (ev) { var b = ev.target.closest(".wkt-day"); if (b) { selDay = +b.dataset.d; renderSched(); } };
     $("wktWk").onchange = function () { jset("wktWeek", { v: $("wktWk").value, idx: wIdx() }); renderSched(); };
-    IDS.forEach(function (i) { $(i).onchange = function () { try { var o = {}; IDS.forEach(function (k) { o[k] = $(k).value; }); localStorage.setItem("wktSettings", JSON.stringify(o)); } catch (e) { } renderList(); }; });
+    IDS.forEach(function (i) { $(i).onchange = function () { try { var o = {}; IDS.forEach(function (k) { o[k] = $(k).value; }); localStorage.setItem("wktSettings2", JSON.stringify(o)); } catch (e) { } renderList(); }; });
     var openBtn = $("jumpTimerBtn");
-    if (openBtn) openBtn.addEventListener("click", function () { ov.classList.add("open"); document.body.style.overflow = "hidden"; var p = plan((new Date().getDay() + 6) % 7, curWk()); if (p.first) tab = p.first; renderSched(); renderList(); });
+    if (openBtn) openBtn.addEventListener("click", function () { ov.classList.add("open"); document.body.style.overflow = "hidden"; selDay = (new Date().getDay() + 6) % 7; var p = plan(selDay, curWk()); if (p.first) tab = p.first; renderSched(); renderList(); });
     $("wktClose").onclick = function () { if (R) end(); ov.classList.remove("open"); document.body.style.overflow = ""; };
 
     /* 走路／慢跑：倒數計時，可暫停、分次累積（當天累積存在本機） */
@@ -9637,7 +9640,7 @@
     }
     function startC(id) {
       var a = CARDIO.filter(function (x) { return x.id === id; })[0], c = C();
-      R = { cardio: a, e: { n: a.n, d: a.d, t: 1 }, target: tgt(a) * 60, acc: accAll()[id] || 0, ph: "prep", left: c.prep, paused: false, c: c, last: Date.now(), sv: 0, lb: 0, st: [{ set: 1 }], i: 0, ns: 1 };
+      R = { cardio: a, e: { n: a.n, d: a.d, t: 1 }, target: tgt(a) * 60, acc: accAll()[id] || 0, acc0: accAll()[id] || 0, ph: "prep", left: c.prep, paused: false, c: c, last: Date.now(), sv: 0, lb: 0, st: [{ set: 1 }], i: 0, ns: 1 };
       $("wktRun").classList.add("show");
       try { navigator.wakeLock && navigator.wakeLock.request("screen").then(function (l) { wl = l; }).catch(function () { }); } catch (x) { }
       beep(1, 1); clearInterval(tm); tm = setInterval(tick, 1000); drawC();
@@ -9658,7 +9661,7 @@
       $("wktRn").textContent = a.n; $("wktRs").textContent = "今日累積 " + fmt(R.acc) + " ／ 目標 " + fmt(R.target);
       $("wktRt").textContent = a.d + "可隨時暫停或結束，下次開始會接續累積。";
       $("wktStage").className = "wkt-stage " + (R.paused ? "rest" : R.ph);
-      $("wktPause").style.display = "none"; $("wktSkip").style.display = "none"; $("wktEnd").textContent = "結束並儲存";
+      $("wktPause").style.display = "none"; $("wktSkip").style.display = ""; $("wktSkip").textContent = "結束並儲存"; $("wktEnd").textContent = "結束不儲存";
       if (R.ph === "prep") { $("wktPhase").textContent = "準備開始"; $("wktBig").textContent = R.left; $("wktHint").textContent = "倒數結束後開始計時"; m.textContent = "立即開始"; }
       else if (R.ph === "work") { $("wktPhase").textContent = R.paused ? "已暫停" : "進行中"; $("wktBig").textContent = fmt(rem); $("wktHint").textContent = "剩餘時間"; m.textContent = R.paused ? "繼續" : "暫停"; }
       else { $("wktPhase").textContent = "目標達成"; $("wktBig").textContent = "✓"; $("wktHint").textContent = "今日" + a.n + "共 " + fmt(R.acc); m.textContent = "返回清單"; }
@@ -9666,6 +9669,7 @@
     window.addEventListener("pagehide", function () { if (R && R.cardio) saveAcc(); });
 
     /* 一週規劃：第1週 A-B-A，第2週 B-A-B；本週是第幾週可在設定切換，之後每週自動交替 */
+    var selDay = (new Date().getDay() + 6) % 7;
     var WD = ["一", "二", "三", "四", "五", "六", "日"];
     function wIdx() { var d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7) / 604800000); }
     function curWk() { var s = jget("wktWeek", null); if (!s) return 1; return ((wIdx() - s.idx) % 2 === 0) ? +s.v : 3 - s.v; }
@@ -9680,10 +9684,10 @@
       return { s: "休", t: "完全休息，好好睡覺（7–8小時）；想動可以輕鬆散步。", ch: [["輕鬆散步", "C"]], first: null };
     }
     function renderSched() {
-      var wk = curWk(), di = (new Date().getDay() + 6) % 7, p = plan(di, wk);
+      var wk = curWk(), td = (new Date().getDay() + 6) % 7, di = selDay, p = plan(di, wk);
       $("wktWk").value = "" + wk;
-      $("wktToday").innerHTML = '<h4>今天・週' + WD[di] + '（第' + wk + '週）</h4><p>' + p.t + '</p><div class="wkt-chips">' + p.ch.map(function (c) { return '<button type="button" data-t="' + c[1] + '">' + c[0] + '</button>'; }).join("") + '</div>';
-      $("wktWeek").innerHTML = WD.map(function (w, i) { return '<div class="wkt-day' + (i === di ? " on" : "") + (i === 6 ? " rest" : "") + '">週' + w + '<b>' + plan(i, wk).s + '</b></div>'; }).join("");
+      $("wktToday").innerHTML = '<h4>' + (di === td ? '今天・' : '') + '週' + WD[di] + '（第' + wk + '週）</h4><p>' + p.t + '</p><div class="wkt-chips">' + p.ch.map(function (c) { return '<button type="button" data-t="' + c[1] + '">' + c[0] + '</button>'; }).join("") + '</div>';
+      $("wktWeek").innerHTML = WD.map(function (w, i) { return '<button type="button" data-d="' + i + '" class="wkt-day' + (i === td ? " on" : "") + (i === di ? " sel" : "") + (i === 6 ? " rest" : "") + '">週' + w + '<b>' + plan(i, wk).s + '</b></button>'; }).join("");
     }
 
     function beep(f, ms) { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); var o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.value = .15; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + ms / 1000); } catch (e) { } }
@@ -9718,7 +9722,7 @@
     function bump(d) { if (!R || R.ph !== "work" || R.e.t || R.paused) return; R.reps = Math.max(0, R.reps + d); if (d > 0) { beep(700, 60); buzz(30); } draw(); }
     function draw() {
       if (R.cardio) { drawC(); return; }
-      $("wktSkip").style.display = ""; $("wktEnd").textContent = "結束";
+      $("wktSkip").style.display = ""; $("wktSkip").textContent = "跳過"; $("wktEnd").textContent = "結束";
       var e = R.e, st = R.st[R.i], m = $("wktMain");
       $("wktRn").textContent = e.n; $("wktRt").textContent = e.d;
       $("wktRs").textContent = R.ph === "done" ? "全部完成" : "第 " + st.set + " / " + R.ns + " 組" + (st.side ? "・" + st.side + (e.t ? "側" : "邊") : "");
@@ -9736,9 +9740,9 @@
     $("wktStage").onclick = function () { if (R && R.ph === "work" && !R.c.auto) bump(1); };
     $("wktMain").onclick = function () { if (!R) return; if (R.cardio) { if (R.ph === "prep") enterWorkC(); else if (R.ph === "work") { R.paused = !R.paused; saveAcc(); drawC(); } else end(); return; } if (R.ph === "prep") enterWork(); else if (R.ph === "rest") enterPrep(); else if (R.ph === "work") finishStep(); else end(); };
     $("wktPause").onclick = function () { if (R) { R.paused = !R.paused; draw(); } };
-    $("wktSkip").onclick = function () { if (R && R.ph !== "done") { if (R.ph === "work" || R.ph === "prep") finishStep(); else enterPrep(); } };
-    $("wktEnd").onclick = end;
-    function end() { if (R && R.cardio) saveAcc(); clearInterval(tm); R = null; $("wktPause").style.display = ""; $("wktSkip").style.display = ""; try { wl && wl.release(); } catch (e) { } $("wktRun").classList.remove("show"); renderList(); }
+    $("wktSkip").onclick = function () { if (R && R.cardio) { end(true); return; } if (R && R.ph !== "done") { if (R.ph === "work" || R.ph === "prep") finishStep(); else enterPrep(); } };
+    $("wktEnd").onclick = function () { if (R && R.cardio && R.acc - R.acc0 > 1 && !confirm("不儲存這次的時間？本次 " + fmt(R.acc - R.acc0) + " 會被捨棄。")) return; end(false); };
+    function end(sv) { if (R && R.cardio) { if (sv === false) { var m = accAll(); if (R.acc0) m[R.cardio.id] = R.acc0; else delete m[R.cardio.id]; jset("wktAcc", { date: today(), acc: m }); } else saveAcc(); } clearInterval(tm); R = null; $("wktPause").style.display = ""; $("wktSkip").style.display = ""; $("wktSkip").textContent = "跳過"; $("wktEnd").textContent = "結束"; try { wl && wl.release(); } catch (e) { } $("wktRun").classList.remove("show"); renderList(); }
   })();
   </script>
 </body>
