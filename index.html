@@ -3167,6 +3167,17 @@
     .wkt-row{display:flex;gap:8px}.wkt-row+.wkt-row{margin-top:8px}
     .wkt-row button{flex:1;padding:14px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:600;font-size:16px;cursor:pointer}
     .wkt-row button.p{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff}
+    .wkt-today{background:var(--card);border:1px solid var(--protein-dark);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px}
+    .wkt-today h4{margin:0 0 2px;font-size:15px}.wkt-today p{margin:0 0 8px;font-size:13px;color:var(--ink-soft)}
+    .wkt-chips{display:flex;flex-wrap:wrap;gap:6px}
+    .wkt-chips button{border:1px solid var(--protein-dark);background:var(--paper);color:var(--protein-dark);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+    .wkt-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px}
+    .wkt-day{text-align:center;font-size:11px;padding:5px 0;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink-soft)}
+    .wkt-day b{display:block;font-size:13px;color:var(--ink)}
+    .wkt-day.on{background:var(--protein-dark);border-color:var(--protein-dark);color:#fff}.wkt-day.on b{color:#fff}
+    .wkt-day.rest{opacity:.6}
+    .wkt-ex input{width:52px;font:inherit;padding:2px 4px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);text-align:center}
+    .wkt-tabs button{font-size:13px;padding:9px 2px}
   </style>
 </head>
 
@@ -9522,8 +9533,11 @@
   <div class="wkt-ov" id="wktOv">
     <div class="wkt-wrap">
       <div class="wkt-head"><h2>訓練計時計次器</h2><button type="button" class="wkt-x" id="wktClose">關閉</button></div>
+      <div class="wkt-today" id="wktToday"></div>
+      <div class="wkt-week" id="wktWeek"></div>
       <div class="wkt-tabs" id="wktTabs"></div>
       <div class="wkt-set">
+        <label>本週是<select id="wktWk"><option value="1">第1週</option><option value="2">第2週</option></select></label>
         <label>開始緩衝<select id="wktPrep"><option value="3">3 秒</option><option value="5" selected>5 秒</option><option value="10">10 秒</option></select></label>
         <label>組間休息<select id="wktRest"><option value="60">60 秒</option><option value="90">90 秒</option></select></label>
         <label>前2週<select id="wktBeg"><option value="1" selected>每動作2組</option><option value="0">照表（3組）</option></select></label>
@@ -9561,6 +9575,13 @@
         { n: "側棒式", s: 3, t: 30, rg: "20–30秒", side: 1, d: "身體成一直線；臀部不下沉；肩膀在手肘正上方。" },
         { n: "踩帶側平舉", s: 3, r: 15, rg: "12–15", d: "手臂微彎抬到肩高即可；不聳肩；不借力。" },
         { n: "選做：二頭彎舉／三頭過頂伸展", s: 2, r: 12, rg: "12", d: "手肘位置固定，不要靠甩動帶起。" }],
+      W: [
+        { n: "原地踏步／輕鬆走", s: 1, t: 60, rg: "60秒", d: "手臂自然擺動，讓身體微微發熱。" },
+        { n: "肩膀繞環", s: 1, r: 10, rg: "10（前後各5次）", tempo: 3, d: "手臂放鬆畫大圈；肩膀不要聳。" },
+        { n: "髖關節繞圈", s: 1, r: 8, rg: "8", side: 1, tempo: 3, d: "扶牆站穩；單腳抬膝往外畫大圈。" },
+        { n: "貓牛式", s: 1, r: 8, rg: "8", tempo: 4, d: "吸氣下沉、吐氣拱背；慢慢動。" },
+        { n: "徒手深蹲", s: 1, r: 10, rg: "10", tempo: 3, d: "膝蓋對準腳尖；背挺直；蹲到舒服的深度。" },
+        { n: "輕阻力彈力帶拉開", s: 1, r: 10, rg: "10", tempo: 3, d: "用最輕的阻力；手臂與胸同高；先啟動肩胛。" }],
       P: [
         { n: "收下巴", s: 1, r: 10, rg: "10（停2秒）", tempo: 4, d: "沿水平方向把頭往後縮；不要低頭或仰頭。" },
         { n: "門框胸肌伸展", s: 2, t: 30, rg: "每邊30秒×2", side: 1, fixed: 1, d: "手肘與肩同高；身體前傾到有拉感但不痛。" },
@@ -9569,7 +9590,7 @@
         { n: "靠牆天使", s: 1, r: 10, rg: "10", tempo: 4, d: "頭、背、臀貼牆；下背不要離牆太多。" },
         { n: "貓牛式", s: 1, r: 10, rg: "10", tempo: 4, d: "吸氣下沉、吐氣拱背；一節一節動。" }]
     };
-    var TABS = { A: "訓練A", B: "訓練B", P: "姿勢調整" }, tab = "A", done = {}, R = null, tm = null, ac = null, wl = null;
+    var TABS = { W: "暖身", A: "訓練A", B: "訓練B", P: "收操", C: "走路慢跑" }, tab = "A", done = {}, R = null, tm = null, ac = null, wl = null;
     var $ = function (i) { return document.getElementById(i); };
     var ov = $("wktOv"); if (!ov) return;
     var IDS = ["wktPrep", "wktRest", "wktBeg", "wktAuto"];
@@ -9578,16 +9599,92 @@
     function nsets(e) { return (C().beg && !e.fixed && e.s > 2) ? 2 : e.s; }
     function renderList() {
       $("wktTabs").innerHTML = Object.keys(TABS).map(function (k) { return '<button type="button" class="' + (k === tab ? "on" : "") + '" data-t="' + k + '">' + TABS[k] + '</button>'; }).join("");
+      if (tab === "C") { renderC(); return; }
       $("wktList").innerHTML = D[tab].map(function (e, i) {
         return '<button type="button" class="wkt-ex' + (done[tab + i] ? " done" : "") + '" data-i="' + i + '"><span><b>' + (i + 1) + ". " + e.n + '</b><small>' + nsets(e) + " 組 × " + e.rg + (e.side && !e.fixed ? "（每側）" : "") + '</small></span><span class="go">' + (done[tab + i] ? "已完成" : "開始") + '</span></button>';
       }).join("");
     }
     $("wktTabs").onclick = function (ev) { var t = ev.target.dataset.t; if (t) { tab = t; renderList(); } };
-    $("wktList").onclick = function (ev) { var b = ev.target.closest(".wkt-ex"); if (b) start(+b.dataset.i); };
+    $("wktList").onclick = function (ev) { if (ev.target.tagName === "INPUT") return; var b = ev.target.closest(".wkt-ex"); if (!b) return; if (b.dataset.id) startC(b.dataset.id); else start(+b.dataset.i); };
+    $("wktList").onchange = function (ev) { var id = ev.target.dataset.tg; if (id) { var t = jget("wktTgt", {}); t[id] = Math.max(1, Math.min(300, +ev.target.value || 1)); jset("wktTgt", t); renderC(); } };
+    $("wktToday").onclick = function (ev) { var t = ev.target.dataset.t; if (t) { tab = t; renderList(); $("wktTabs").scrollIntoView({ behavior: "smooth" }); } };
+    $("wktWk").onchange = function () { jset("wktWeek", { v: $("wktWk").value, idx: wIdx() }); renderSched(); };
     IDS.forEach(function (i) { $(i).onchange = function () { try { var o = {}; IDS.forEach(function (k) { o[k] = $(k).value; }); localStorage.setItem("wktSettings", JSON.stringify(o)); } catch (e) { } renderList(); }; });
     var openBtn = $("jumpTimerBtn");
-    if (openBtn) openBtn.addEventListener("click", function () { ov.classList.add("open"); document.body.style.overflow = "hidden"; renderList(); });
+    if (openBtn) openBtn.addEventListener("click", function () { ov.classList.add("open"); document.body.style.overflow = "hidden"; var p = plan((new Date().getDay() + 6) % 7, curWk()); if (p.first) tab = p.first; renderSched(); renderList(); });
     $("wktClose").onclick = function () { if (R) end(); ov.classList.remove("open"); document.body.style.overflow = ""; };
+
+    /* 走路／慢跑：倒數計時，可暫停、分次累積（當天累積存在本機） */
+    var CARDIO = [
+      { id: "fast", n: "快走", min: 35, rg: "30–40分", d: "強度「有點喘但還能說話」。" },
+      { id: "easy", n: "輕鬆散步", min: 20, rg: "10–30分", d: "恢復日，不用走到累。" },
+      { id: "hike", n: "戶外走路／健行", min: 50, rg: "40–60分", d: "放鬆為主。" },
+      { id: "jog", n: "慢跑", min: 20, rg: "自訂", d: "配速以能順暢呼吸為準。" }];
+    function pad(n) { return n < 10 ? "0" + n : "" + n; }
+    function fmt(s) { s = Math.max(0, Math.ceil(s)); return pad(Math.floor(s / 60)) + ":" + pad(s % 60); }
+    function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+    function jget(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
+    function jset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+    function accAll() { var a = jget("wktAcc", {}); return a.date === today() ? a.acc : {}; }
+    function saveAcc() { var m = accAll(); m[R.cardio.id] = Math.round(R.acc); jset("wktAcc", { date: today(), acc: m }); }
+    function tgt(a) { return jget("wktTgt", {})[a.id] || a.min; }
+    function renderC() {
+      var m = accAll();
+      $("wktList").innerHTML = CARDIO.map(function (a) {
+        var t = tgt(a) * 60, c = m[a.id] || 0, ok = c >= t;
+        return '<div class="wkt-ex' + (ok ? " done" : "") + '" role="button" tabindex="0" data-id="' + a.id + '"><span><b>' + a.n + '</b><small>目標 <input type="number" min="1" max="300" value="' + tgt(a) + '" data-tg="' + a.id + '"> 分（建議 ' + a.rg + '）<br>今日已累積 ' + fmt(c) + (ok ? "，已達成" : "，還剩 " + fmt(t - c)) + '</small></span><span class="go">' + (ok ? "已達成" : c ? "繼續" : "開始") + '</span></div>';
+      }).join("");
+    }
+    function startC(id) {
+      var a = CARDIO.filter(function (x) { return x.id === id; })[0], c = C();
+      R = { cardio: a, e: { n: a.n, d: a.d, t: 1 }, target: tgt(a) * 60, acc: accAll()[id] || 0, ph: "prep", left: c.prep, paused: false, c: c, last: Date.now(), sv: 0, lb: 0, st: [{ set: 1 }], i: 0, ns: 1 };
+      $("wktRun").classList.add("show");
+      try { navigator.wakeLock && navigator.wakeLock.request("screen").then(function (l) { wl = l; }).catch(function () { }); } catch (x) { }
+      beep(1, 1); clearInterval(tm); tm = setInterval(tick, 1000); drawC();
+    }
+    function enterWorkC() { R.ph = "work"; R.last = Date.now(); R.lb = 0; beep(880, 500); buzz(200); drawC(); }
+    function tickC() {
+      var n = Date.now(), dt = n - R.last; R.last = n;
+      if (R.paused || R.ph === "done") return;
+      if (R.ph === "prep") { R.left--; if (R.left <= 0) enterWorkC(); else { if (R.left <= 3) beep(600, 120); drawC(); } return; }
+      R.acc += dt / 1000; R.sv += dt; var rem = R.target - R.acc;
+      if (rem <= 0) { R.acc = R.target; R.ph = "done"; saveAcc(); beep(660, 300); setTimeout(function () { beep(880, 500); }, 350); buzz([200, 100, 200]); drawC(); return; }
+      if (rem <= 3 && Math.ceil(rem) !== R.lb) { R.lb = Math.ceil(rem); beep(600, 120); }
+      if (R.sv >= 10000) { R.sv = 0; saveAcc(); }
+      drawC();
+    }
+    function drawC() {
+      var a = R.cardio, m = $("wktMain"), rem = R.target - R.acc;
+      $("wktRn").textContent = a.n; $("wktRs").textContent = "今日累積 " + fmt(R.acc) + " ／ 目標 " + fmt(R.target);
+      $("wktRt").textContent = a.d + "可隨時暫停或結束，下次開始會接續累積。";
+      $("wktStage").className = "wkt-stage " + (R.paused ? "rest" : R.ph);
+      $("wktPause").style.display = "none"; $("wktSkip").style.display = "none"; $("wktEnd").textContent = "結束並儲存";
+      if (R.ph === "prep") { $("wktPhase").textContent = "準備開始"; $("wktBig").textContent = R.left; $("wktHint").textContent = "倒數結束後開始計時"; m.textContent = "立即開始"; }
+      else if (R.ph === "work") { $("wktPhase").textContent = R.paused ? "已暫停" : "進行中"; $("wktBig").textContent = fmt(rem); $("wktHint").textContent = "剩餘時間"; m.textContent = R.paused ? "繼續" : "暫停"; }
+      else { $("wktPhase").textContent = "目標達成"; $("wktBig").textContent = "✓"; $("wktHint").textContent = "今日" + a.n + "共 " + fmt(R.acc); m.textContent = "返回清單"; }
+    }
+    window.addEventListener("pagehide", function () { if (R && R.cardio) saveAcc(); });
+
+    /* 一週規劃：第1週 A-B-A，第2週 B-A-B；本週是第幾週可在設定切換，之後每週自動交替 */
+    var WD = ["一", "二", "三", "四", "五", "六", "日"];
+    function wIdx() { var d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7) / 604800000); }
+    function curWk() { var s = jget("wktWeek", null); if (!s) return 1; return ((wIdx() - s.idx) % 2 === 0) ? +s.v : 3 - s.v; }
+    function plan(di, wk) {
+      var X = wk === 1 ? "A" : "B", Y = X === "A" ? "B" : "A";
+      var tr = function (k) { return { s: k, t: "訓練" + k + "（約50分）：暖身 → 訓練" + k + " → 收操", ch: [["暖身", "W"], ["訓練" + k, k], ["收操", "P"]], first: k }; };
+      if (di === 0 || di === 4) return tr(X);
+      if (di === 2) return tr(Y);
+      if (di === 1) return { s: "快走", t: "快走 30–40 分＋姿勢調整10分", ch: [["快走", "C"], ["姿勢調整", "P"]], first: "C" };
+      if (di === 3) return { s: "散步", t: "休息或輕鬆散步 10–30 分＋姿勢調整10分", ch: [["散步", "C"], ["姿勢調整", "P"]], first: "C" };
+      if (di === 5) return { s: "健行", t: "戶外走路或健行 40–60 分＋姿勢調整10分", ch: [["走路", "C"], ["姿勢調整", "P"]], first: "C" };
+      return { s: "休", t: "完全休息，好好睡覺（7–8小時）；想動可以輕鬆散步。", ch: [["輕鬆散步", "C"]], first: null };
+    }
+    function renderSched() {
+      var wk = curWk(), di = (new Date().getDay() + 6) % 7, p = plan(di, wk);
+      $("wktWk").value = "" + wk;
+      $("wktToday").innerHTML = '<h4>今天・週' + WD[di] + '（第' + wk + '週）</h4><p>' + p.t + '</p><div class="wkt-chips">' + p.ch.map(function (c) { return '<button type="button" data-t="' + c[1] + '">' + c[0] + '</button>'; }).join("") + '</div>';
+      $("wktWeek").innerHTML = WD.map(function (w, i) { return '<div class="wkt-day' + (i === di ? " on" : "") + (i === 6 ? " rest" : "") + '">週' + w + '<b>' + plan(i, wk).s + '</b></div>'; }).join("");
+    }
 
     function beep(f, ms) { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); var o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.value = .15; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + ms / 1000); } catch (e) { } }
     function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } }
@@ -9608,6 +9705,7 @@
       if (nx.set !== cur.set) { R.ph = "rest"; R.left = R.c.rest; beep(520, 300); buzz(150); draw(); } else enterPrep();
     }
     function tick() {
+      if (R && R.cardio) { tickC(); return; }
       if (!R || R.paused || R.ph === "done") return;
       var e = R.e;
       if (R.ph === "prep") { R.left--; if (R.left <= 0) enterWork(); else { if (R.left <= 3) beep(600, 120); draw(); } }
@@ -9619,6 +9717,8 @@
     }
     function bump(d) { if (!R || R.ph !== "work" || R.e.t || R.paused) return; R.reps = Math.max(0, R.reps + d); if (d > 0) { beep(700, 60); buzz(30); } draw(); }
     function draw() {
+      if (R.cardio) { drawC(); return; }
+      $("wktSkip").style.display = ""; $("wktEnd").textContent = "結束";
       var e = R.e, st = R.st[R.i], m = $("wktMain");
       $("wktRn").textContent = e.n; $("wktRt").textContent = e.d;
       $("wktRs").textContent = R.ph === "done" ? "全部完成" : "第 " + st.set + " / " + R.ns + " 組" + (st.side ? "・" + st.side + (e.t ? "側" : "邊") : "");
@@ -9634,11 +9734,11 @@
       $("wktPause").textContent = R.paused ? "繼續" : "暫停";
     }
     $("wktStage").onclick = function () { if (R && R.ph === "work" && !R.c.auto) bump(1); };
-    $("wktMain").onclick = function () { if (!R) return; if (R.ph === "prep") enterWork(); else if (R.ph === "rest") enterPrep(); else if (R.ph === "work") finishStep(); else end(); };
+    $("wktMain").onclick = function () { if (!R) return; if (R.cardio) { if (R.ph === "prep") enterWorkC(); else if (R.ph === "work") { R.paused = !R.paused; saveAcc(); drawC(); } else end(); return; } if (R.ph === "prep") enterWork(); else if (R.ph === "rest") enterPrep(); else if (R.ph === "work") finishStep(); else end(); };
     $("wktPause").onclick = function () { if (R) { R.paused = !R.paused; draw(); } };
     $("wktSkip").onclick = function () { if (R && R.ph !== "done") { if (R.ph === "work" || R.ph === "prep") finishStep(); else enterPrep(); } };
     $("wktEnd").onclick = end;
-    function end() { clearInterval(tm); R = null; try { wl && wl.release(); } catch (e) { } $("wktRun").classList.remove("show"); renderList(); }
+    function end() { if (R && R.cardio) saveAcc(); clearInterval(tm); R = null; $("wktPause").style.display = ""; $("wktSkip").style.display = ""; try { wl && wl.release(); } catch (e) { } $("wktRun").classList.remove("show"); renderList(); }
   })();
   </script>
 </body>
