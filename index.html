@@ -9690,7 +9690,12 @@
       $("wktWeek").innerHTML = WD.map(function (w, i) { return '<button type="button" data-d="' + i + '" class="wkt-day' + (i === td ? " on" : "") + (i === di ? " sel" : "") + (i === 6 ? " rest" : "") + '">週' + w + '<b>' + plan(i, wk).s + '</b></button>'; }).join("");
     }
 
-    function beep(f, ms) { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); var o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.value = .15; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + ms / 1000); } catch (e) { } }
+    function beep(f, ms, v) { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === "suspended") ac.resume(); var o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.value = v || .15; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + ms / 1000); } catch (e) { } }
+    /* 聲音提示：每下計次＝高音「嗶」＋報數；停留／節奏的每一秒＝輕「答」；每組結束＝連續三聲上揚 */
+    function say(t) { try { if (!window.speechSynthesis) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(String(t)); u.lang = "zh-TW"; u.rate = 1.15; u.volume = 1; speechSynthesis.speak(u); } catch (e) { } }
+    function tickSnd() { beep(420, 40, .1); }
+    function repSnd(n) { beep(900, 130, .3); buzz(40); say(n); }
+    function setEndSnd() { beep(660, 180, .3); setTimeout(function () { beep(880, 180, .3); }, 220); setTimeout(function () { beep(1100, 400, .3); }, 440); buzz([200, 100, 200]); }
     function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } }
     function start(i) {
       var e = D[tab][i], c = C(), ns = nsets(e), st = [];
@@ -9704,9 +9709,10 @@
     function enterWork() { R.ph = "work"; R.left = R.e.t || 0; R.reps = 0; R.tc = 0; beep(880, 500); buzz(200); draw(); }
     function finishStep() {
       var cur = R.st[R.i], nx = R.st[R.i + 1];
-      if (!nx) { R.ph = "done"; done[R.key] = 1; beep(660, 300); setTimeout(function () { beep(880, 500); }, 350); buzz([200, 100, 200]); draw(); return; }
+      setEndSnd();
+      if (!nx) { R.ph = "done"; done[R.key] = 1; setTimeout(function () { say("全部完成"); }, 900); draw(); return; }
       R.i++;
-      if (nx.set !== cur.set) { R.ph = "rest"; R.left = R.c.rest; beep(520, 300); buzz(150); draw(); } else enterPrep();
+      if (nx.set !== cur.set) { R.ph = "rest"; R.left = R.c.rest; setTimeout(function () { say("休息"); }, 900); draw(); } else enterPrep();
     }
     function tick() {
       if (R && R.cardio) { tickC(); return; }
@@ -9715,11 +9721,11 @@
       if (R.ph === "prep") { R.left--; if (R.left <= 0) enterWork(); else { if (R.left <= 3) beep(600, 120); draw(); } }
       else if (R.ph === "rest") { R.left--; if (R.left <= 0) enterPrep(); else { if (R.left <= 3) beep(600, 120); draw(); } }
       else if (R.ph === "work") {
-        if (e.t) { R.left--; if (R.left <= 0) finishStep(); else { if (R.left <= 3) beep(600, 120); draw(); } }
-        else if (R.c.auto) { R.tc++; var tp = e.tempo || 4; if (R.tc >= tp) { R.tc = 0; R.reps++; beep(700, 80); if (R.reps >= e.r) { finishStep(); return; } } draw(); }
+        if (e.t) { R.left--; if (R.left <= 0) finishStep(); else { if (R.left <= 3) beep(800, 150, .3); else if (R.left % 5 === 0) beep(660, 120, .2); else tickSnd(); draw(); } }
+        else if (R.c.auto) { R.tc++; var tp = e.tempo || 4; if (R.tc >= tp) { R.tc = 0; R.reps++; if (R.reps >= e.r) { finishStep(); return; } repSnd(R.reps); } else tickSnd(); draw(); }
       }
     }
-    function bump(d) { if (!R || R.ph !== "work" || R.e.t || R.paused) return; R.reps = Math.max(0, R.reps + d); if (d > 0) { beep(700, 60); buzz(30); } draw(); }
+    function bump(d) { if (!R || R.ph !== "work" || R.e.t || R.paused) return; R.reps = Math.max(0, R.reps + d); if (d > 0) repSnd(R.reps); draw(); }
     function draw() {
       if (R.cardio) { drawC(); return; }
       $("wktSkip").style.display = ""; $("wktSkip").textContent = "跳過"; $("wktEnd").textContent = "結束";
