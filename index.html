@@ -9568,7 +9568,7 @@
       <div class="wkt-tabs" id="wktTabs"></div>
       <div class="wkt-set">
         <label>本週是<select id="wktWk"><option value="1">第1週</option><option value="2">第2週</option></select></label>
-        <label>開始緩衝<select id="wktPrep"><option value="3">3 秒</option><option value="5" selected>5 秒</option><option value="10">10 秒</option></select></label>
+        <label>開始緩衝<select id="wktPrep"><option value="3" selected>3 秒</option><option value="5">5 秒</option><option value="10">10 秒</option></select></label>
         <label>組間休息<select id="wktRest"><option value="20" selected>20 秒</option><option value="60">60 秒</option><option value="90">90 秒</option></select></label>
         <label>前2週<select id="wktBeg"><option value="1" selected>每動作2組</option><option value="0">照表（3組）</option></select></label>
         <label>次數計法<select id="wktAuto"><option value="0">手動點一下</option><option value="1" selected>自動節奏</option></select></label>
@@ -9614,8 +9614,8 @@
         { n: "輕阻力彈力帶拉開", s: 1, r: 10, rg: "10", tempo: 3, d: "用最輕的阻力；手臂與胸同高；先啟動肩胛。" }],
       P: [
         { n: "收下巴", s: 1, r: 10, rg: "10（停2秒）", tempo: 4, d: "沿水平方向把頭往後縮；不要低頭或仰頭。" },
-        { n: "門框胸肌伸展", s: 2, t: 30, rg: "每邊30秒×2", side: 1, fixed: 1, d: "手肘與肩同高；身體前傾到有拉感但不痛。" },
-        { n: "跪姿髖屈肌伸展", s: 2, t: 30, rg: "每邊30秒×2", side: 1, fixed: 1, d: "先夾臀、骨盆微後傾，再把身體往前移；不要下背後仰。" },
+        { n: "門框胸肌伸展", s: 1, t: 30, rg: "左右各30秒", side: 1, fixed: 1, d: "手肘與肩同高；身體前傾到有拉感但不痛。" },
+        { n: "跪姿髖屈肌伸展", s: 1, t: 30, rg: "左右各30秒", side: 1, fixed: 1, d: "先夾臀、骨盆微後傾，再把身體往前移；不要下背後仰。" },
         { n: "胸椎伸展", s: 1, r: 10, rg: "8–10", tempo: 4, d: "雙手抱頭，背靠椅背往後仰；動作在胸口位置；吐氣時後仰。" },
         { n: "靠牆天使", s: 1, r: 10, rg: "10", tempo: 4, d: "頭、背、臀貼牆；下背不要離牆太多。" },
         { n: "貓牛式", s: 1, r: 10, rg: "10", tempo: 4, d: "吸氣下沉、吐氣拱背；一節一節動。" }]
@@ -9738,9 +9738,9 @@
     function finishStep() {
       var cur = R.st[R.i], nx = R.st[R.i + 1];
       setEndSnd();
-      if (!nx) { R.ph = "done"; done[R.key] = 1; setTimeout(function () { say("全部完成"); }, 900); draw(); return; }
+      if (!nx) { R.ph = "done"; done[R.key] = 1; draw(); return; }
       R.i++;
-      if (nx.set !== cur.set) { R.ph = "rest"; R.left = R.c.rest; setTimeout(function () { say("休息"); }, 900); draw(); } else enterPrep();
+      if (nx.set !== cur.set) { R.ph = "rest"; R.left = R.c.rest; draw(); } else enterPrep();
     }
     function tick() {
       if (R && R.cardio) { tickC(); return; }
