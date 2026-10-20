@@ -3574,6 +3574,7 @@
         </div>
         <div class="sheet-footer">
           <div class="btn-row">
+            <button class="btn btn-ghost" id="leSaveFoodBtn" title="把這筆手動輸入的紀錄存進食材庫，之後可以直接選用">存成食材</button>
             <button class="btn btn-ghost" id="leCopyBtn" title="依上方的日期與身份，複製成獨立的一筆新紀錄（原本這筆不變）">複製一份</button>
             <button class="btn btn-ghost" id="leCancelBtn">取消</button>
             <button class="btn btn-primary" id="leSaveBtn">儲存修改</button>
@@ -7796,6 +7797,8 @@
         populateLePersonOptions();
         document.getElementById('lePerson').value = log.person || 'A';
 
+        var saveFoodBtn = document.getElementById('leSaveFoodBtn');
+        if (saveFoodBtn) saveFoodBtn.style.display = isLinked ? 'none' : '';
         var gRow = document.getElementById('leGramsRow');
         var lockedHint = document.getElementById('leLockedHint');
         ['leName', 'leProtein', 'leFat', 'leSugar', 'leCal'].forEach(function (id) {
@@ -7936,6 +7939,31 @@
           document.getElementById('leFat').value = m.fat;
           document.getElementById('leSugar').value = m.sugar;
           document.getElementById('leCal').value = m.cal;
+        });
+
+        // 存成食材：把這筆手動輸入的紀錄帶進「新增食材」面板，確認後存進食材庫。
+        document.getElementById('leSaveFoodBtn').addEventListener('click', function () {
+          if (!state.editingLogId) return;
+          var v = {
+            name: document.getElementById('leName').value.trim(),
+            protein: Number(document.getElementById('leProtein').value) || 0,
+            fat: Number(document.getElementById('leFat').value) || 0,
+            sugar: Number(document.getElementById('leSugar').value) || 0,
+            cal: Number(document.getElementById('leCal').value) || 0
+          };
+          var log = state.logs.find(function (l) { return l.id === state.editingLogId; });
+          var grams = log && Number(log.grams) > 0 ? Number(log.grams) : 100;
+          openFoodAddSheet(); // 會關閉編輯面板並清空新增表單，所以要在它之後填值
+          document.getElementById('fName').value = v.name;
+          document.getElementById('fBase').value = grams;
+          document.getElementById('fServings').value = 1;
+          document.getElementById('fProtein').value = round1(v.protein);
+          document.getElementById('fFat').value = round1(v.fat);
+          document.getElementById('fSugar').value = round1(v.sugar);
+          document.getElementById('fCal').value = Math.round(v.cal);
+          // 手動紀錄的糖原本就有計入攝取，帶進食材庫時維持計入。
+          document.getElementById('fAddedSugar').checked = v.sugar > 0;
+          updateFoodPackagePreview();
         });
 
         document.getElementById('leCancelBtn').addEventListener('click', clearLogEditForm);
