@@ -4655,6 +4655,7 @@
           state.foods = mergeById(data.foods, state.foods, state.deletedFoodIds);
           migrateFoodCategories();
           state.logs = mergeById(data.logs, state.logs, state.deletedLogIds);
+          var sugarFixed = reconcileLogSugarWithFoods();
           if (backendHasWorkouts) {
             state.workouts = mergeById(data.workouts, state.workouts, state.deletedWorkoutIds).map(normalizeWorkout);
             await saveLocalWorkouts();
@@ -6492,6 +6493,29 @@
             setSheetStatus('新增食材同步失敗：' + e.message + '（已保留在本機）', 'err');
           });
         }
+      }
+
+      // 每次同步後，讓「連結食材庫」的歷史紀錄的糖量，一律跟食材目前的「額外添加糖」設定一致
+      // （天然糖＝0，添加糖＝依克數換算）。手動輸入（沒有 foodId、或食材已被刪除）的紀錄不動。
+      // 只重算糖這一欄，其他營養素不受影響。回傳被修正的筆數。
+      function reconcileLogSugarWithFoods() {
+        var foodMap = {};
+        state.foods.forEach(function (f) { foodMap[f.id] = f; });
+        var changed = [];
+        state.logs.forEach(function (l) {
+          if (!l.foodId || !l.grams || Number(l.grams) <= 0) return;
+          var food = foodMap[l.foodId];
+          if (!food) return;
+          var want = computeMacros(food, Number(l.grams)).sugar;
+          var cur = round1(l.sugar !== undefined ? l.sugar : (l.carb || 0));
+          if (want !== cur) { l.sugar = want; delete l.carb; changed.push(l); }
+        });
+        if (changed.length && hasSheet()) {
+          changed.forEach(function (l) {
+            sheetPost('updateLog', { id: l.id, sugar: l.sugar }).catch(function () { });
+          });
+        }
+        return changed.length;
       }
 
       async function syncLogsWithFood(food) {
