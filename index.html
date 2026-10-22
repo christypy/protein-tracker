@@ -9592,9 +9592,9 @@
       <div class="wkt-tabs" id="wktTabs"></div>
       <div class="wkt-set">
         <label>本週是<select id="wktWk"><option value="1">第1週</option><option value="2">第2週</option></select></label>
-        <label>開始緩衝<select id="wktPrep"><option value="3" selected>3 秒</option><option value="5">5 秒</option><option value="10">10 秒</option></select></label>
-        <label>組間休息<select id="wktRest"><option value="20" selected>20 秒</option><option value="60">60 秒</option><option value="90">90 秒</option></select></label>
-        <label>前2週<select id="wktBeg"><option value="1" selected>每動作2組</option><option value="0">照表（3組）</option></select></label>
+        <label>開始緩衝<select id="wktPrep"><option value="3">3 秒</option><option value="5" selected>5 秒</option><option value="10">10 秒</option></select></label>
+        <label>組間休息<select id="wktRest"><option value="60">60 秒</option><option value="90" selected>90 秒</option><option value="120">2 分鐘</option></select></label>
+        <label>訓練階段<select id="wktLv"><option value="0" selected>階段1：3×5（第1–3週）</option><option value="1">階段2：3×8（第4–6週）</option><option value="2">階段3：3×10–12（第7週起）</option></select></label>
         <label>次數計法<select id="wktAuto"><option value="0">手動點一下</option><option value="1" selected>自動節奏</option></select></label>
       </div>
       <div id="wktList"></div>
@@ -9609,53 +9609,68 @@
   <script>
   /* 訓練計時計次器（獨立 IIFE，不影響其他程式） */
   (function () {
+    /* 動作資料（新版：每次6個動作，品質優先、次數少、節奏慢）
+       r／t／rg 若是陣列，依「訓練階段」取值（0＝階段1 3×5、1＝階段2 3×8、2＝階段3 3×10–12）。
+       tp＝每下的節奏 [[名稱, 秒數], ...]，自動計次時每下的長度＝秒數總和，並在換節奏時發出提示音。
+       cyc／p＝每 p 下換一個字母（Y-T-W）。rs＝這個動作的組間休息秒數（覆寫「組間休息」設定，伸展用）。 */
     var D = {
       A: [
-        { n: "踩帶高腳杯深蹲", s: 3, r: 15, rg: "12–15", d: "膝蓋對準腳尖；背挺直；蹲到大腿接近平行，慢慢下放。" },
-        { n: "踩帶羅馬尼亞硬舉", s: 3, r: 12, rg: "10–12", d: "髖往後推、膝微彎；背保持平直；站起時夾臀。" },
-        { n: "彈力帶上斜推", s: 3, r: 12, rg: "10–12", d: "往斜上45°推；手肘約45°；肩膀往下壓不聳肩。" },
-        { n: "踩帶俯身划船", s: 3, r: 12, rg: "10–12", d: "先收肩胛再拉手肘；夾背停1秒；下背不拱。" },
-        { n: "低到高飛鳥", s: 3, r: 15, rg: "12–15", d: "手肘微彎固定；從髖側往前上方畫弧；不聳肩。" },
-        { n: "彈力帶拉開", s: 3, r: 15, rg: "15", d: "手臂與胸同高；拉到胸口；後頸放鬆。" },
-        { n: "死蟲式", s: 3, r: 8, rg: "8", side: 1, tempo: 4, d: "下背全程貼地；對側手腳慢慢伸出；呼氣收腹。" },
-        { n: "提踵", s: 3, r: 20, rg: "15–20", d: "前腳掌踩邊緣；頂點停1秒；慢慢放到底。" }],
+        { n: "踩帶高腳杯深蹲", s: 3, r: [5, 8, 12], rg: ["5", "8", "10–12"], tp: [["下放", 3], ["停", 1], ["站起", 1]], d: "下放3秒、底部停1秒；膝蓋對準腳尖；背挺直、胸口抬起。" },
+        { n: "踩帶羅馬尼亞硬舉", s: 3, r: [5, 8, 12], rg: ["5", "8", "10–12"], tp: [["下放", 3], ["停", 1], ["站起", 1]], d: "髖往後推、膝微彎；背保持平直；臀和大腿後側有拉感，下背不該痠；站起時夾臀。" },
+        { n: "牆面伏地挺身", s: 3, r: [5, 8, 12], rg: ["5", "8", "10–12"], tp: [["下放", 3], ["停", 1], ["推起", 1]], d: "手扶牆、身體成直線；肩膀不聳；推出時肩胛微微往前展開。做到3×8都沒有代償，再改扶桌面→椅子→膝蓋著地。" },
+        { n: "踩帶俯身划船", s: 3, r: [5, 8, 12], rg: ["5", "8", "10–12"], tp: [["拉", 1], ["停", 1], ["放", 3]], d: "背打平；先收肩胛再拉手肘，停1秒。阻力太重就握靠近腳邊、讓帶子鬆一點。" },
+        { n: "彈力帶拉開", s: 3, r: [5, 8, 12], rg: ["5", "8", "12"], tp: [["拉", 1], ["停", 1], ["放", 2]], d: "握寬一點、帶子鬆一點；手臂與胸同高；只拉到胸口；後頸放鬆不聳肩。" },
+        { n: "死蟲式", s: 3, r: [5, 8, 10], rg: ["5", "8", "8–10"], side: 1, tp: [["伸出", 3], ["收回", 2]], d: "下背全程貼地；對側手腳慢慢伸出；呼氣收腹；腰一離地就縮小幅度。" }],
       B: [
-        { n: "後撤弓箭步", s: 3, r: 10, rg: "8–10", side: 1, tempo: 4, d: "重心放前腳；上身微前傾；後膝輕輕靠近地面。" },
-        { n: "彈力帶臀橋", s: 3, r: 15, rg: "12–15", d: "腳跟推地；頂點夾臀停1秒；肋骨收住不挺腰。" },
-        { n: "踩帶肩推", s: 3, r: 12, rg: "8–12", d: "肋骨收緊；往正上方推；肩膀不聳。" },
-        { n: "俯趴下拉", s: 3, r: 12, rg: "10–12", d: "手肘往兩側拉到肋骨旁，停1秒；不要抬頭或抬腰。" },
-        { n: "俯趴 Y-T-W", s: 2, r: 8, rg: "8", tempo: 4, d: "拇指朝上；先收肩胛再抬手；動作小而慢。" },
-        { n: "雙手外旋", s: 3, r: 15, rg: "12–15", d: "手肘貼身體彎90°；只轉前臂；用輕阻力慢慢做。" },
-        { n: "側棒式", s: 3, t: 30, rg: "20–30秒", side: 1, d: "身體成一直線；臀部不下沉；肩膀在手肘正上方。" },
-        { n: "踩帶側平舉", s: 3, r: 15, rg: "12–15", d: "手臂微彎抬到肩高即可；不聳肩；不借力。" },
-        { n: "選做：二頭彎舉／三頭過頂伸展", s: 2, r: 12, rg: "12", d: "手肘位置固定，不要靠甩動帶起。" }],
+        { n: "彈力帶臀橋", s: 3, r: [5, 8, 12], rg: ["5", "8", "10–12"], tp: [["推起", 1], ["夾臀停", 2], ["放", 2]], d: "腳跟推地；頂點夾臀停2秒；肋骨收住不挺腰；大腿前側不該比臀部痠。" },
+        { n: "後撤弓箭步（扶牆或椅背）", s: 3, r: [5, 8, 10], rg: ["5", "8", "8–10"], side: 1, tp: [["下放", 3], ["停", 1], ["站起", 1]], d: "一手扶穩；重心放前腳；上身微前傾；後膝輕輕靠近地面不要砸。" },
+        { n: "牆面伏地挺身", s: 3, r: [5, 8, 12], rg: ["5", "8", "10–12"], tp: [["下放", 3], ["停", 1], ["推起", 1]], d: "手扶牆、身體成直線；肩膀不聳；推出時肩胛微微往前展開。" },
+        { n: "俯趴下拉", s: 3, r: [5, 8, 10], rg: ["5", "8", "10"], tp: [["拉", 1], ["停", 1], ["放", 3]], d: "趴地、手臂前伸；手肘往兩側拉到肋骨旁，停1秒；不要用力抬頭或抬腰。" },
+        { n: "俯趴 Y-T-W", s: 2, cyc: ["Y", "T", "W"], p: [5, 6, 8], tp: [["抬", 1], ["停", 1], ["放", 2]], d: "拇指朝上；先收肩胛再抬手；動作小而慢，手臂只離地一點點也可以。每個字母做完才換下一個。" },
+        { n: "側棒式", s: 3, t: [15, 20, 30], rg: ["15秒", "20秒", "20–30秒"], side: 1, d: "身體成一直線；臀部不下沉；肩膀在手肘正上方。做不到就改膝蓋著地。" }],
       W: [
         { n: "原地踏步／輕鬆走", s: 1, t: 60, rg: "60秒", d: "手臂自然擺動，讓身體微微發熱。" },
         { n: "肩膀繞環", s: 1, r: 10, rg: "10（前後各5次）", tempo: 3, d: "手臂放鬆畫大圈；肩膀不要聳。" },
         { n: "髖關節繞圈", s: 1, r: 8, rg: "8", side: 1, tempo: 3, d: "扶牆站穩；單腳抬膝往外畫大圈。" },
-        { n: "貓牛式", s: 1, r: 8, rg: "8", tempo: 4, d: "吸氣下沉、吐氣拱背；慢慢動。" },
-        { n: "徒手深蹲", s: 1, r: 10, rg: "10", tempo: 3, d: "膝蓋對準腳尖；背挺直；蹲到舒服的深度。" },
-        { n: "輕阻力彈力帶拉開", s: 1, r: 10, rg: "10", tempo: 3, d: "用最輕的阻力；手臂與胸同高；先啟動肩胛。" }],
+        { n: "徒手深蹲", s: 1, r: 8, rg: "8", tempo: 3, d: "膝蓋對準腳尖；背挺直；蹲到舒服的深度。" },
+        { n: "輕阻力彈力帶拉開", s: 1, r: 8, rg: "8", tempo: 3, d: "用最輕的阻力；手臂與胸同高；先啟動肩胛。" }],
       P: [
-        { n: "收下巴", s: 1, r: 10, rg: "10（停2秒）", tempo: 4, d: "沿水平方向把頭往後縮；不要低頭或仰頭。" },
-        { n: "門框胸肌伸展", s: 1, t: 30, rg: "左右各30秒", side: 1, fixed: 1, d: "手肘與肩同高；身體前傾到有拉感但不痛。" },
-        { n: "跪姿髖屈肌伸展", s: 1, t: 30, rg: "左右各30秒", side: 1, fixed: 1, d: "先夾臀、骨盆微後傾，再把身體往前移；不要下背後仰。" },
-        { n: "胸椎伸展", s: 1, r: 10, rg: "8–10", tempo: 4, d: "雙手抱頭，背靠椅背往後仰；動作在胸口位置；吐氣時後仰。" },
-        { n: "靠牆天使", s: 1, r: 10, rg: "10", tempo: 4, d: "頭、背、臀貼牆；下背不要離牆太多。" },
-        { n: "貓牛式", s: 1, r: 10, rg: "10", tempo: 4, d: "吸氣下沉、吐氣拱背；一節一節動。" }]
+        { n: "收下巴", s: 1, r: 10, rg: "10（停2秒）", tp: [["縮", 1], ["停", 2], ["放", 1]], d: "沿水平方向把頭往後縮；不要低頭或仰頭；感覺在下巴後方深處。" },
+        { n: "門框胸肌伸展", s: 2, t: 30, rg: "左右各30秒", side: 1, fixed: 1, rs: 5, d: "手肘與肩同高或略低；身體前傾到有拉感但不痛；肩膀不聳、不憋氣。" },
+        { n: "跪姿髖屈肌伸展", s: 2, t: 30, rg: "左右各30秒", side: 1, fixed: 1, rs: 5, d: "先夾臀、骨盆微後傾，再把身體往前移；不要下背後仰；拉感在後腳髖前。" },
+        { n: "靠牆天使", s: 1, r: 8, rg: "8", tp: [["上", 2], ["下", 2]], d: "頭、背、臀貼牆；下背不要離牆太多；貼不住牆就縮小範圍。" },
+        { n: "選做：貓牛式", s: 1, r: 8, rg: "8", tp: [["拱背", 2], ["下沉", 2]], d: "吐氣拱背、吸氣下沉；一節一節慢慢動。" },
+        { n: "選做：胸椎伸展", s: 1, r: 8, rg: "8", tp: [["後仰", 2], ["回正", 2]], d: "坐椅子、雙手抱頭，背靠椅背邊緣往後仰；動作在胸口位置，不是下背；吐氣時後仰。" }]
     };
     var TABS = { W: "暖身", A: "訓練A", B: "訓練B", P: "收操", C: "走路慢跑" }, tab = "A", done = {}, R = null, tm = null, ac = null, wl = null;
     var $ = function (i) { return document.getElementById(i); };
     var ov = $("wktOv"); if (!ov) return;
-    var IDS = ["wktPrep", "wktRest", "wktBeg", "wktAuto"];
-    try { var sv = JSON.parse(localStorage.getItem("wktSettings2") || "{}"); IDS.forEach(function (i) { if (sv[i]) $(i).value = sv[i]; }); } catch (e) { }
-    function C() { return { prep: +$("wktPrep").value, rest: +$("wktRest").value, beg: $("wktBeg").value === "1", auto: $("wktAuto").value === "1" }; }
-    function nsets(e) { return (C().beg && !e.fixed && e.s > 2) ? 2 : e.s; }
+    var IDS = ["wktPrep", "wktRest", "wktLv", "wktAuto"];
+    try { var sv = JSON.parse(localStorage.getItem("wktSettings3") || "{}"); IDS.forEach(function (i) { if (sv[i]) $(i).value = sv[i]; }); } catch (e) { }
+    function C() { return { prep: +$("wktPrep").value || 5, rest: +$("wktRest").value || 90, lv: +$("wktLv").value || 0, auto: $("wktAuto").value === "1" }; }
+    function nsets(e) { return e.s; }
+    /* 依訓練階段取這個動作的次數／秒數／文字 */
+    function pick(v, lv) { return Array.isArray(v) ? v[lv] : v; }
+    function eff(e) {
+      var lv = C().lv, o = Object.assign({}, e);
+      if (e.cyc) { o.per = e.p[lv]; o.r = o.per * e.cyc.length; o.rg = "每個字母 " + o.per + " 下"; }
+      else { o.r = pick(e.r, lv); o.t = pick(e.t, lv); o.rg = pick(e.rg, lv); }
+      return o;
+    }
+    /* 每下的節奏：tp 有分段就依段提示；沒有就用 tempo 秒（預設4秒）當一整段 */
+    function tpOf(e) { return e.tp || [["動作中", e.tempo || 4]]; }
+    function tpTotal(e) { return tpOf(e).reduce(function (a, x) { return a + x[1]; }, 0); }
+    function segAt(e, tc) {
+      var t = tpOf(e), acc = 0;
+      for (var i = 0; i < t.length; i++) { if (tc < acc + t[i][1]) return { name: t[i][0], left: acc + t[i][1] - tc, start: tc === acc }; acc += t[i][1]; }
+      return { name: t[t.length - 1][0], left: 0, start: false };
+    }
+    function tpText(e) { return tpOf(e).map(function (x) { return x[0] + x[1] + "秒"; }).join("・"); }
     function renderList() {
       $("wktTabs").innerHTML = Object.keys(TABS).map(function (k) { return '<button type="button" class="' + (k === tab ? "on" : "") + '" data-t="' + k + '">' + TABS[k] + '</button>'; }).join("");
       if (tab === "C") { renderC(); return; }
       $("wktList").innerHTML = D[tab].map(function (e, i) {
-        return '<button type="button" class="wkt-ex' + (done[tab + i] ? " done" : "") + '" data-i="' + i + '"><span><b>' + (i + 1) + ". " + e.n + '</b><small>' + nsets(e) + " 組 × " + e.rg + (e.side && !e.fixed ? "（每側）" : "") + '</small></span><span class="go">' + (done[tab + i] ? "已完成" : "開始") + '</span></button>';
+        return '<button type="button" class="wkt-ex' + (done[tab + i] ? " done" : "") + '" data-i="' + i + '"><span><b>' + (i + 1) + ". " + e.n + '</b><small>' + nsets(e) + " 組 × " + eff(e).rg + (e.side && !e.fixed ? "（每側）" : "") + '</small></span><span class="go">' + (done[tab + i] ? "已完成" : "開始") + '</span></button>';
       }).join("");
     }
     $("wktTabs").onclick = function (ev) { var t = ev.target.dataset.t; if (t) { tab = t; renderList(); } };
@@ -9664,7 +9679,7 @@
     $("wktToday").onclick = function (ev) { var t = ev.target.dataset.t; if (t) { tab = t; renderList(); $("wktTabs").scrollIntoView({ behavior: "smooth" }); } };
     $("wktWeek").onclick = function (ev) { var b = ev.target.closest(".wkt-day"); if (b) { selDay = +b.dataset.d; renderSched(); } };
     $("wktWk").onchange = function () { jset("wktWeek", { v: $("wktWk").value, idx: wIdx() }); renderSched(); };
-    IDS.forEach(function (i) { $(i).onchange = function () { try { var o = {}; IDS.forEach(function (k) { o[k] = $(k).value; }); localStorage.setItem("wktSettings2", JSON.stringify(o)); } catch (e) { } renderList(); }; });
+    IDS.forEach(function (i) { $(i).onchange = function () { try { var o = {}; IDS.forEach(function (k) { o[k] = $(k).value; }); localStorage.setItem("wktSettings3", JSON.stringify(o)); } catch (e) { } renderList(); }; });
     var openBtn = $("jumpTimerBtn");
     if (openBtn) openBtn.addEventListener("click", function () { ov.classList.add("open"); document.body.style.overflow = "hidden"; selDay = (new Date().getDay() + 6) % 7; var p = plan(selDay, curWk()); if (p.first) tab = p.first; renderSched(); renderList(); });
     $("wktClose").onclick = function () { if (R) end(); ov.classList.remove("open"); document.body.style.overflow = ""; };
@@ -9727,12 +9742,12 @@
     function curWk() { var s = jget("wktWeek", null); if (!s) return 1; return ((wIdx() - s.idx) % 2 === 0) ? +s.v : 3 - s.v; }
     function plan(di, wk) {
       var X = wk === 1 ? "A" : "B", Y = X === "A" ? "B" : "A";
-      var tr = function (k) { return { s: k, t: "訓練" + k + "（約50分）：暖身 → 訓練" + k + " → 收操", ch: [["暖身", "W"], ["訓練" + k, k], ["收操", "P"]], first: k }; };
+      var tr = function (k) { return { s: k, t: "訓練" + k + "（約40分）：暖身 → 訓練" + k + " → 收操", ch: [["暖身", "W"], ["訓練" + k, k], ["收操", "P"]], first: k }; };
       if (di === 0 || di === 4) return tr(X);
       if (di === 2) return tr(Y);
-      if (di === 1) return { s: "快走", t: "快走 30–40 分＋姿勢調整10分", ch: [["快走", "C"], ["姿勢調整", "P"]], first: "C" };
-      if (di === 3) return { s: "散步", t: "休息或輕鬆散步 10–30 分＋姿勢調整10分", ch: [["散步", "C"], ["姿勢調整", "P"]], first: "C" };
-      if (di === 5) return { s: "健行", t: "戶外走路或健行 40–60 分＋姿勢調整10分", ch: [["走路", "C"], ["姿勢調整", "P"]], first: "C" };
+      if (di === 1) return { s: "快走", t: "快走 30–40 分＋姿勢調整約6分", ch: [["快走", "C"], ["姿勢調整", "P"]], first: "C" };
+      if (di === 3) return { s: "散步", t: "休息或輕鬆散步 10–30 分＋姿勢調整約6分", ch: [["散步", "C"], ["姿勢調整", "P"]], first: "C" };
+      if (di === 5) return { s: "健行", t: "戶外走路或健行 40–60 分＋姿勢調整約6分", ch: [["走路", "C"], ["姿勢調整", "P"]], first: "C" };
       return { s: "休", t: "完全休息，好好睡覺（7–8小時）；想動可以輕鬆散步。", ch: [["輕鬆散步", "C"]], first: null };
     }
     function renderSched() {
@@ -9750,7 +9765,7 @@
     function setEndSnd() { beep(660, 180, .3); setTimeout(function () { beep(880, 180, .3); }, 220); setTimeout(function () { beep(1100, 400, .3); }, 440); buzz([200, 100, 200]); }
     function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } }
     function start(i) {
-      var e = D[tab][i], c = C(), ns = nsets(e), st = [];
+      var e = eff(D[tab][i]), c = C(), ns = nsets(e), st = [];
       for (var s = 1; s <= ns; s++) for (var k = 0; k < (e.side ? 2 : 1); k++) st.push({ set: s, side: e.side ? ["左", "右"][k] : null });
       R = { e: e, key: tab + i, ns: ns, st: st, i: 0, ph: "prep", left: c.prep, reps: 0, tc: 0, paused: false, c: c };
       $("wktRun").classList.add("show");
@@ -9764,7 +9779,7 @@
       setEndSnd();
       if (!nx) { R.ph = "done"; done[R.key] = 1; draw(); return; }
       R.i++;
-      if (nx.set !== cur.set) { R.ph = "rest"; R.left = R.c.rest; draw(); } else enterPrep();
+      if (nx.set !== cur.set) { R.ph = "rest"; R.left = (R.e.rs != null ? R.e.rs : R.c.rest); draw(); } else enterPrep();
     }
     function tick() {
       if (R && R.cardio) { tickC(); return; }
@@ -9774,7 +9789,7 @@
       else if (R.ph === "rest") { R.left--; if (R.left <= 0) enterPrep(); else { if (R.left <= 3) beep(600, 120); draw(); } }
       else if (R.ph === "work") {
         if (e.t) { R.left--; if (R.left <= 0) finishStep(); else { if (R.left <= 3) beep(800, 150, .3); else if (R.left % 5 === 0) beep(660, 120, .2); else tickSnd(); draw(); } }
-        else if (R.c.auto) { R.tc++; var tp = e.tempo || 4; if (R.tc >= tp) { R.tc = 0; R.reps++; if (R.reps >= e.r) { finishStep(); return; } repSnd(R.reps); } else tickSnd(); draw(); }
+        else if (R.c.auto) { R.tc++; if (R.tc >= tpTotal(e)) { R.tc = 0; R.reps++; if (R.reps >= e.r) { finishStep(); return; } repSnd(R.reps); } else { if (segAt(e, R.tc).start) beep(520, 90, .22); else tickSnd(); } draw(); }
       }
     }
     function bump(d) { if (!R || R.ph !== "work" || R.e.t || R.paused) return; R.reps = Math.max(0, R.reps + d); if (d > 0) repSnd(R.reps); draw(); }
@@ -9790,7 +9805,12 @@
       else if (R.ph === "work") {
         $("wktPhase").textContent = "動作中";
         if (e.t) { $("wktBig").textContent = R.left; $("wktHint").textContent = "撐住，目標 " + e.t + " 秒"; m.textContent = "提前完成"; }
-        else { $("wktBig").textContent = R.reps + " / " + e.r; $("wktHint").textContent = R.c.auto ? "自動計次中（每下約" + (e.tempo || 4) + "秒）" : "每做完一下，點一下畫面"; m.textContent = R.reps >= e.r ? "完成這組 ✓" : "完成這組"; }
+        else {
+          var cue = e.cyc ? "　現在做：" + e.cyc[Math.min(e.cyc.length - 1, Math.floor(R.reps / e.per))] : "";
+          if (R.c.auto) { var sg = segAt(e, R.tc); $("wktPhase").textContent = sg.name + (tpOf(e).length > 1 ? "　" + sg.left : ""); $("wktHint").textContent = "節奏：" + tpText(e) + cue; }
+          else $("wktHint").textContent = "每做完一下，點一下畫面。建議節奏：" + tpText(e) + cue;
+          $("wktBig").textContent = R.reps + " / " + e.r; m.textContent = R.reps >= e.r ? "完成這組 ✓" : "完成這組";
+        }
       } else { $("wktPhase").textContent = "太棒了"; $("wktBig").textContent = "✓"; $("wktHint").textContent = e.n + " 已完成"; m.textContent = "返回清單"; }
       $("wktPause").style.display = R.ph === "done" ? "none" : "";
       $("wktPause").textContent = R.paused ? "繼續" : "暫停";
